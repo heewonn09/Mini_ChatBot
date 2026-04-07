@@ -3,10 +3,9 @@ from pydantic import BaseModel
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
+from config import settings
 
-# 환경 변수 로드
-load_dotenv()
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key=settings.GOOGLE_API_KEY)
 
 if not GOOGLE_API_KEY:
     raise Exception("GOOGLE_API_KEY 환경 변수가 설정되지 않았습니다.")
