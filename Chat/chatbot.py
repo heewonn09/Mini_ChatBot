@@ -1,22 +1,14 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai
 from config import settings
 
 # API KEY 체크
 if not settings.GOOGLE_API_KEY:
     raise Exception("GOOGLE_API_KEY 환경 변수가 설정되지 않았습니다.")
 
-# Gemini 설정
-genai.configure(api_key=settings.GOOGLE_API_KEY)
-
-# 모델 초기화
-model = genai.GenerativeModel(
-    'gemini-2.5-flash',  # ← 안정적인 모델 추천
-    system_instruction="""
-    넌 내게 유용한 정보를 주는 친구야.
-    """
-)
+# 클라이언트 생성
+client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
 # FastAPI 앱
 app = FastAPI(title="Gemini 챗봇")
@@ -28,18 +20,12 @@ class ChatRequest(BaseModel):
 @app.post("/chat/")
 async def chat(request: ChatRequest):
     try:
-        response = model.generate_content(
-            request.prompt,
-            generation_config=genai.types.GenerationConfig(
-                candidate_count=1,
-                temperature=0.7
-            )
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=request.prompt
         )
 
-        # 안정적인 방식
-        generated_text = response.text
-
-        return {"reply": generated_text.strip()}
+        return {"reply": response.text.strip()}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
