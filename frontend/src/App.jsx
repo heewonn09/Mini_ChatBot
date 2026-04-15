@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "./api/api";
+import Chart from "./components/Chart";
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -27,6 +28,12 @@ function App() {
         <Card title="Worst Habit Time" value="9pm - 12am" />
         <Card title="Best Focus Time" value="9am - 12pm" />
         <Card title="Weekly Progress" value="+12%" />
+      </div>
+
+      {/* ✅ 차트는 반드시 return 안에 */}
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <Chart />
+        <Chart />
       </div>
 
       {/* 유저 리스트 */}
