@@ -1,22 +1,26 @@
 import { useEffect, useState } from "react";
 import api from "./api/api";
 import Chart from "./components/Chart";
+import AppLayout from './layouts/AppLayout';
+import AnalysisPage from './pages/AnalysisPage';
+import ChatPage from './pages/ChatPage';
+import DashboardPage from './pages/DashboardPage';
+import LogPage from './pages/LogPage';
+import ProfilePage from './pages/ProfilePage';
+import { usePathname } from './hooks/usePathname';
+
+const pageByPath = {
+  '/': DashboardPage,
+  '/dashboard': DashboardPage,
+  '/log': LogPage,
+  '/analysis': AnalysisPage,
+  '/chat': ChatPage,
+  '/profile': ProfilePage,
+};
 
 function App() {
-  const [users, setUsers] = useState([]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await api.get("/users");
-        setUsers(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const pathname = usePathname();
+  const ActivePage = pageByPath[pathname] ?? DashboardPage;
 
   return (
     <div className="min-h-screen bg-black text-white p-8">
@@ -45,15 +49,6 @@ function App() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function Card({ title, value }) {
-  return (
-    <div className="bg-zinc-900 p-4 rounded-xl shadow-md">
-      <p className="text-sm text-gray-400">{title}</p>
-      <h2 className="text-xl font-bold mt-2">{value}</h2>
     </div>
   );
 }
