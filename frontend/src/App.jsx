@@ -1,10 +1,10 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import AppLayout from './layouts/AppLayout';
-import AnalysisPage from './pages/AnalysisPage';
-import ChatPage from './pages/ChatPage';
-import DashboardPage from './pages/DashboardPage';
-import LogPage from './pages/LogPage';
-import ProfilePage from './pages/ProfilePage';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import AppLayout from "./layouts/AppLayout";
+import DashboardPage from "./pages/DashboardPage";
+import LogPage from "./pages/LogPage";
+import AnalysisPage from "./pages/AnalysisPage";
+import ChatPage from "./pages/ChatPage";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   return (

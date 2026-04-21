@@ -1,52 +1,30 @@
-/**
- * Improve this Card component:
- *
- * - Make it reusable for dashboard stats
- * - Add hover effect
- * - Add optional subtitle
- * - Use Tailwind styling (dark SaaS style)
- * - Support routing with react-router-dom
- */
-import { useNavigate } from 'react-router-dom';
-
-export default function Card({ 
-  title, 
-  value, 
-  subtitle, 
-  onClick,
-  navigateTo,
-  className = '' 
-}) {
-  const navigate = useNavigate();
-
-  const handleClick = () => {
-    if (onClick) {
-      onClick();
-    } else if (navigateTo) {
-      navigate(navigateTo);
-    }
-  };
-
-  const baseStyles = "bg-zinc-900 p-6 rounded-xl border border-zinc-800 transition";
-  const interactiveStyles = (onClick || navigateTo) 
-    ? "hover:border-zinc-600 hover:bg-zinc-800 cursor-pointer hover:shadow-lg hover:shadow-zinc-900/50" 
-    : "hover:border-zinc-700";
-
+export default function Card({ title, value, subtitle, icon, color, trend }) {
   return (
-    <div 
-      className={`${baseStyles} ${interactiveStyles} ${className}`}
-      onClick={handleClick}
-      role={onClick || navigateTo ? "button" : undefined}
-      tabIndex={onClick || navigateTo ? 0 : undefined}
-      onKeyDown={(e) => {
-        if ((onClick || navigateTo) && (e.key === 'Enter' || e.key === ' ')) {
-          handleClick();
-        }
-      }}
-    >
-      <p className="text-sm text-zinc-400 mb-2">{title}</p>
-      <p className="text-2xl font-bold text-white">{value}</p>
-      {subtitle && <p className="text-xs text-zinc-500 mt-2">{subtitle}</p>}
+    <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 hover:bg-zinc-900 transition">
+      
+      {/* 상단 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className={`w-10 h-10 flex items-center justify-center rounded-xl ${color}`}>
+          {icon}
+        </div>
+
+        {trend && (
+          <span className={`text-xs px-2 py-1 rounded-full ${
+            trend === "up"
+              ? "bg-green-500/20 text-green-400"
+              : "bg-red-500/20 text-red-400"
+          }`}>
+            {trend === "up" ? "↑" : "↓"}
+          </span>
+        )}
+      </div>
+
+      {/* 텍스트 */}
+      <p className="text-xs text-zinc-400">{title}</p>
+      <h2 className="text-xl font-semibold mt-1">{value}</h2>
+      {subtitle && (
+        <p className="text-xs text-zinc-500 mt-1">{subtitle}</p>
+      )}
     </div>
   );
 }
