@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-from app.config import get_settings
-from app.database import engine, Base
-from app.routers import users, behaviors, analysis
-from app.models.behavior import User, BehaviorLog
+from backend.config import get_settings
+from backend.database import engine, Base
+from backend.routers import users, behaviors, analysis
+from backend.models.behavior import User, BehaviorLog
 
 # Get settings
 settings = get_settings()
@@ -70,7 +70,7 @@ async def shutdown_event():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "app.main:app",
+        "backend.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.app_env == "development",
