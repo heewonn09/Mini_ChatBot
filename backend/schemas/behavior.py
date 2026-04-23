@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional, List
 
@@ -6,7 +6,14 @@ from typing import Optional, List
 # ============= User Schemas =============
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
+    email: str = Field(..., min_length=5, max_length=100)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        if "@" not in value or value.startswith("@") or value.endswith("@"):
+            raise ValueError("Invalid email format")
+        return value
 
 
 class UserCreate(UserBase):

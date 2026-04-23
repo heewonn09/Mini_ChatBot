@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models.behavior import User
-from app.schemas.behavior import UserCreate, UserResponse, BehaviorLogResponse
+from backend.database import get_db
+from backend.models.behavior import User
+from backend.schemas.behavior import UserCreate, UserResponse
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -21,7 +21,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
             detail="User with this email or username already exists"
         )
     
-    db_user = User(**user.dict())
+    db_user = User(**user.model_dump())
     db.add(db_user)
     db.commit()
     db.refresh(db_user)

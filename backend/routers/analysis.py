@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models.behavior import User
-from app.schemas.behavior import PatternAnalysisRequest, PatternAnalysisResult
-from app.services.pattern_analysis_service import PatternAnalysisService
-from app.services.ai_feedback_service import AIFeedbackService
+from backend.database import get_db
+from backend.models.behavior import User
+from backend.schemas.behavior import PatternAnalysisRequest, PatternAnalysisResult
+from backend.services.pattern_analysis_service import PatternAnalysisService
+from backend.services.ai_feedback_service import AIFeedbackService
 
 router = APIRouter(prefix="/api/analysis", tags=["Analysis"])
 
