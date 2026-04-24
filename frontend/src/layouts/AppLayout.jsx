@@ -1,16 +1,20 @@
 import { Outlet } from "react-router-dom";
 import Navbar from "../components/navigation/Navbar";
+import useAppData from "../hooks/useAppData";
 
 function AppLayout() {
-  return (
-    <div className="flex min-h-screen bg-black text-white">
-      {/* 사이드바 */}
-      <Navbar />
+  const appData = useAppData();
 
-      {/* 콘텐츠 영역 */}
-      <main className="flex-1 p-8">
+  return (
+    <div className="flex min-h-screen bg-[#05060a] text-white">
+      <Navbar />
+      <main className="flex-1 p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
-          <Outlet />
+          {appData.loading ? (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 text-zinc-300">Loading dashboard data...</div>
+          ) : (
+            <Outlet context={appData} />
+          )}
         </div>
       </main>
     </div>
