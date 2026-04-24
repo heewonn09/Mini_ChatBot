@@ -24,7 +24,12 @@ def create_behavior_log(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    db_behavior = BehaviorLog(user_id=user_id, **behavior.model_dump())
+    payload = behavior.model_dump(exclude={"created_at"})
+    db_behavior = BehaviorLog(user_id=user_id, **payload)
+
+    if behavior.created_at is not None:
+        db_behavior.created_at = behavior.created_at
+
     db.add(db_behavior)
     db.commit()
     db.refresh(db_behavior)
