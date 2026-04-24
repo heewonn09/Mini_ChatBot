@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from backend.config import get_settings
 from backend.database import engine, Base
-from backend.routers import users, behaviors, analysis
+from backend.routers import users, behaviors, analysis, ui
 from backend.models.behavior import User, BehaviorLog
 
 # Get settings
@@ -36,6 +36,7 @@ app.add_middleware(
 app.include_router(users.router)
 app.include_router(behaviors.router)
 app.include_router(analysis.router)
+app.include_router(ui.router)
 
 
 @app.get("/")
