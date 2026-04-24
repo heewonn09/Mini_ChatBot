@@ -2,8 +2,7 @@ import PageHeader from "../components/ui/PageHeader";
 import Card from "../components/ui/Card";
 import Chart from "../components/Chart";
 import AIInsightCard from "../components/ui/AIInsightCard";
-import { Clock, TrendingUp, Brain, AlertCircle } from "lucide-react";
-import { TrendingUp, Clock, Target, Activity } from "lucide-react"; 
+import { TrendingUp, Clock, Target, Activity } from "lucide-react";
 function DashboardPage() {
   return (
     <section>

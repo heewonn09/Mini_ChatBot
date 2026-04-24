@@ -7,9 +7,9 @@ class Settings(BaseSettings):
     # Database
     database_url: str = os.getenv(
         "DATABASE_URL",
-        "mysql+pymysql://user:user123@localhost:3307/pattern_db"
+        "sqlite:///./mini_chatbot.db"
     )
-    database_echo: bool = os.getenv("DATABASE_ECHO", "True").lower() == "true"
+    database_echo: bool = os.getenv("DATABASE_ECHO", "False").lower() == "true"
 
     # Google Gemini API
     google_api_key: str = os.getenv("GOOGLE_API_KEY", "")

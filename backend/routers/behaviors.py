@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models.behavior import BehaviorLog, User
-from app.schemas.behavior import (
+from backend.database import get_db
+from backend.models.behavior import BehaviorLog, User
+from backend.schemas.behavior import (
     BehaviorLogCreate,
     BehaviorLogResponse,
     BehaviorLogUpdate,
@@ -24,7 +24,7 @@ def create_behavior_log(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    db_behavior = BehaviorLog(user_id=user_id, **behavior.dict())
+    db_behavior = BehaviorLog(user_id=user_id, **behavior.model_dump())
     db.add(db_behavior)
     db.commit()
     db.refresh(db_behavior)
@@ -81,7 +81,7 @@ def update_behavior_log(
     if not db_behavior:
         raise HTTPException(status_code=404, detail="Behavior log not found")
     
-    update_data = behavior.dict(exclude_unset=True)
+    update_data = behavior.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_behavior, key, value)
     

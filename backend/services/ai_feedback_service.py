@@ -1,6 +1,5 @@
-from app.config import get_settings
-from app.schemas.behavior import PatternAnalysisResult
-from typing import Optional
+from backend.config import get_settings
+from backend.schemas.behavior import PatternAnalysisResult
 
 
 class AIFeedbackService:
@@ -8,20 +7,18 @@ class AIFeedbackService:
 
     def __init__(self):
         self.model = None
+        self.system_instruction = (
+            "You are a professional behavioral analyst and psychologist assistant. "
+            "Provide empathetic, constructive feedback based on behavior analysis data. "
+            "Focus on positive reinforcement and actionable insights. "
+            "Keep responses concise but meaningful."
+        )
         try:
             import google.generativeai as genai
             settings = get_settings()
             if settings.google_api_key:
                 genai.configure(api_key=settings.google_api_key)
-                self.model = genai.GenerativeModel(
-                    'gemini-2.5-flash',
-                    system_instruction="""
-                    You are a professional behavioral analyst and psychologist assistant.
-                    Provide empathetic, constructive feedback based on behavior analysis data.
-                    Focus on positive reinforcement and actionable insights.
-                    Keep responses concise but meaningful.
-                    """
-                )
+                self.model = genai.GenerativeModel("gemini-pro")
         except (ImportError, Exception) as e:
             print(f"Warning: Google AI not available: {e}")
             self.model = None
@@ -82,6 +79,8 @@ class AIFeedbackService:
         ]) if analysis.risky_patterns else "No risky patterns detected"
 
         prompt = f"""
+        {self.system_instruction}
+
         Analyze the following behavior pattern data from the last {analysis.analysis_period_days} days
         and provide constructive feedback to help the user understand their emotional patterns and behaviors.
 
