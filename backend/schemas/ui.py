@@ -1,13 +1,14 @@
 from datetime import datetime
-from pydantic import BaseModel
 from typing import List
+
+from pydantic import BaseModel
 
 
 class StatCard(BaseModel):
     title: str
     value: str
-    subtitle: str
-    trend: str
+    subtitle: str | None = None
+    trend: str | None = None
 
 
 class TimelinePoint(BaseModel):
@@ -33,6 +34,23 @@ class InsightItem(BaseModel):
     type: str
 
 
+class BehaviorDistributionItem(BaseModel):
+    label: str
+    value: float
+    category: str
+
+
+class RadarMetricItem(BaseModel):
+    label: str
+    value: float
+
+
+class RecommendationItem(BaseModel):
+    title: str
+    description: str
+    impact: str
+
+
 class RecentActivityItem(BaseModel):
     id: int
     text: str
@@ -51,9 +69,56 @@ class OverviewResponse(BaseModel):
     recent_activity: List[RecentActivityItem]
 
 
+class AnalysisResponse(BaseModel):
+    insights: List[InsightItem]
+    behavior_distribution: List[BehaviorDistributionItem]
+    weekly_pattern: List[RadarMetricItem]
+    recommendations: List[RecommendationItem]
+
+
+class ProfileMetricItem(BaseModel):
+    title: str
+    value: str
+    icon: str
+
+
+class WeeklyActivityItem(BaseModel):
+    label: str
+    productive: int
+    other: int
+
+
+class GoalItem(BaseModel):
+    title: str
+    current: int
+    total: int
+    tone: str
+
+
+class AchievementItem(BaseModel):
+    title: str
+    description: str
+    unlocked: bool
+    icon: str
+
+
+class ProfileResponse(BaseModel):
+    display_name: str
+    member_since: str
+    stats: List[ProfileMetricItem]
+    weekly_activity: List[WeeklyActivityItem]
+    goals: List[GoalItem]
+    achievements: List[AchievementItem]
+
+
 class ChatRequest(BaseModel):
     message: str
 
 
 class ChatResponse(BaseModel):
     answer: str
+
+
+class ChatBootstrapResponse(BaseModel):
+    intro: str
+    suggested_prompts: List[str]

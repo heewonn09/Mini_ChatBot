@@ -5,6 +5,7 @@ export default function useAppData() {
   const [user, setUser] = useState(null);
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const refreshOverview = useCallback(async (userId) => {
     const targetId = userId ?? user?.id;
@@ -16,15 +17,23 @@ export default function useAppData() {
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
-      const createdUser = await bootstrapDemoUser();
-      setUser(createdUser);
-      await ensureSeedLogs(createdUser.id);
-      await refreshOverview(createdUser.id);
-      setLoading(false);
+      try {
+        setLoading(true);
+        setError("");
+        const createdUser = await bootstrapDemoUser();
+        setUser(createdUser);
+        await ensureSeedLogs(createdUser.id);
+        const data = await fetchOverview(createdUser.id);
+        setOverview(data);
+      } catch {
+        setError("We couldn't load your Mindflow data.");
+      } finally {
+        setLoading(false);
+      }
     };
-    init();
-  }, [refreshOverview]);
 
-  return { user, overview, loading, refreshOverview };
+    init();
+  }, []);
+
+  return { user, overview, loading, error, refreshOverview };
 }

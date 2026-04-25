@@ -1,30 +1,76 @@
-export default function Card({ title, value, subtitle, icon, color, trend }) {
+import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+
+const trendMap = {
+  up: {
+    Icon: ArrowUp,
+    container: "bg-emerald-500/10 text-emerald-400",
+  },
+  down: {
+    Icon: ArrowDown,
+    container: "bg-rose-500/10 text-rose-400",
+  },
+  neutral: {
+    Icon: Minus,
+    container: "bg-zinc-700/70 text-zinc-300",
+  },
+};
+
+function Card({
+  title,
+  value,
+  subtitle,
+  icon,
+  iconClassName = "",
+  trend,
+  footer,
+  children,
+  className = "",
+  titleClassName = "",
+  valueClassName = "",
+  subtitleClassName = "",
+  bodyClassName = "",
+}) {
+  const trendUi = trend ? trendMap[trend] ?? trendMap.neutral : null;
+
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 hover:bg-zinc-900 transition">
-      
-      {/* 상단 */}
-      <div className="flex items-center justify-between mb-4">
-        <div className={`w-10 h-10 flex items-center justify-center rounded-xl ${color}`}>
-          {icon}
+    <article
+      className={`rounded-[1.65rem] border border-zinc-800/80 bg-[#101014] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] ${className}`.trim()}
+    >
+      {(icon || trendUi) ? (
+        <div className="mb-4 flex items-start justify-between">
+          {icon ? (
+            <div className={`flex h-10 w-10 items-center justify-center rounded-[1.05rem] ${iconClassName}`.trim()}>
+              {icon}
+            </div>
+          ) : (
+            <span />
+          )}
+          {trendUi ? (
+            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${trendUi.container}`}>
+              <trendUi.Icon size={12} />
+            </span>
+          ) : null}
         </div>
+      ) : null}
 
-        {trend && (
-          <span className={`text-xs px-2 py-1 rounded-full ${
-            trend === "up"
-              ? "bg-green-500/20 text-green-400"
-              : "bg-red-500/20 text-red-400"
-          }`}>
-            {trend === "up" ? "↑" : "↓"}
-          </span>
-        )}
-      </div>
+      {(title || value || subtitle) ? (
+        <div className={`space-y-1 ${bodyClassName}`.trim()}>
+          {title ? (
+            <h2 className={`text-[1.02rem] font-medium text-zinc-400 ${titleClassName}`.trim()}>{title}</h2>
+          ) : null}
+          {value ? (
+            <p className={`text-[2.15rem] font-bold leading-tight text-zinc-50 ${valueClassName}`.trim()}>{value}</p>
+          ) : null}
+          {subtitle ? (
+            <p className={`text-[0.98rem] text-zinc-500 ${subtitleClassName}`.trim()}>{subtitle}</p>
+          ) : null}
+        </div>
+      ) : null}
 
-      {/* 텍스트 */}
-      <p className="text-xs text-zinc-400">{title}</p>
-      <h2 className="text-xl font-semibold mt-1">{value}</h2>
-      {subtitle && (
-        <p className="text-xs text-zinc-500 mt-1">{subtitle}</p>
-      )}
-    </div>
+      {children ? <div className={title || value || subtitle ? "mt-6" : ""}>{children}</div> : null}
+      {footer ? <div className="mt-5">{footer}</div> : null}
+    </article>
   );
 }
+
+export default Card;
