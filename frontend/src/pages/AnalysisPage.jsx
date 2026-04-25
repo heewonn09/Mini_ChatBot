@@ -1,71 +1,168 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  Brain,
+  Clock3,
+  Lightbulb,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import { useOutletContext } from "react-router-dom";
-import { PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from "recharts";
-import { fetchAnalysis } from "../api/api";
-
-const COLORS = ["#10b981", "#6366f1", "#f59e0b", "#f43f5e"];
+import Chart from "../components/Chart";
+import AIInsightCard from "../components/ui/AIInsightCard";
+import Card from "../components/ui/Card";
+import PageHeader from "../components/ui/PageHeader";
+import { fetchAnalysisView } from "../api/api";
 
 function AnalysisPage() {
   const { user } = useOutletContext();
   const [analysis, setAnalysis] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-    fetchAnalysis(user.id, 7).then(setAnalysis);
+    let active = true;
+
+    const load = async () => {
+      setLoading(true);
+      const data = await fetchAnalysisView(user.id);
+      if (active) {
+        setAnalysis(data);
+        setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      active = false;
+    };
   }, [user]);
 
-  if (!analysis) return null;
+  const distribution = useMemo(
+    () =>
+      (analysis?.behavior_distribution ?? []).map((item) => ({
+        ...item,
+        color:
+          item.category === "productive"
+            ? "#10b981"
+            : item.category === "neutral"
+            ? "#6366f1"
+            : "#f59e0b",
+      })),
+    [analysis]
+  );
 
-  const radar = [
-    { metric: "Morning", value: 80 },
-    { metric: "Afternoon", value: 65 },
-    { metric: "Evening", value: 40 },
-    { metric: "Night", value: 25 },
-    { metric: "Focus", value: 70 },
-    { metric: "Energy", value: 60 },
-  ];
+  const legend = distribution.map((item) => ({
+    label: item.label,
+    value: `${item.value}%`,
+    dotClassName:
+      item.category === "productive"
+        ? "bg-emerald-400"
+        : item.category === "neutral"
+        ? "bg-indigo-400"
+        : "bg-amber-400",
+  }));
+
+  const resolveInsightIcon = (item) => {
+    if (item.title.toLowerCase().includes("sleep")) return Clock3;
+    if (item.type === "success") return Lightbulb;
+    if (item.type === "warning") return AlertCircle;
+    return Target;
+  };
+
+  if (loading) {
+    return <Card className="p-6 text-zinc-300">Loading AI insights...</Card>;
+  }
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-5xl font-bold">AI Insights</h2>
-        <p className="text-zinc-400 mt-2">Personalized analysis of your behavior patterns</p>
-      </div>
+    <section className="space-y-8">
+      <PageHeader
+        variant="icon"
+        badgeIcon={Brain}
+        title="AI Insights"
+        description="Personalized analysis of your behavior patterns"
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {analysis.risky_patterns.slice(0, 4).map((risk) => (
-          <div key={risk.pattern} className="rounded-2xl border border-zinc-800 bg-[#0b0d15] p-5">
-            <h3 className="text-2xl font-semibold">{risk.pattern.replaceAll("_", " ")}</h3>
-            <p className="text-zinc-400 mt-2">{risk.description}</p>
-          </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {analysis.insights.map((item, index) => (
+          <AIInsightCard
+            key={`${item.title}-${index}`}
+            title={item.title}
+            description={item.description}
+            tone={index === 2 && item.type === "warning" ? "accent" : item.type}
+            icon={resolveInsightIcon(item)}
+          />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-zinc-800 bg-[#0b0d15] p-6">
-          <h3 className="text-3xl font-semibold">Behavior Distribution</h3>
-          <ResponsiveContainer width="100%" height={330}>
-            <PieChart>
-              <Pie data={analysis.behavior_patterns} dataKey="count" nameKey="emotion" innerRadius={70} outerRadius={110}>
-                {analysis.behavior_patterns.map((_, idx) => (
-                  <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Chart
+          title="Behavior Distribution"
+          description="How you spend your time"
+          variant="donut"
+          data={distribution}
+          categoryKey="label"
+          height={280}
+          series={[
+            {
+              key: "value",
+              label: "Share",
+              stroke: "#6366f1",
+              dotClassName: "bg-indigo-400",
+            },
+          ]}
+          legend={legend}
+        />
 
-        <div className="rounded-2xl border border-zinc-800 bg-[#0b0d15] p-6">
-          <h3 className="text-3xl font-semibold">Weekly Pattern</h3>
-          <ResponsiveContainer width="100%" height={330}>
-            <RadarChart data={radar}>
-              <PolarGrid stroke="#3f3f46" />
-              <PolarAngleAxis dataKey="metric" stroke="#a1a1aa" />
-              <Radar dataKey="value" stroke="#6366f1" fill="#6366f144" fillOpacity={0.8} />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
+        <Chart
+          title="Weekly Pattern"
+          description="Your productivity by time of day"
+          variant="radar"
+          data={analysis.weekly_pattern}
+          categoryKey="label"
+          height={280}
+          series={[
+            {
+              key: "value",
+              label: "Performance",
+              stroke: "#6366f1",
+              dotClassName: "bg-indigo-400",
+            },
+          ]}
+        />
       </div>
+
+      <Card className="p-6">
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 text-zinc-50">
+            <TrendingUp size={18} className="text-indigo-400" />
+            <h2 className="text-[1.35rem] font-bold">Recommended Actions</h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {analysis.recommendations.map((item) => (
+              <Card key={item.title} className="p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <h3 className="text-[1.1rem] font-semibold text-zinc-50">{item.title}</h3>
+                    <p className="text-[0.98rem] text-zinc-400">{item.description}</p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-sm font-medium ${
+                      item.impact === "High"
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-blue-500/10 text-blue-400"
+                    }`}
+                  >
+                    {item.impact}
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </Card>
     </section>
   );
 }
