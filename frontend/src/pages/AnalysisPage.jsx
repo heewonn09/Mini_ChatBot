@@ -15,20 +15,34 @@ import PageHeader from "../components/ui/PageHeader";
 import { fetchAnalysisView } from "../api/api";
 
 function AnalysisPage() {
-  const { user } = useOutletContext();
+  const { user, overview, loading: appLoading, error: appError, refreshOverview } = useOutletContext();
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [analysisError, setAnalysisError] = useState("");
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
     let active = true;
 
     const load = async () => {
-      setLoading(true);
-      const data = await fetchAnalysisView(user.id);
-      if (active) {
-        setAnalysis(data);
-        setLoading(false);
+      try {
+        setLoading(true);
+        setAnalysisError("");
+        const data = await fetchAnalysisView(user.id);
+        if (active) {
+          setAnalysis(data);
+        }
+      } catch {
+        if (active) {
+          setAnalysisError("Unable to load AI insights.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
@@ -55,7 +69,7 @@ function AnalysisPage() {
 
   const legend = distribution.map((item) => ({
     label: item.label,
-    value: `${item.value}%`,
+    value: `${item?.value ?? 0}%`,
     dotClassName:
       item.category === "productive"
         ? "bg-emerald-400"
@@ -71,9 +85,34 @@ function AnalysisPage() {
     return Target;
   };
 
-  if (loading) {
+  if (appLoading || loading) {
     return <Card className="p-6 text-zinc-300">Loading AI insights...</Card>;
   }
+
+  if (appError || analysisError) {
+    return <Card className="p-6 text-zinc-300">{appError || analysisError}</Card>;
+  }
+
+  if (!analysis) {
+    return (
+      <Card className="space-y-4 p-6 text-zinc-300">
+        <p>No AI analysis available yet.</p>
+        {user?.id ? (
+          <button
+            type="button"
+            onClick={() => refreshOverview?.(user.id)}
+            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+          >
+            Refresh
+          </button>
+        ) : null}
+      </Card>
+    );
+  }
+
+  const insights = analysis?.insights ?? [];
+  const weeklyPattern = analysis?.weekly_pattern ?? overview?.daily_timeline ?? [];
+  const recommendations = analysis?.recommendations ?? [];
 
   return (
     <section className="space-y-8">
@@ -85,7 +124,7 @@ function AnalysisPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {analysis.insights.map((item, index) => (
+        {insights.map((item, index) => (
           <AIInsightCard
             key={`${item.title}-${index}`}
             title={item.title}
@@ -119,7 +158,7 @@ function AnalysisPage() {
           title="Weekly Pattern"
           description="Your productivity by time of day"
           variant="radar"
-          data={analysis.weekly_pattern}
+          data={weeklyPattern}
           categoryKey="label"
           height={280}
           series={[
@@ -141,7 +180,7 @@ function AnalysisPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {analysis.recommendations.map((item) => (
+            {recommendations.map((item) => (
               <Card key={item.title} className="p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2">
