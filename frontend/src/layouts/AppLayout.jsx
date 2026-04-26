@@ -5,6 +5,10 @@ import useAppData from "../hooks/useAppData";
 
 function AppLayout() {
   const appData = useAppData();
+  const appErrorMessage =
+    typeof appData.error === "string"
+      ? appData.error
+      : appData.error?.message || "We couldn't load your Mindflow data.";
 
   return (
     <div className="min-h-screen bg-[#05060a] text-zinc-50">
@@ -14,7 +18,7 @@ function AppLayout() {
           {appData.loading ? (
             <Card className="p-6 text-zinc-300">Loading Mindflow data...</Card>
           ) : appData.error ? (
-            <Card className="p-6 text-zinc-300">{appData.error}</Card>
+            <Card className="p-6 text-zinc-300">{appErrorMessage}</Card>
           ) : (
             <Outlet context={appData} />
           )}
