@@ -90,7 +90,12 @@ function ProfilePage() {
   }
 
   if (appError || profileError) {
-    return <Card className="p-6 text-zinc-300">{appError || profileError}</Card>;
+    const errorMessage =
+      typeof appError === "string"
+        ? appError
+        : appError?.message || profileError;
+
+    return <Card className="p-6 text-zinc-300">{errorMessage}</Card>;
   }
 
   if (!profile) {

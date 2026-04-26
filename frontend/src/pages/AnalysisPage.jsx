@@ -90,7 +90,12 @@ function AnalysisPage() {
   }
 
   if (appError || analysisError) {
-    return <Card className="p-6 text-zinc-300">{appError || analysisError}</Card>;
+    const errorMessage =
+      typeof appError === "string"
+        ? appError
+        : appError?.message || analysisError;
+
+    return <Card className="p-6 text-zinc-300">{errorMessage}</Card>;
   }
 
   if (!analysis) {
