@@ -1,27 +1,38 @@
-import { Outlet } from "react-router-dom";
-import Navbar from "../components/navigation/Navbar";
-import Card from "../components/ui/Card";
-import useAppData from "../hooks/useAppData";
+import { useEffect, useState } from "react";
+import {
+  bootstrapDemoUser,
+  ensureSeedLogs,
+  fetchOverview
+} from "../api/api";
 
-function AppLayout() {
-  const appData = useAppData();
+function useAppData() {
+  const [user, setUser] = useState(null);
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  return (
-    <div className="min-h-screen bg-[#05060a] text-zinc-50">
-      <Navbar />
-      <main className="pb-28 pt-24 md:pb-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {appData.loading ? (
-            <Card className="p-6 text-zinc-300">Loading Mindflow data...</Card>
-          ) : appData.error ? (
-            <Card className="p-6 text-zinc-300">{appData.error}</Card>
-          ) : (
-            <Outlet context={appData} />
-          )}
-        </div>
-      </main>
-    </div>
-  );
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const u = await bootstrapDemoUser();   // 🔥 핵심
+        await ensureSeedLogs(u.id);            // 🔥 데이터 생성
+
+        const o = await fetchOverview(u.id);
+
+        setUser(u);
+        setOverview(o);
+      } catch (err) {
+        console.error(err);
+        setError("We couldn't load your Mindflow data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, []);
+
+  return { user, overview, loading, error };
 }
 
-export default AppLayout;
+export default useAppData;

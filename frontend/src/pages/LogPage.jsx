@@ -9,7 +9,7 @@ import {
   Plus,
   Smile,
   Smartphone,
-  Youtube,
+  Play,
 } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 import Card from "../components/ui/Card";
@@ -21,7 +21,7 @@ const quickActions = [
     label: "YouTube",
     text: "YouTube browsing",
     tag: "YouTube",
-    Icon: Youtube,
+    Icon: Play,
     className: "from-rose-500 to-pink-600",
   },
   {
