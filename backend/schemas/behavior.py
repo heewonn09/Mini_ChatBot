@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -97,3 +97,50 @@ class PatternAnalysisResult(BaseModel):
 
 class PatternAnalysisRequest(BaseModel):
     days: int = Field(default=7, ge=1, le=90)
+
+
+class WebhookSubscriptionBase(BaseModel):
+    url: str = Field(..., min_length=5, max_length=500)
+    event_type: str = Field(..., min_length=3, max_length=100)
+    is_active: bool = True
+
+
+class WebhookSubscriptionCreate(WebhookSubscriptionBase):
+    pass
+
+
+class WebhookSubscriptionResponse(WebhookSubscriptionBase):
+    id: int
+    user_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class EventLogResponse(BaseModel):
+    id: int
+    user_id: int
+    webhook_subscription_id: int | None = None
+    event_type: str
+    payload: dict[str, Any]
+    status: str
+    retry_count: int
+    response_code: int | None = None
+    error_message: str | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RiskEventResponse(BaseModel):
+    id: int
+    user_id: int
+    event_type: str
+    severity: str
+    details: dict[str, Any]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
