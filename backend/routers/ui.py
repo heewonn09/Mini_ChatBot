@@ -29,6 +29,7 @@ from backend.schemas.ui import (
 )
 from backend.services.ai_feedback_service import AIFeedbackService
 from backend.services.pattern_analysis_service import PatternAnalysisService
+from backend.services.analysis_result_service import AnalysisResultService
 
 router = APIRouter(prefix="/api/ui", tags=["UI"])
 ai_service = AIFeedbackService()
@@ -75,7 +76,7 @@ def get_overview(user_id: int, db: Session = Depends(get_db)):
             recent_activity=[],
         )
 
-    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
+    analysis = _get_or_create_analysis(user_id=user_id, days=7, db=db)
     tag_counter = Counter(log.tag or "Other" for log in logs)
     most_tag, most_count = tag_counter.most_common(1)[0]
     hour_groups = _group_logs_by_hour(logs)
@@ -133,7 +134,7 @@ def get_overview(user_id: int, db: Session = Depends(get_db)):
 def get_analysis_view(user_id: int, db: Session = Depends(get_db)):
     _get_user(user_id, db)
     logs = _get_logs(user_id, db, days=7, ascending=True)
-    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
+    analysis = _get_or_create_analysis(user_id=user_id, days=7, db=db)
 
     return AnalysisResponse(
         insights=_build_analysis_insights(logs, analysis),
@@ -148,7 +149,7 @@ def get_profile_view(user_id: int, db: Session = Depends(get_db)):
     user = _get_user(user_id, db)
     all_logs = _get_logs(user_id, db, days=30, ascending=True)
     recent_logs = [log for log in all_logs if log.created_at >= datetime.utcnow() - timedelta(days=7)]
-    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
+    analysis = _get_or_create_analysis(user_id=user_id, days=7, db=db)
     days_active = len({log.created_at.date() for log in all_logs})
     current_streak = _current_streak(all_logs)
     morning_positive = len(
@@ -183,7 +184,7 @@ def get_profile_view(user_id: int, db: Session = Depends(get_db)):
 @router.get("/{user_id}/chat/bootstrap", response_model=ChatBootstrapResponse)
 def get_chat_bootstrap(user_id: int, db: Session = Depends(get_db)):
     user = _get_user(user_id, db)
-    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
+    analysis = _get_or_create_analysis(user_id=user_id, days=7, db=db)
     top_emotion = analysis.behavior_patterns[0].emotion if analysis.behavior_patterns else "your habits"
     intro = (
         "Hi! I'm your behavior analysis assistant. I've analyzed your recent patterns and I'm ready to help "
@@ -196,7 +197,7 @@ def get_chat_bootstrap(user_id: int, db: Session = Depends(get_db)):
 @router.post("/{user_id}/chat", response_model=ChatResponse)
 def chat_with_assistant(user_id: int, payload: ChatRequest, db: Session = Depends(get_db)):
     user = _get_user(user_id, db)
-    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=14, db=db)
+    analysis = _get_or_create_analysis(user_id=user_id, days=14, db=db)
     summary = ai_service.generate_feedback(analysis)
 
     answer = (
@@ -212,6 +213,16 @@ def _get_user(user_id: int, db: Session) -> User:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+def _get_or_create_analysis(user_id: int, days: int, db: Session):
+    cached = AnalysisResultService.get_latest_valid(user_id=user_id, days=days, db=db)
+    if cached:
+        return AnalysisResultService.to_schema(cached)
+
+    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=days, db=db)
+    saved = AnalysisResultService.save_result(result=analysis, db=db)
+    return AnalysisResultService.to_schema(saved)
 
 
 def _get_logs(user_id: int, db: Session, days: int, ascending: bool = False) -> list[BehaviorLog]:

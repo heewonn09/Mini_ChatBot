@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from backend.config import get_settings
 from backend.database import engine, Base
-from backend.routers import users, behaviors, analysis, ui
+from backend.routers import users, behaviors, analysis, ui, webhooks
 from backend.models.behavior import User, BehaviorLog
 
 # Get settings
@@ -37,6 +37,7 @@ app.include_router(users.router)
 app.include_router(behaviors.router)
 app.include_router(analysis.router)
 app.include_router(ui.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/")

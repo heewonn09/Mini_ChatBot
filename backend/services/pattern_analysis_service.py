@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from backend.models.behavior import BehaviorLog
+from backend.models.behavior import BehaviorLog, RiskEvent
 from backend.schemas.behavior import (
     BehaviorPattern,
     EmotionalTrend,
@@ -9,6 +9,7 @@ from backend.schemas.behavior import (
 )
 from typing import List
 from statistics import fmean
+
 
 
 class PatternAnalysisService:
@@ -50,7 +51,8 @@ class PatternAnalysisService:
         behavior_patterns = PatternAnalysisService._extract_behavior_patterns(logs)
         emotional_trends = PatternAnalysisService._extract_emotional_trends(logs)
         risky_patterns = PatternAnalysisService._extract_risky_patterns(logs)
-        
+        PatternAnalysisService._track_risk_events(user_id=user_id, logs=logs, db=db)
+
         result = PatternAnalysisResult(
             user_id=user_id,
             analysis_period_days=days,
@@ -203,3 +205,49 @@ class PatternAnalysisService:
                 )
         
         return risky
+
+    @staticmethod
+    def _track_risk_events(user_id: int, logs: List[BehaviorLog], db: Session) -> None:
+        if not logs:
+            return
+
+        negative = {"sad", "angry", "anxious", "depressed", "stressed"}
+        negative_ratio = sum(1 for log in logs if log.emotion.lower() in negative) / len(logs)
+
+        if negative_ratio >= 0.6:
+            details = {"negative_ratio": round(negative_ratio, 3), "sample_size": len(logs)}
+            PatternAnalysisService._create_risk_event(
+                db=db,
+                user_id=user_id,
+                event_type="high_negative_emotion_ratio",
+                severity="high",
+                details=details,
+            )
+
+        if len(logs) >= 2:
+            sorted_logs = sorted(logs, key=lambda item: item.created_at)
+            max_spike = max(
+                abs(sorted_logs[i].intensity - sorted_logs[i - 1].intensity)
+                for i in range(1, len(sorted_logs))
+            )
+            if max_spike >= 4:
+                details = {"max_intensity_spike": round(max_spike, 2), "sample_size": len(logs)}
+                PatternAnalysisService._create_risk_event(
+                    db=db,
+                    user_id=user_id,
+                    event_type="sudden_intensity_spike",
+                    severity="medium",
+                    details=details,
+                )
+
+    @staticmethod
+    def _create_risk_event(
+        db: Session,
+        user_id: int,
+        event_type: str,
+        severity: str,
+        details: dict,
+    ) -> None:
+        event = RiskEvent(user_id=user_id, event_type=event_type, severity=severity, details=details)
+        db.add(event)
+        db.commit()

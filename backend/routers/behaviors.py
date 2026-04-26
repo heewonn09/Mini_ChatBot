@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.behavior import BehaviorLog, User
@@ -8,6 +8,7 @@ from backend.schemas.behavior import (
     BehaviorLogUpdate,
     BehaviorLogWithUser,
 )
+from backend.services.webhook_service import WebhookService
 
 router = APIRouter(prefix="/api/behaviors", tags=["Behaviors"])
 
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/behaviors", tags=["Behaviors"])
 def create_behavior_log(
     user_id: int,
     behavior: BehaviorLogCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Create a new behavior log for a user"""
@@ -33,6 +35,20 @@ def create_behavior_log(
     db.add(db_behavior)
     db.commit()
     db.refresh(db_behavior)
+
+    background_tasks.add_task(
+        WebhookService.publish_event,
+        user_id,
+        "behavior.created",
+        {
+            "behavior_id": db_behavior.id,
+            "emotion": db_behavior.emotion,
+            "tag": db_behavior.tag,
+            "intensity": db_behavior.intensity,
+            "created_at": db_behavior.created_at.isoformat(),
+        },
+    )
+
     return db_behavior
 
 
@@ -93,6 +109,7 @@ def update_behavior_log(
     db.add(db_behavior)
     db.commit()
     db.refresh(db_behavior)
+
     return db_behavior
 
 
