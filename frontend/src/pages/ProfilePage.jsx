@@ -47,19 +47,34 @@ function progressToneClass(tone) {
 }
 
 function ProfilePage() {
-  const { user } = useOutletContext();
+  const { user, overview, loading: appLoading, error: appError, refreshOverview } = useOutletContext();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState("");
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
     let active = true;
 
     const load = async () => {
-      const data = await fetchProfileView(user.id);
-      if (active) {
-        setProfile(data);
-        setLoading(false);
+      try {
+        setLoading(true);
+        setProfileError("");
+        const data = await fetchProfileView(user.id);
+        if (active) {
+          setProfile(data);
+        }
+      } catch {
+        if (active) {
+          setProfileError("Unable to load profile data.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
@@ -70,24 +85,49 @@ function ProfilePage() {
     };
   }, [user]);
 
-  if (loading) {
+  if (appLoading || loading) {
     return <Card className="p-6 text-zinc-300">Loading profile...</Card>;
   }
 
-  const maxProductive = Math.max(...profile.weekly_activity.map((item) => item.productive), 1);
-  const maxOther = Math.max(...profile.weekly_activity.map((item) => item.other), 1);
+  if (appError || profileError) {
+    return <Card className="p-6 text-zinc-300">{appError || profileError}</Card>;
+  }
+
+  if (!profile) {
+    return (
+      <Card className="space-y-4 p-6 text-zinc-300">
+        <p>No profile data available yet.</p>
+        {user?.id ? (
+          <button
+            type="button"
+            onClick={() => refreshOverview?.(user.id)}
+            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+          >
+            Refresh
+          </button>
+        ) : null}
+      </Card>
+    );
+  }
+
+  const stats = profile?.stats ?? [];
+  const weeklyActivity = profile?.weekly_activity ?? [];
+  const goals = profile?.goals ?? [];
+  const achievements = profile?.achievements ?? [];
+  const maxProductive = Math.max(...weeklyActivity.map((item) => item.productive ?? 0), 1);
+  const maxOther = Math.max(...weeklyActivity.map((item) => item.other ?? 0), 1);
 
   return (
     <section className="space-y-8">
       <PageHeader
         variant="profile"
         profileIcon={User}
-        title={profile.display_name}
-        meta={`Member since ${profile.member_since}`}
+        title={profile?.display_name ?? overview?.username ?? "Profile"}
+        meta={profile?.member_since ? `Member since ${profile.member_since}` : ""}
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {profile.stats.map((item) => {
+        {stats.map((item) => {
           const ui = metricUiMap[item.icon] ?? metricUiMap.trend;
           const Icon = ui.Icon;
 
@@ -114,7 +154,7 @@ function ProfilePage() {
           </div>
 
           <div className="grid grid-cols-7 gap-2">
-            {profile.weekly_activity.map((item) => (
+            {weeklyActivity.map((item) => (
               <div key={item.label} className="flex flex-col items-center gap-2">
                 <div className="flex h-28 w-full flex-col justify-end gap-1.5">
                   <div className={`w-full rounded-t-xl bg-emerald-400 ${levelClass(item.productive, maxProductive, "h-2")}`} />
@@ -146,7 +186,7 @@ function ProfilePage() {
           </div>
 
           <div className="space-y-5">
-            {profile.goals.map((goal) => (
+            {goals.map((goal) => (
               <div key={goal.title} className="space-y-2">
                 <div className="flex items-center justify-between gap-4 text-[1rem]">
                   <span className="font-medium text-zinc-50">{goal.title}</span>
@@ -173,7 +213,7 @@ function ProfilePage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {profile.achievements.map((achievement) => (
+            {achievements.map((achievement) => (
               <Card key={achievement.title} className="p-5">
                 <div className={`space-y-3 ${achievement.unlocked ? "" : "opacity-60"}`}>
                   <div className="text-4xl">{achievement.icon}</div>

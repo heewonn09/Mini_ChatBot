@@ -24,7 +24,39 @@ const statUiMap = {
 };
 
 function DashboardPage() {
-  const { overview } = useOutletContext();
+  const { user, overview, loading, error, refreshOverview } = useOutletContext();
+
+  const statCards = overview?.stat_cards ?? [];
+  const dailyTimeline = overview?.daily_timeline ?? [];
+  const emotionTrends = overview?.emotion_trends ?? [];
+  const habitFrequency = overview?.habit_frequency ?? [];
+
+  if (loading) {
+    return <Card className="p-6 text-zinc-300">Loading overview...</Card>;
+  }
+
+  if (error) {
+    const message = typeof error === "string" ? error : "Unable to load overview.";
+
+    return (
+      <Card className="space-y-4 p-6 text-zinc-300">
+        <p>{message}</p>
+        {user?.id ? (
+          <button
+            type="button"
+            onClick={() => refreshOverview?.(user.id)}
+            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+          >
+            Retry
+          </button>
+        ) : null}
+      </Card>
+    );
+  }
+
+  if (!overview) {
+    return <Card className="p-6 text-zinc-300">No overview data available yet.</Card>;
+  }
 
   return (
     <section className="space-y-8">
@@ -39,7 +71,7 @@ function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {overview.stat_cards.map((card) => {
+        {statCards.map((card) => {
           const ui = statUiMap[card.title] ?? statUiMap["Weekly Progress"];
           const Icon = ui.Icon;
 
@@ -66,7 +98,7 @@ function DashboardPage() {
           title="Daily Activity Timeline"
           description="Focus vs Distraction by hour"
           variant="area-compare"
-          data={overview.daily_timeline}
+          data={dailyTimeline}
           categoryKey="label"
           height={300}
           series={[
@@ -89,7 +121,7 @@ function DashboardPage() {
           title="Emotion Trends"
           description="Your emotional patterns this week"
           variant="area-compare"
-          data={overview.emotion_trends}
+          data={emotionTrends}
           categoryKey="label"
           height={300}
           series={[
@@ -113,7 +145,7 @@ function DashboardPage() {
         title="Habit Frequency"
         description="Most tracked behaviors this week"
         variant="bar-horizontal"
-        data={overview.habit_frequency}
+        data={habitFrequency}
         categoryKey="tag"
         height={286}
         series={[
