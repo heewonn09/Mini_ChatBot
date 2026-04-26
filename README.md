@@ -1,377 +1,229 @@
-# Behavior Pattern Analysis - API 연동 가이드
+# Mini ChatBot (Behavior Pattern Analysis)
+
+사용자의 행동 로그를 기록하고, 패턴 분석 + AI 피드백 + 대시보드 시각화를 제공하는 **FastAPI + React(Vite)** 기반 풀스택 프로젝트입니다.
 
 ## 📋 목차
 
-1. [프로젝트 구조](#프로젝트-구조)
-2. [설치 및 실행](#설치-및-실행)
-3. [API 연동 파일](#api-연동-파일)
-4. [사용 방법](#사용-방법)
-5. [백엔드 연동](#백엔드-연동)
+1. [프로젝트 개요](#-프로젝트-개요)
+2. [기술 스택](#-기술-스택)
+3. [프로젝트 구조](#-프로젝트-구조)
+4. [실행 방법](#-실행-방법)
+5. [환경 변수](#-환경-변수)
+6. [API 요약](#-api-요약)
+7. [프론트엔드 동작 흐름](#-프론트엔드-동작-흐름)
+8. [백엔드 분석 로직](#-백엔드-분석-로직)
+9. [데이터 모델](#-데이터-모델)
+10. [개발 참고 사항](#-개발-참고-사항)
 
-## 🏗️ 프로젝트 구조
+---
 
+## 🧭 프로젝트 개요
+
+이 프로젝트는 다음 기능을 제공합니다.
+
+- 사용자 생성/조회/삭제
+- 행동 로그 CRUD
+- 최근 행동 기반 패턴 분석(감정 비율, 트렌드, 리스크 패턴)
+- 분석 결과 기반 AI 피드백 생성(Gemini 사용 가능 시)
+- 대시보드/분석/채팅/프로필 UI용 집계 API
+- 프론트에서 데모 유저 + 샘플 로그 자동 부트스트랩
+
+---
+
+## 🛠 기술 스택
+
+### Backend
+- FastAPI
+- SQLAlchemy
+- Pydantic v2 / pydantic-settings
+- Uvicorn
+- google-generativeai (옵션)
+
+### Frontend
+- React 19
+- Vite
+- React Router
+- Axios
+- Recharts
+- Lucide React
+
+### Database
+- SQLite (기본)
+- MySQL (docker-compose 예시 제공)
+
+---
+
+## 🏗 프로젝트 구조
+
+```text
+Mini_ChatBot/
+├─ backend/
+│  ├─ main.py                       # FastAPI 앱 진입점
+│  ├─ config.py                     # 환경변수/설정 로딩
+│  ├─ database.py                   # DB 엔진/세션
+│  ├─ models/behavior.py            # User, BehaviorLog 모델
+│  ├─ schemas/
+│  │  ├─ behavior.py                # 사용자/행동/분석 스키마
+│  │  └─ ui.py                      # UI 전용 응답 스키마
+│  ├─ services/
+│  │  ├─ pattern_analysis_service.py# 패턴 분석 핵심 로직
+│  │  └─ ai_feedback_service.py     # AI 피드백(없으면 fallback)
+│  └─ routers/
+│     ├─ users.py                   # /api/users
+│     ├─ behaviors.py               # /api/behaviors
+│     ├─ analysis.py                # /api/analysis
+│     └─ ui.py                      # /api/ui
+├─ frontend/
+│  ├─ src/
+│  │  ├─ api/api.js                 # 백엔드 호출 + seed 로직
+│  │  ├─ hooks/useAppData.js        # 앱 초기 데이터 로딩
+│  │  ├─ pages/                     # Dashboard/Log/Analysis/Chat/Profile
+│  │  ├─ layouts/AppLayout.jsx
+│  │  └─ components/
+│  └─ package.json
+├─ requirements.txt
+└─ docker-compose.yml               # MySQL 실행 예시
 ```
-src/app/
-├── types/                    # TypeScript 타입 정의
-│   └── index.ts             # 모든 데이터 모델 (User, Behavior, Insight 등)
-│
-├── services/                 # API 서비스 레이어
-│   └── api.ts               # API 클라이언트 및 모든 엔드포인트
-│
-├── hooks/                    # React Custom Hooks
-│   ├── useDashboard.ts      # 대시보드 데이터 관리
-│   ├── useBehaviors.ts      # 행동 기록 CRUD
-│   ├── useAnalysis.ts       # 분석 데이터
-│   ├── useChat.ts           # 채팅 기능
-│   └── useProfile.ts        # 프로필 데이터
-│
-├── pages/                    # 페이지 컴포넌트
-│   ├── Dashboard.tsx        # Mock 데이터 버전
-│   ├── Dashboard-API.tsx    # ✅ API 연동 버전
-│   ├── BehaviorLog.tsx      # Mock 데이터 버전
-│   ├── BehaviorLog-API.tsx  # ✅ API 연동 버전
-│   ├── Analysis.tsx
-│   ├── Chat.tsx
-│   └── Profile.tsx
-│
-└── components/
-    └── Layout.tsx           # 전체 레이아웃 + Toaster
-```
 
-## 🚀 설치 및 실행
+---
 
-### 1. 환경 변수 설정
+## 🚀 실행 방법
+
+## 1) 백엔드 실행
 
 ```bash
-# .env 파일 생성
-cp .env.example .env
+# (권장) 가상환경 생성 후 활성화
+python -m venv .venv
+source .venv/bin/activate
+
+pip install -r requirements.txt
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-`.env` 파일 편집:
-```env
-VITE_API_BASE_URL=http://localhost:3000/api
-VITE_USER_ID=user-123
-```
-
-### 2. 프론트엔드 실행
+헬스체크:
 
 ```bash
+curl http://127.0.0.1:8000/health
+```
+
+## 2) 프론트엔드 실행
+
+```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-### 3. 백엔드 실행 (선택)
+기본적으로 프론트는 `http://127.0.0.1:8000/api`를 호출합니다.
 
-백엔드 구현 예시는 `BACKEND-EXAMPLE.md` 참조
+## 3) (선택) MySQL 실행
 
-## 📦 API 연동 파일
-
-### 1️⃣ 타입 정의 (`/src/app/types/index.ts`)
-
-모든 데이터 구조를 TypeScript 타입으로 정의:
-
-```typescript
-export interface Behavior {
-  id: string;
-  userId: string;
-  action: string;
-  emotion: 'happy' | 'neutral' | 'stressed';
-  timestamp: string;
-}
-
-export interface BehaviorInput {
-  action: string;
-  emotion: 'happy' | 'neutral' | 'stressed';
-  timestamp?: string;
-}
+```bash
+docker compose up -d
 ```
 
-### 2️⃣ API 서비스 (`/src/app/services/api.ts`)
+이후 `DATABASE_URL`을 MySQL DSN으로 설정해 사용할 수 있습니다.
 
-모든 백엔드 API 호출을 관리:
+---
 
-```typescript
-// API 클라이언트
-export const apiClient = new ApiClient();
+## 🔐 환경 변수
 
-// Behavior API
-export const behaviorApi = {
-  getBehaviors: async (params?) => {...},
-  createBehavior: async (data: BehaviorInput) => {...},
-  deleteBehavior: async (id: string) => {...},
-};
+`backend/config.py` 기준 주요 환경 변수:
 
-// Dashboard API
-export const dashboardApi = {
-  getDashboardData: async () => {...},
-};
-
-// 기타: analysisApi, chatApi, profileApi, authApi
-```
-
-**주요 기능:**
-- ✅ 자동 인증 토큰 관리
-- ✅ 에러 핸들링
-- ✅ TypeScript 타입 안전성
-- ✅ 환경변수로 API URL 관리
-
-### 3️⃣ Custom Hooks
-
-각 페이지별 데이터 관리 훅:
-
-#### `useBehaviors` 예시:
-```typescript
-const { 
-  behaviors,      // 행동 목록
-  loading,        // 로딩 상태
-  error,          // 에러 메시지
-  createBehavior, // 생성 함수
-  deleteBehavior, // 삭제 함수
-  refetch         // 새로고침
-} = useBehaviors();
-```
-
-#### `useDashboard` 예시:
-```typescript
-const { data, loading, error, refetch } = useDashboard();
-
-if (loading) return <LoadingSpinner />;
-if (error) return <ErrorMessage message={error} />;
-```
-
-## 💻 사용 방법
-
-### Mock 데이터 → API 버전으로 전환
-
-#### Before (Mock 데이터):
-```typescript
-// src/app/routes.tsx
-import { Dashboard } from "./pages/Dashboard";
-import { BehaviorLog } from "./pages/BehaviorLog";
-```
-
-#### After (API 연동):
-```typescript
-// src/app/routes.tsx
-import { Dashboard } from "./pages/Dashboard-API";
-import { BehaviorLog } from "./pages/BehaviorLog-API";
-```
-
-### 페이지에서 Hook 사용하기
-
-```typescript
-// Dashboard-API.tsx
-import { useDashboard } from "../hooks/useDashboard";
-
-export function Dashboard() {
-  const { data, loading, error, refetch } = useDashboard();
-  
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-  
-  if (error) {
-    return (
-      <ErrorMessage 
-        message={error} 
-        onRetry={refetch} 
-      />
-    );
-  }
-  
-  return (
-    <div>
-      {/* 데이터 렌더링 */}
-      {data.summaryCards.map(card => ...)}
-    </div>
-  );
-}
-```
-
-### 행동 기록 생성 예시
-
-```typescript
-// BehaviorLog-API.tsx
-import { useBehaviors } from "../hooks/useBehaviors";
-
-export function BehaviorLog() {
-  const { createBehavior } = useBehaviors();
-  
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    try {
-      await createBehavior({
-        action: "Study Session",
-        emotion: "happy",
-        timestamp: new Date().toISOString(),
-      });
-      
-      toast.success("행동이 기록되었습니다!");
-    } catch (err) {
-      toast.error("기록 실패");
-    }
-  };
-}
-```
-
-## 🔌 백엔드 연동
-
-### API 엔드포인트 요구사항
-
-프론트엔드가 호출하는 모든 엔드포인트:
-
-| 메서드 | 엔드포인트 | 설명 |
-|--------|-----------|------|
-| GET | `/api/dashboard` | 대시보드 데이터 |
-| GET | `/api/behaviors` | 행동 목록 조회 |
-| POST | `/api/behaviors` | 행동 기록 생성 |
-| DELETE | `/api/behaviors/:id` | 행동 삭제 |
-| GET | `/api/analysis/insights` | AI 인사이트 |
-| GET | `/api/analysis/distribution` | 행동 분포 |
-| POST | `/api/chat/message` | 채팅 메시지 전송 |
-| GET | `/api/profile` | 프로필 조회 |
-| GET | `/api/profile/stats` | 통계 조회 |
-
-자세한 API 스펙은 `API-INTEGRATION.md` 참조
-
-### 백엔드 구현
-
-1. **Node.js + Express 예시**: `BACKEND-EXAMPLE.md` 참조
-2. **Python + FastAPI**: 별도 구현 필요
-3. **Spring Boot**: 별도 구현 필요
-
-### 인증 설정
-
-로그인 후 토큰 저장:
-
-```typescript
-import { apiClient, authApi } from './services/api';
-
-// 로그인
-const response = await authApi.login(email, password);
-const { token, user } = response.data;
-
-// 토큰 설정
-apiClient.setAuthToken(token);
-
-// 로컬 스토리지에 저장
-localStorage.setItem('token', token);
-```
-
-## 📊 데이터 흐름
-
-```
-사용자 액션
-    ↓
-React Component
-    ↓
-Custom Hook (useBehaviors)
-    ↓
-API Service (behaviorApi)
-    ↓
-API Client (fetch)
-    ↓
-Backend Server
-    ↓
-Database
-```
-
-## 🔄 상태 관리
-
-각 Hook은 다음 상태를 관리:
-
-- **data**: API에서 받은 데이터
-- **loading**: 로딩 중 여부
-- **error**: 에러 메시지
-- **refetch**: 데이터 새로고침 함수
-
-## 🎨 UI 상태 처리
-
-### 로딩 상태
-```typescript
-{loading && (
-  <Loader2 className="w-8 h-8 animate-spin" />
-)}
-```
-
-### 에러 상태
-```typescript
-{error && (
-  <div className="error-message">
-    <AlertCircle />
-    <p>{error}</p>
-    <button onClick={refetch}>다시 시도</button>
-  </div>
-)}
-```
-
-### 빈 데이터
-```typescript
-{behaviors.length === 0 && (
-  <p>아직 기록된 행동이 없습니다</p>
-)}
-```
-
-## 🧪 테스트
-
-### API 없이 개발하기
-
-Mock 데이터 버전의 페이지를 사용:
-- `Dashboard.tsx` (Mock)
-- `BehaviorLog.tsx` (Mock)
-
-### API 연결 테스트
-
-1. 백엔드 서버 실행
-2. `.env`에서 `VITE_API_BASE_URL` 설정
-3. API 버전 페이지 사용:
-   - `Dashboard-API.tsx`
-   - `BehaviorLog-API.tsx`
-
-## 📝 환경별 설정
-
-### 개발 환경
 ```env
-VITE_API_BASE_URL=http://localhost:3000/api
+DATABASE_URL=sqlite:///./mini_chatbot.db
+DATABASE_ECHO=False
+GOOGLE_API_KEY=
+APP_NAME=Behavior Pattern Analysis Chatbot
+APP_ENV=development
+LOG_LEVEL=INFO
 ```
 
-### 프로덕션 환경
-```env
-VITE_API_BASE_URL=https://api.yourdomain.com/api
-```
+- `GOOGLE_API_KEY`가 없으면 AI 응답은 서비스 내부 fallback 요약으로 동작합니다.
+- MySQL 사용 예시:
+  - `mysql+pymysql://user:user123@127.0.0.1:3307/pattern_db`
 
-## 🔐 보안 고려사항
+---
 
-1. **토큰 저장**: HttpOnly 쿠키 사용 권장
-2. **CORS**: 백엔드에서 적절한 CORS 설정
-3. **환경변수**: API 키는 `.env`에 저장, `.gitignore`에 추가
-4. **HTTPS**: 프로덕션에서는 반드시 HTTPS 사용
+## 🔌 API 요약
 
-## 🚀 배포
+### 공통
+- `GET /` : 앱 메타 정보
+- `GET /health` : 헬스체크
 
-### Vercel/Netlify 배포 시
-환경변수를 플랫폼 설정에 추가:
-- `VITE_API_BASE_URL`
-- `VITE_USER_ID` (테스트용)
+### Users (`/api/users`)
+- `POST /` : 사용자 생성
+- `GET /` : 사용자 목록
+- `GET /{user_id}` : 사용자 조회
+- `DELETE /{user_id}` : 사용자 삭제
 
-## 📚 추가 리소스
+### Behaviors (`/api/behaviors`)
+- `POST /{user_id}` : 행동 로그 생성
+- `GET /{user_id}` : 사용자 행동 로그 목록
+- `GET /{user_id}/{log_id}` : 단일 로그 조회
+- `PUT /{user_id}/{log_id}` : 로그 수정
+- `DELETE /{user_id}/{log_id}` : 로그 삭제
 
-- `API-INTEGRATION.md` - 상세 API 스펙
-- `BACKEND-EXAMPLE.md` - Express.js 백엔드 예시
-- `.env.example` - 환경변수 템플릿
+### Analysis (`/api/analysis`)
+- `POST /{user_id}` : `days` 기준 패턴 분석 + AI 피드백
 
-## ❓ FAQ
+### UI 전용 (`/api/ui`)
+- `GET /{user_id}/overview` : 대시보드 카드/타임라인/인사이트
+- `GET /{user_id}/analysis` : 분석 페이지 데이터
+- `GET /{user_id}/profile` : 프로필 페이지 데이터
+- `GET /{user_id}/chat/bootstrap` : 채팅 초기 문구/추천 프롬프트
+- `POST /{user_id}/chat` : 채팅 응답
 
-**Q: Mock 데이터와 API 버전을 어떻게 전환하나요?**
-A: `routes.tsx`에서 import 경로만 변경하면 됩니다.
+---
 
-**Q: 백엔드 없이 개발할 수 있나요?**
-A: 네, Mock 데이터 버전 페이지를 사용하세요.
+## 🖥 프론트엔드 동작 흐름
 
-**Q: 에러 처리는 어떻게 하나요?**
-A: 모든 Hook에서 `error` 상태를 제공합니다.
+초기 로딩 시 `useAppData` 훅에서 다음 순서로 진행합니다.
 
-## 🤝 기여
+1. 유저가 없으면 데모 유저 생성
+2. 로그가 없으면 샘플 로그 시드 데이터 입력
+3. overview API 호출 후 화면 렌더링
 
-개선사항이나 버그 발견 시 이슈를 등록해주세요!
+즉, **백엔드를 켜기만 해도 기본 데모 데이터로 화면을 바로 확인**할 수 있습니다.
+
+---
+
+## 🧠 백엔드 분석 로직
+
+`PatternAnalysisService`에서 수행:
+
+- 감정별 빈도/비율/평균 강도 계산
+- 감정 강도 추세(increasing/decreasing/stable) 계산
+- 리스크 패턴 탐지
+  - 부정 감정 고빈도 + 고강도
+  - 급격한 감정 강도 변화
+  - 특정 위험 태그 포함 여부
+
+`AIFeedbackService`는:
+
+- Gemini 설정 시 모델 기반 피드백 생성
+- 미설정/오류 시 분석 요약 + 권장사항 fallback 텍스트 반환
+
+---
+
+## 🗃 데이터 모델
+
+### User
+- `id`, `username`, `email`, `created_at`, `updated_at`
+
+### BehaviorLog
+- `id`, `user_id`, `text`, `emotion`, `tag`, `intensity`, `created_at`
+
+`User 1 : N BehaviorLog` 관계를 가집니다.
+
+---
+
+## 🧪 개발 참고 사항
+
+- DB 연결 실패 시(비-SQLite) 내부적으로 SQLite fallback을 시도합니다.
+- CORS는 현재 전체 허용(`*`)으로 되어 있어, 운영 환경에서는 반드시 제한이 필요합니다.
+- 루트 README는 현재 프로젝트 기준으로 정리되어 있으며, `frontend/README.md`는 Vite 기본 템플릿 문서입니다.
+
+---
+
+필요하면 다음 단계로 API 요청/응답 예시(JSON)까지 확장해 드릴 수 있습니다.
