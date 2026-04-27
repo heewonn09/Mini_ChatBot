@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from backend.auth import hash_password
 from backend.database import get_db
 from backend.models.behavior import User
 from backend.schemas.behavior import UserCreate, UserResponse
@@ -21,7 +22,11 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
             detail="User with this email or username already exists"
         )
     
-    db_user = User(**user.model_dump())
+    db_user = User(
+        username=user.username,
+        email=user.email,
+        password_hash=hash_password(user.password),
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)

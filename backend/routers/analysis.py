@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.behavior import User
@@ -15,6 +16,7 @@ ai_service = AIFeedbackService()
 def analyze_user_patterns(
     user_id: int,
     request: PatternAnalysisRequest,
+    _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     """

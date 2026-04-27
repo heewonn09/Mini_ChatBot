@@ -1,20 +1,17 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   CirclePlus,
   LayoutDashboard,
   LineChart,
+  LogOut,
   MessageSquare,
+  Moon,
   Sparkles,
+  Sun,
   User,
 } from "lucide-react";
-
-const navItems = [
-  { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { name: "Log", path: "/log", icon: CirclePlus },
-  { name: "Analysis", path: "/analysis", icon: LineChart },
-  { name: "Chat", path: "/chat", icon: MessageSquare },
-  { name: "Profile", path: "/profile", icon: User },
-];
+import { clearStoredToken } from "../../api/api";
+import { useAppSettings } from "../../context/AppSettingsContext";
 
 function linkClassName(isActive) {
   return `flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -25,6 +22,17 @@ function linkClassName(isActive) {
 }
 
 function Navbar() {
+  const { t, language, setLanguage, theme, setTheme } = useAppSettings();
+  const navigate = useNavigate();
+
+  const navItems = [
+    { name: t.nav.dashboard, path: "/dashboard", icon: LayoutDashboard },
+    { name: t.nav.log, path: "/log", icon: CirclePlus },
+    { name: t.nav.analysis, path: "/analysis", icon: LineChart },
+    { name: t.nav.chat, path: "/chat", icon: MessageSquare },
+    { name: t.nav.profile, path: "/profile", icon: User },
+  ];
+
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-6 lg:px-8">
@@ -35,9 +43,7 @@ function Navbar() {
             </span>
             <div>
               <div className="app-heading text-[1.8rem] leading-none text-[color:var(--ink)]">Mindflow</div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-soft)]">
-                Behavior studio
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-soft)]">{t.nav.studio}</p>
             </div>
           </NavLink>
 
@@ -53,9 +59,23 @@ function Navbar() {
             })}
           </nav>
 
-          <div className="hidden items-center gap-3 rounded-full border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] px-4 py-2 lg:flex">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#0f766e]" />
-            <span className="text-sm font-semibold text-[color:var(--ink)]">Track. Reflect. Adjust.</span>
+          <div className="hidden items-center gap-2 lg:flex">
+            <button type="button" className="app-secondary-button px-3 py-2" onClick={() => setLanguage(language === "en" ? "ko" : "en")}>KR/EN</button>
+            <button type="button" className="app-secondary-button px-3 py-2" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>{theme === "light" ? <Moon size={16} /> : <Sun size={16} />}</button>
+            <button
+              type="button"
+              className="app-secondary-button px-3 py-2"
+              onClick={() => {
+                clearStoredToken();
+                navigate("/auth", { replace: true });
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+            <div className="items-center gap-3 rounded-full border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] px-4 py-2 xl:flex hidden">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#0f766e]" />
+              <span className="text-sm font-semibold text-[color:var(--ink)]">{t.nav.slogan}</span>
+            </div>
           </div>
         </div>
       </header>

@@ -18,7 +18,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    pass
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class UserResponse(UserBase):
@@ -28,6 +28,17 @@ class UserResponse(UserBase):
     
     class Config:
         from_attributes = True
+
+
+class UserLogin(BaseModel):
+    username_or_email: str = Field(..., min_length=3, max_length=100)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
 
 
 # ============= BehaviorLog Schemas =============

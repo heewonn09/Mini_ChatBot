@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.behavior import BehaviorLog, User
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/behaviors", tags=["Behaviors"])
 def create_behavior_log(
     user_id: int,
     behavior: BehaviorLogCreate,
+    _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     """Create a new behavior log for a user"""
@@ -37,7 +39,12 @@ def create_behavior_log(
 
 
 @router.get("/{user_id}/{log_id}", response_model=BehaviorLogResponse)
-def get_behavior_log(user_id: int, log_id: int, db: Session = Depends(get_db)):
+def get_behavior_log(
+    user_id: int,
+    log_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     """Get a specific behavior log"""
     behavior = db.query(BehaviorLog).filter(
         (BehaviorLog.id == log_id) & (BehaviorLog.user_id == user_id)
@@ -53,6 +60,7 @@ def list_user_behaviors(
     user_id: int,
     skip: int = 0,
     limit: int = 50,
+    _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     """List all behavior logs for a user"""
@@ -76,6 +84,7 @@ def update_behavior_log(
     user_id: int,
     log_id: int,
     behavior: BehaviorLogUpdate,
+    _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     """Update a behavior log"""
@@ -97,7 +106,12 @@ def update_behavior_log(
 
 
 @router.delete("/{user_id}/{log_id}", status_code=204)
-def delete_behavior_log(user_id: int, log_id: int, db: Session = Depends(get_db)):
+def delete_behavior_log(
+    user_id: int,
+    log_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     """Delete a behavior log"""
     behavior = db.query(BehaviorLog).filter(
         (BehaviorLog.id == log_id) & (BehaviorLog.user_id == user_id)

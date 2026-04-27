@@ -5,13 +5,18 @@ import LogPage from "./pages/LogPage";
 import AnalysisPage from "./pages/AnalysisPage";
 import ChatPage from "./pages/ChatPage";
 import ProfilePage from "./pages/ProfilePage";
+import AuthPage from "./pages/AuthPage";
+import { getStoredToken } from "./api/api";
 
 function App() {
+  const hasToken = Boolean(getStoredToken());
+
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/auth" element={<AuthPage />} />
         <Route path="/" element={<AppLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<Navigate to={hasToken ? "/dashboard" : "/auth"} replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="log" element={<LogPage />} />
           <Route path="analysis" element={<AnalysisPage />} />
