@@ -1,12 +1,17 @@
-import { Outlet } from "react-router-dom";
-import { getErrorMessage } from "../api/api";
+import { Navigate, Outlet } from "react-router-dom";
+import { getErrorMessage, getStoredToken } from "../api/api";
 import Navbar from "../components/navigation/Navbar";
 import Card from "../components/ui/Card";
+import { useAppSettings } from "../context/AppSettingsContext";
 import useAppData from "../hooks/useAppData";
 
 function AppLayout() {
+  const { t } = useAppSettings();
   const appData = useAppData();
   const appErrorMessage = getErrorMessage(appData.error, "We couldn't load your Mindflow data.");
+  const hasToken = Boolean(getStoredToken());
+
+  if (!hasToken) return <Navigate to="/auth" replace />;
 
   return (
     <div className="min-h-screen text-[color:var(--ink)]">
@@ -21,7 +26,7 @@ function AppLayout() {
       <main className="relative pb-32 pt-28 md:pb-16 md:pt-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {appData.loading ? (
-            <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">Loading Mindflow data...</Card>
+            <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">{t.common.loading}</Card>
           ) : appData.error ? (
             <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">{appErrorMessage}</Card>
           ) : (

@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -44,7 +45,11 @@ CHAT_SUGGESTIONS = [
 
 
 @router.get("/{user_id}/overview", response_model=OverviewResponse)
-def get_overview(user_id: int, db: Session = Depends(get_db)):
+def get_overview(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     user = _get_user(user_id, db)
     logs = _get_logs(user_id, db, days=7, ascending=True)
 
@@ -130,7 +135,11 @@ def get_overview(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}/analysis", response_model=AnalysisResponse)
-def get_analysis_view(user_id: int, db: Session = Depends(get_db)):
+def get_analysis_view(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     _get_user(user_id, db)
     logs = _get_logs(user_id, db, days=7, ascending=True)
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
@@ -144,7 +153,11 @@ def get_analysis_view(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}/profile", response_model=ProfileResponse)
-def get_profile_view(user_id: int, db: Session = Depends(get_db)):
+def get_profile_view(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     user = _get_user(user_id, db)
     all_logs = _get_logs(user_id, db, days=30, ascending=True)
     recent_logs = [log for log in all_logs if log.created_at >= datetime.utcnow() - timedelta(days=7)]
@@ -201,7 +214,11 @@ def get_profile_view(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}/chat/bootstrap", response_model=ChatBootstrapResponse)
-def get_chat_bootstrap(user_id: int, db: Session = Depends(get_db)):
+def get_chat_bootstrap(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     user = _get_user(user_id, db)
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
     top_emotion = analysis.behavior_patterns[0].emotion if analysis.behavior_patterns else "your habits"
@@ -214,7 +231,12 @@ def get_chat_bootstrap(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{user_id}/chat", response_model=ChatResponse)
-def chat_with_assistant(user_id: int, payload: ChatRequest, db: Session = Depends(get_db)):
+def chat_with_assistant(
+    user_id: int,
+    payload: ChatRequest,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     user = _get_user(user_id, db)
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=14, db=db)
     summary = ai_service.generate_feedback(analysis)

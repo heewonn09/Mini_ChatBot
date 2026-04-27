@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from backend.config import get_settings
+from sqlalchemy import inspect, text
 from backend.database import engine, Base
-from backend.routers import users, behaviors, analysis, ui
+from backend.routers import users, behaviors, analysis, ui, auth
 from backend.models.behavior import User, BehaviorLog
 
 # Get settings
@@ -15,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+inspector = inspect(engine)
+if "users" in inspector.get_table_names():
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    if "password_hash" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+            connection.execute(text("UPDATE users SET password_hash = 'legacy-account-no-login' WHERE password_hash IS NULL"))
 
 # Create FastAPI app
 app = FastAPI(
@@ -26,14 +34,15 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure for production
-    allow_credentials=True,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
 app.include_router(users.router)
+app.include_router(auth.router)
 app.include_router(behaviors.router)
 app.include_router(analysis.router)
 app.include_router(ui.router)
