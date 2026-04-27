@@ -16,6 +16,7 @@ import { useOutletContext } from "react-router-dom";
 import { createBehavior, fetchBehaviors, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
+import { useAppSettings } from "../context/AppSettingsContext";
 
 const defaultQuickActions = [
   {
@@ -57,27 +58,30 @@ const defaultQuickActions = [
 
 const moods = [
   {
-    label: "Happy",
+    key: "happy",
     value: "happy",
     Icon: Smile,
-    description: "Light, motivated, and in motion.",
     className: "bg-[#def2ee] text-[#0f766e]",
   },
   {
-    label: "Neutral",
+    key: "neutral",
     value: "neutral",
     Icon: Meh,
-    description: "Steady and low-intensity.",
     className: "bg-[#f8ecd7] text-[#b67f20]",
   },
   {
-    label: "Stressed",
+    key: "stressed",
     value: "stressed",
     Icon: Frown,
-    description: "Drained, distracted, or overloaded.",
     className: "bg-[#f8e2d9] text-[#dd7a5f]",
   },
 ];
+
+function getMoodText(t, key) {
+  if (key === "happy") return { label: t.log.moodHappy, description: t.log.moodHappyDesc };
+  if (key === "neutral") return { label: t.log.moodNeutral, description: t.log.moodNeutralDesc };
+  return { label: t.log.moodStressed, description: t.log.moodStressedDesc };
+}
 
 function activityToneClass(emotion) {
   if (emotion === "happy" || emotion === "focused" || emotion === "motivated") {
@@ -90,6 +94,7 @@ function activityToneClass(emotion) {
 }
 
 function LogPage() {
+  const { t } = useAppSettings();
   const { user, overview, refreshOverview } = useOutletContext();
   const [text, setText] = useState("");
   const [emotion, setEmotion] = useState("neutral");
@@ -210,11 +215,11 @@ function LogPage() {
     <section className="space-y-8">
       <PageHeader
         variant="standard"
-        title="Log Behavior"
+        title={t.log.title}
         description={
           overview?.habit_frequency?.length
-            ? `Capture what happened, how it felt, and when it happened. Your most repeated pattern right now is ${overview.habit_frequency[0].tag}.`
-            : "Capture what happened, how it felt, and when it happened so your pattern map keeps getting sharper."
+            ? t.log.descriptionWithTag.replace("{tag}", overview.habit_frequency[0].tag)
+            : t.log.descriptionDefault
         }
       />
 
@@ -229,12 +234,12 @@ function LogPage() {
           >
             <div className="space-y-3">
               <label htmlFor="behavior-text" className="block text-[1.02rem] font-bold text-[color:var(--ink)]">
-                What happened?
+                {t.log.whatHappened}
               </label>
               <textarea
                 id="behavior-text"
                 className="app-textarea"
-                placeholder="Studied for an hour, doomscrolled before bed, went for a quick run..."
+                placeholder={t.log.happenedPlaceholder}
                 value={text}
                 onChange={(event) => setText(event.target.value)}
               />
@@ -243,7 +248,7 @@ function LogPage() {
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-3">
                 <label htmlFor="behavior-tag" className="block text-[1.02rem] font-bold text-[color:var(--ink)]">
-                  Category
+                  {t.log.category}
                 </label>
                 <div className="relative">
                   <Tag className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--ink-soft)]" size={16} />
@@ -252,14 +257,14 @@ function LogPage() {
                     className="app-field pl-11"
                     value={tag}
                     onChange={(event) => setTag(event.target.value)}
-                    placeholder="Study, Break, Social..."
+                    placeholder={t.log.categoryPlaceholder}
                   />
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-4">
-                  <label className="block text-[1.02rem] font-bold text-[color:var(--ink)]">Time</label>
+                  <label className="block text-[1.02rem] font-bold text-[color:var(--ink)]">{t.log.time}</label>
                   <button
                     type="button"
                     role="switch"
@@ -287,14 +292,14 @@ function LogPage() {
                 ) : (
                   <div className="app-field flex items-center gap-3 text-[color:var(--ink-soft)]">
                     <Clock3 size={16} />
-                    <span>Use the current time</span>
+                    <span>{t.log.useCurrentTime}</span>
                   </div>
                 )}
               </div>
             </div>
 
             <fieldset className="space-y-3">
-              <legend className="text-[1.02rem] font-bold text-[color:var(--ink)]">How did it feel?</legend>
+              <legend className="text-[1.02rem] font-bold text-[color:var(--ink)]">{t.log.moodQuestion}</legend>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 {moods.map((mood) => {
                   const Icon = mood.Icon;
@@ -315,8 +320,8 @@ function LogPage() {
                         <Icon size={18} strokeWidth={2.1} />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[1rem] font-bold text-[color:var(--ink)]">{mood.label}</p>
-                        <p className="text-sm leading-6 text-[color:var(--ink-soft)]">{mood.description}</p>
+                        <p className="text-[1rem] font-bold text-[color:var(--ink)]">{getMoodText(t, mood.key).label}</p>
+                        <p className="text-sm leading-6 text-[color:var(--ink-soft)]">{getMoodText(t, mood.key).description}</p>
                       </div>
                     </button>
                   );
@@ -326,7 +331,7 @@ function LogPage() {
 
             <button type="submit" disabled={!canSubmit || submitting} className="app-primary-button w-full text-lg">
               <Plus size={20} />
-              <span>{submitting ? "Saving..." : "Save this moment"}</span>
+              <span>{submitting ? t.log.saving : t.log.saveMoment}</span>
             </button>
 
             {logsError ? <p className="text-sm font-medium text-[#c86f56]">{logsError}</p> : null}
@@ -337,8 +342,8 @@ function LogPage() {
           <Card className="p-6">
             <div className="space-y-5">
               <div className="space-y-1">
-                <p className="app-kicker">Fast capture</p>
-                <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Quick actions</h2>
+                <p className="app-kicker">{t.log.fastCapture}</p>
+                <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.log.quickActions}</h2>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -365,9 +370,9 @@ function LogPage() {
               </div>
 
               <div className="rounded-[1.55rem] border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] p-5">
-                <p className="app-kicker">Tracking tip</p>
+                <p className="app-kicker">{t.log.trackingTip}</p>
                 <p className="mt-3 text-[1rem] leading-7 text-[color:var(--ink-soft)]">
-                  Keep entries short and honest. The best insights usually come from repeated small moments, not from writing perfect notes.
+                  {t.log.trackingTipDesc}
                 </p>
               </div>
             </div>
@@ -377,16 +382,16 @@ function LogPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="app-kicker">Latest entries</p>
-                  <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Recent activity</h2>
+                  <p className="app-kicker">{t.log.latestEntries}</p>
+                  <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.log.recentActivity}</h2>
                 </div>
-                <span className="app-chip text-sm">{list.length} logs</span>
+                <span className="app-chip text-sm">{`${list.length} ${t.log.logs}`}</span>
               </div>
 
               <div className="space-y-3">
                 {logsLoading ? (
                   <div className="rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-white/64 px-4 py-4 text-[color:var(--ink-soft)]">
-                    Loading recent activity...
+                    {t.log.loadingRecent}
                   </div>
                 ) : list.length ? (
                   list.map((item) => (
@@ -410,7 +415,7 @@ function LogPage() {
                   ))
                 ) : (
                   <div className="rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-white/64 px-4 py-4 text-[color:var(--ink-soft)]">
-                    No recent activity yet.
+                    {t.log.noRecent}
                   </div>
                 )}
               </div>
