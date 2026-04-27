@@ -151,13 +151,22 @@ def get_profile_view(user_id: int, db: Session = Depends(get_db)):
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
     days_active = len({log.created_at.date() for log in all_logs})
     current_streak = _current_streak(all_logs)
+    recent_tag_counter = Counter(log.tag or "Other" for log in recent_logs)
     morning_positive = len(
         [log for log in recent_logs if 6 <= log.created_at.hour < 12 and _is_positive(log)]
     )
+    focus_groups = _group_logs_by_hour(recent_logs)
+    best_hour = max(focus_groups, key=lambda hour: _ratio(focus_groups[hour], _is_positive))
 
     return ProfileResponse(
         display_name=_format_display_name(user.username),
         member_since=user.created_at.strftime("%B %Y"),
+        summary_title=_build_profile_summary_title(current_streak, days_active, len(all_logs)),
+        summary_description=_build_profile_summary_description(
+            recent_logs=recent_logs,
+            recent_tag_counter=recent_tag_counter,
+            best_hour=best_hour,
+        ),
         stats=[
             ProfileMetricItem(title="Total Behaviors", value=str(len(all_logs)), icon="check"),
             ProfileMetricItem(title="Days Active", value=str(days_active), icon="calendar"),
@@ -167,6 +176,17 @@ def get_profile_view(user_id: int, db: Session = Depends(get_db)):
                 value=str(len(_build_analysis_insights(recent_logs, analysis))),
                 icon="trend",
             ),
+        ],
+        top_habits=[HabitFrequencyItem(tag=tag, count=count) for tag, count in recent_tag_counter.most_common(4)],
+        recent_activity=[
+            RecentActivityItem(
+                id=log.id,
+                text=log.text,
+                tag=log.tag,
+                emotion=log.emotion,
+                created_at=log.created_at,
+            )
+            for log in sorted(recent_logs, key=lambda item: item.created_at, reverse=True)[:5]
         ],
         weekly_activity=_build_weekly_activity(recent_logs),
         goals=_build_goals(recent_logs),
@@ -553,3 +573,31 @@ def _current_streak(logs: list[BehaviorLog]) -> int:
             break
 
     return streak
+
+
+def _build_profile_summary_title(current_streak: int, days_active: int, total_logs: int) -> str:
+    if current_streak >= 14:
+        return f"You're holding a {current_streak}-day rhythm."
+    if current_streak >= 7:
+        return f"{current_streak} days of visible momentum."
+    if days_active >= 5:
+        return "Your routine is starting to stabilize."
+    if total_logs >= 1:
+        return "Your pattern map is beginning to form."
+    return "Your rhythm is taking shape."
+
+
+def _build_profile_summary_description(
+    recent_logs: list[BehaviorLog],
+    recent_tag_counter: Counter,
+    best_hour: int,
+) -> str:
+    if not recent_logs:
+        return "Log a few more moments and Mindflow will surface your strongest habits, best focus window, and recovery patterns."
+
+    top_tag, top_count = recent_tag_counter.most_common(1)[0]
+    return (
+        f"Your most common pattern this week is {top_tag} ({top_count} logs), "
+        f"and your strongest focus window is around {_hour_range(best_hour)}. "
+        "Keep feeding the timeline with small, honest check-ins."
+    )

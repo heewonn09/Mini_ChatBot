@@ -105,7 +105,11 @@ class AchievementItem(BaseModel):
 class ProfileResponse(BaseModel):
     display_name: str
     member_since: str
+    summary_title: str
+    summary_description: str
     stats: List[ProfileMetricItem]
+    top_habits: List[HabitFrequencyItem]
+    recent_activity: List[RecentActivityItem]
     weekly_activity: List[WeeklyActivityItem]
     goals: List[GoalItem]
     achievements: List[AchievementItem]

@@ -8,16 +8,18 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
+import { fetchAnalysisView, getErrorMessage } from "../api/api";
 import Chart from "../components/Chart";
 import AIInsightCard from "../components/ui/AIInsightCard";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
-import { fetchAnalysisView } from "../api/api";
 
 function AnalysisPage() {
-  const { user } = useOutletContext();
+  const { user, overview, error: appError, refreshOverview } = useOutletContext();
   const [analysis, setAnalysis] = useState(null);
+  const [analysisError, setAnalysisError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -25,10 +27,22 @@ function AnalysisPage() {
 
     const load = async () => {
       setLoading(true);
-      const data = await fetchAnalysisView(user.id);
-      if (active) {
-        setAnalysis(data);
-        setLoading(false);
+      setAnalysisError("");
+
+      try {
+        const data = await fetchAnalysisView(user.id);
+        if (active) {
+          setAnalysis(data);
+        }
+      } catch (error) {
+        if (active) {
+          setAnalysis(null);
+          setAnalysisError(getErrorMessage(error, "We couldn't load your AI insights."));
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
@@ -37,7 +51,7 @@ function AnalysisPage() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user, reloadKey]);
 
   const distribution = useMemo(
     () =>
@@ -45,10 +59,10 @@ function AnalysisPage() {
         ...item,
         color:
           item.category === "productive"
-            ? "#10b981"
+            ? "#0f766e"
             : item.category === "neutral"
-            ? "#6366f1"
-            : "#f59e0b",
+            ? "#d9a85a"
+            : "#dd7a5f",
       })),
     [analysis]
   );
@@ -58,10 +72,10 @@ function AnalysisPage() {
     value: `${item.value}%`,
     dotClassName:
       item.category === "productive"
-        ? "bg-emerald-400"
+        ? "bg-[#0f766e]"
         : item.category === "neutral"
-        ? "bg-indigo-400"
-        : "bg-amber-400",
+        ? "bg-[#d9a85a]"
+        : "bg-[#dd7a5f]",
   }));
 
   const resolveInsightIcon = (item) => {
@@ -72,8 +86,39 @@ function AnalysisPage() {
   };
 
   if (loading) {
-    return <Card className="p-6 text-zinc-300">Loading AI insights...</Card>;
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">Loading AI insights...</Card>;
   }
+
+  const errorMessage = analysisError || (appError ? getErrorMessage(appError, "We couldn't load your AI insights.") : "");
+
+  if (errorMessage) {
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{errorMessage}</Card>;
+  }
+
+  if (!analysis) {
+    return (
+      <Card className="app-panel-strong space-y-4 p-6 text-[color:var(--ink-soft)]">
+        <p>No AI analysis available yet.</p>
+        {user?.id ? (
+          <button
+            type="button"
+            onClick={async () => {
+              await refreshOverview?.(user.id);
+              setReloadKey((value) => value + 1);
+            }}
+            className="app-secondary-button"
+          >
+            Refresh
+          </button>
+        ) : null}
+      </Card>
+    );
+  }
+
+  const insights = analysis.insights ?? [];
+  const weeklyPattern = analysis.weekly_pattern ?? overview?.daily_timeline ?? [];
+  const recommendations = analysis.recommendations ?? [];
+  const spotlight = insights[0];
 
   return (
     <section className="space-y-8">
@@ -81,11 +126,43 @@ function AnalysisPage() {
         variant="icon"
         badgeIcon={Brain}
         title="AI Insights"
-        description="Personalized analysis of your behavior patterns"
+        description="A pattern-focused view of where you drift, where you lock in, and what your next adjustment should be."
       />
 
+      <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
+        <div className="grid gap-8 lg:grid-cols-[1.15fr,0.85fr]">
+          <div className="space-y-4">
+            <p className="app-kicker">Pattern spotlight</p>
+            <h2 className="app-heading text-[2.35rem] leading-[1.02] text-[color:var(--ink)] sm:text-[2.95rem]">
+              {spotlight?.title ?? "Your strongest signal is ready to act on."}
+            </h2>
+            <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">
+              {spotlight?.description ??
+                "Mindflow compares recent behavior logs and surfaces the pattern most worth protecting or correcting next."}
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {distribution.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-[1.5rem] border border-[rgba(24,50,53,0.08)] bg-white/64 px-4 py-5"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ink-soft)]">
+                    {item.label}
+                  </span>
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                </div>
+                <p className="mt-4 text-3xl font-bold text-[color:var(--ink)]">{item.value}%</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {analysis.insights.map((item, index) => (
+        {insights.map((item, index) => (
           <AIInsightCard
             key={`${item.title}-${index}`}
             title={item.title}
@@ -99,7 +176,7 @@ function AnalysisPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Chart
           title="Behavior Distribution"
-          description="How you spend your time"
+          description="How your recent time splits across focus, neutral, and distracting behaviors"
           variant="donut"
           data={distribution}
           categoryKey="label"
@@ -108,8 +185,8 @@ function AnalysisPage() {
             {
               key: "value",
               label: "Share",
-              stroke: "#6366f1",
-              dotClassName: "bg-indigo-400",
+              stroke: "#0f766e",
+              dotClassName: "bg-[#0f766e]",
             },
           ]}
           legend={legend}
@@ -117,17 +194,17 @@ function AnalysisPage() {
 
         <Chart
           title="Weekly Pattern"
-          description="Your productivity by time of day"
+          description="A time-of-day read on your productive rhythm"
           variant="radar"
-          data={analysis.weekly_pattern}
+          data={weeklyPattern}
           categoryKey="label"
           height={280}
           series={[
             {
               key: "value",
               label: "Performance",
-              stroke: "#6366f1",
-              dotClassName: "bg-indigo-400",
+              stroke: "#0f766e",
+              dotClassName: "bg-[#0f766e]",
             },
           ]}
         />
@@ -135,28 +212,33 @@ function AnalysisPage() {
 
       <Card className="p-6">
         <div className="space-y-6">
-          <div className="flex items-center gap-2 text-zinc-50">
-            <TrendingUp size={18} className="text-indigo-400" />
-            <h2 className="text-[1.35rem] font-bold">Recommended Actions</h2>
+          <div className="flex items-center gap-2 text-[color:var(--ink)]">
+            <TrendingUp size={18} className="text-[#0f766e]" />
+            <h2 className="app-heading text-[2rem]">Recommended Actions</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {analysis.recommendations.map((item) => (
-              <Card key={item.title} className="p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <h3 className="text-[1.1rem] font-semibold text-zinc-50">{item.title}</h3>
-                    <p className="text-[0.98rem] text-zinc-400">{item.description}</p>
+            {recommendations.map((item, index) => (
+              <Card key={item.title} className="app-panel-strong p-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(24,50,53,0.08)] text-sm font-bold text-[color:var(--ink)]">
+                    {index + 1}
                   </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-sm font-medium ${
-                      item.impact === "High"
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-blue-500/10 text-blue-400"
-                    }`}
-                  >
-                    {item.impact}
-                  </span>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-[1.08rem] font-semibold text-[color:var(--ink)]">{item.title}</h3>
+                      <span
+                        className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                          item.impact === "High"
+                            ? "bg-[#def2ee] text-[#0f766e]"
+                            : "bg-[#f8ecd7] text-[#b67f20]"
+                        }`}
+                      >
+                        {item.impact}
+                      </span>
+                    </div>
+                    <p className="text-[0.98rem] leading-7 text-[color:var(--ink-soft)]">{item.description}</p>
+                  </div>
                 </div>
               </Card>
             ))}

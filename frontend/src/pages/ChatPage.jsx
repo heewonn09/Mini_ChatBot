@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
+import { askAssistant, fetchChatBootstrap, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
-import { askAssistant, fetchChatBootstrap } from "../api/api";
 
 const fallbackSuggestions = [
   "Why am I unproductive?",
@@ -50,102 +50,140 @@ function ChatPage() {
     setMessages(next);
     setInput("");
     setSending(true);
-    const data = await askAssistant(user.id, value);
-    setMessages([...next, { role: "assistant", text: data.answer }]);
-    setSending(false);
+
+    try {
+      const data = await askAssistant(user.id, value);
+      setMessages([...next, { role: "assistant", text: data.answer }]);
+    } catch (error) {
+      setMessages([
+        ...next,
+        {
+          role: "assistant",
+          text: getErrorMessage(error, "I couldn't answer that just now. Please try again in a moment."),
+        },
+      ]);
+    } finally {
+      setSending(false);
+    }
   };
 
   if (loading) {
-    return <Card className="p-6 text-zinc-300">Loading chat assistant...</Card>;
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">Loading chat assistant...</Card>;
   }
 
   return (
-    <section className="mx-auto flex min-h-[calc(100vh-10rem)] max-w-5xl flex-col space-y-6">
+    <section className="space-y-8">
       <PageHeader
         variant="icon"
         badgeIcon={Bot}
         title="Chat Assistant"
-        description="Ask me anything about your behavior patterns"
+        description="Ask for a quick interpretation of your patterns, a focus reset, or a practical next step."
       />
 
-      <div className="flex flex-1 flex-col justify-between gap-6">
-        <div className="space-y-4 overflow-y-auto pr-1">
-          {messages.map((message, index) => (
-            <div
-              key={`${message.role}-${index}`}
-              className={`flex gap-4 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {message.role === "assistant" ? (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white">
+      <div className="grid gap-6 xl:grid-cols-[0.88fr,1.12fr]">
+        <Card className="app-panel-strong p-6">
+          <div className="space-y-6">
+            <div className="rounded-[1.85rem] bg-[linear-gradient(140deg,#183235_0%,#1c4b4e_54%,#0f766e_100%)] p-6 text-white">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-white/14">
+                <Sparkles size={20} strokeWidth={2.2} />
+              </div>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-white/70">Conversation starter</p>
+              <p className="mt-4 text-[1rem] leading-8 text-white/92">{messages[0]?.text}</p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <p className="app-kicker">Try asking</p>
+                <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Suggested prompts</h2>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => send(item)}
+                    className="app-chip text-sm font-semibold"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] p-5">
+              <p className="app-kicker">Best use</p>
+              <p className="mt-3 text-[1rem] leading-7 text-[color:var(--ink-soft)]">
+                Use short, direct questions. "What pattern should I fix first?" usually gives better coaching than a long prompt.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="flex min-h-[38rem] flex-col p-4 sm:p-5">
+          <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+            {messages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                className={`flex gap-4 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {message.role === "assistant" ? (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1.2rem] bg-[#def2ee] text-[#0f766e]">
+                    <Sparkles size={18} strokeWidth={2.2} />
+                  </div>
+                ) : null}
+
+                <div
+                  className={`max-w-[80%] rounded-[1.6rem] px-5 py-4 text-[1rem] leading-8 shadow-[var(--shadow-sm)] ${
+                    message.role === "assistant"
+                      ? "border border-[rgba(24,50,53,0.08)] bg-white/78 text-[color:var(--ink)]"
+                      : "bg-[linear-gradient(135deg,#0f766e_0%,#1b8d84_100%)] text-white"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{message.text}</p>
+                </div>
+              </div>
+            ))}
+
+            {sending ? (
+              <div className="flex gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[1.2rem] bg-[#def2ee] text-[#0f766e]">
                   <Sparkles size={18} strokeWidth={2.2} />
                 </div>
-              ) : null}
-
-              <div
-                className={`max-w-[78%] rounded-[1.45rem] border px-5 py-4 text-[1rem] leading-8 ${
-                  message.role === "assistant"
-                    ? "border-zinc-800/80 bg-[#101014] text-zinc-50"
-                    : "border-violet-500/40 bg-violet-500/10 text-zinc-50"
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.text}</p>
+                <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-white/78 px-5 py-4 text-[color:var(--ink-soft)] shadow-[var(--shadow-sm)]">
+                  Thinking...
+                </div>
               </div>
-            </div>
-          ))}
+            ) : null}
 
-          {sending ? (
-            <div className="flex gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white">
-                <Sparkles size={18} strokeWidth={2.2} />
-              </div>
-              <div className="rounded-[1.45rem] border border-zinc-800/80 bg-[#101014] px-5 py-4 text-zinc-400">
-                Thinking...
-              </div>
-            </div>
-          ) : null}
-
-          <div ref={bottomRef} />
-        </div>
-
-        <div className="space-y-4">
-          {messages.length === 1 ? (
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => send(item)}
-                  className="rounded-2xl border border-zinc-800/80 bg-[#101014] px-4 py-2.5 text-[0.98rem] font-medium text-zinc-200 transition hover:border-zinc-700 hover:text-zinc-50"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="flex items-center gap-3 rounded-[1.45rem] border border-zinc-800/80 bg-[#101014] p-2.5">
-            <input
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              className="flex-1 bg-transparent px-3 py-2 text-[1rem] text-zinc-50 outline-none placeholder:text-zinc-500"
-              placeholder="Ask about your habits..."
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  send(input);
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => send(input)}
-              disabled={sending || !input.trim()}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-600 text-white transition disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Send size={18} strokeWidth={2.2} />
-            </button>
+            <div ref={bottomRef} />
           </div>
-        </div>
+
+          <div className="mt-5 border-t border-[rgba(24,50,53,0.08)] pt-5">
+            <div className="flex items-center gap-3 rounded-[1.7rem] border border-[rgba(24,50,53,0.08)] bg-white/78 p-2 shadow-[var(--shadow-sm)]">
+              <input
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                className="flex-1 bg-transparent px-3 py-2 text-[1rem] text-[color:var(--ink)] outline-none placeholder:text-[color:var(--ink-soft)]"
+                placeholder="Ask about your habits..."
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    send(input);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => send(input)}
+                disabled={sending || !input.trim()}
+                className="app-primary-button h-12 w-12 rounded-[1.25rem] px-0"
+              >
+                <Send size={18} strokeWidth={2.2} />
+              </button>
+            </div>
+          </div>
+        </Card>
       </div>
     </section>
   );

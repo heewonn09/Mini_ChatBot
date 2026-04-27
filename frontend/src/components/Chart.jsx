@@ -25,8 +25,8 @@ function ChartTooltip({ active, label, payload, series }) {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-[#111118] px-3 py-2 shadow-2xl shadow-black/25">
-      {label ? <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{label}</p> : null}
+    <div className="rounded-[1.35rem] border border-[rgba(24,50,53,0.12)] bg-[rgba(255,250,244,0.96)] px-3 py-2 shadow-[var(--shadow-sm)] backdrop-blur-xl">
+      {label ? <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[color:var(--ink-soft)]">{label}</p> : null}
       <div className="space-y-1.5">
         {payload.map((entry) => {
           const config = series.find((item) => item.key === entry.dataKey) ?? {};
@@ -34,11 +34,11 @@ function ChartTooltip({ active, label, payload, series }) {
           return (
             <div
               key={`${entry.dataKey ?? entry.name ?? "series"}-${entry.value}`}
-              className="flex items-center gap-2 text-sm text-zinc-200"
+              className="flex items-center gap-2 text-sm text-[color:var(--ink)]"
             >
-              <span className={`h-2.5 w-2.5 rounded-full ${config.dotClassName ?? "bg-violet-400"}`} />
-              <span className="text-zinc-300">{config.label ?? entry.name}</span>
-              <span className="font-semibold text-zinc-50">{entry.value}</span>
+              <span className={`h-2.5 w-2.5 rounded-full ${config.dotClassName ?? "bg-[#0f766e]"}`} />
+              <span className="text-[color:var(--ink-soft)]">{config.label ?? entry.name}</span>
+              <span className="font-semibold text-[color:var(--ink)]">{entry.value}</span>
             </div>
           );
         })}
@@ -63,7 +63,7 @@ export default function Chart({
   categoryKey = "label",
 }) {
   const emptyState = (
-    <div className="flex items-center justify-center rounded-2xl border border-dashed border-zinc-800/80 bg-[#0d0d12] text-sm text-zinc-500">
+    <div className="flex items-center justify-center rounded-[1.6rem] border border-dashed border-[rgba(24,50,53,0.16)] bg-[rgba(255,255,255,0.46)] text-sm text-[color:var(--ink-soft)]">
       <div className="py-16 text-center">No data available yet.</div>
     </div>
   );
@@ -82,15 +82,15 @@ export default function Chart({
                 const gradientId = buildGradientId(title, item.key);
                 return (
                   <linearGradient key={gradientId} id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={item.stroke} stopOpacity={0.22} />
+                    <stop offset="5%" stopColor={item.stroke} stopOpacity={0.24} />
                     <stop offset="95%" stopColor={item.stroke} stopOpacity={0} />
                   </linearGradient>
                 );
               })}
             </defs>
-            <CartesianGrid stroke="#27272f" strokeDasharray="3 3" />
-            <XAxis dataKey={categoryKey} stroke="#71717a" tickLine={false} axisLine={{ stroke: "#3f3f46" }} />
-            <YAxis stroke="#71717a" tickLine={false} axisLine={{ stroke: "#3f3f46" }} />
+            <CartesianGrid stroke="#e8ddd1" strokeDasharray="4 4" />
+            <XAxis dataKey={categoryKey} stroke="#869396" tickLine={false} axisLine={{ stroke: "#d9d1c7" }} />
+            <YAxis stroke="#869396" tickLine={false} axisLine={{ stroke: "#d9d1c7" }} />
             <Tooltip content={(props) => <ChartTooltip {...props} series={series} />} />
             {series.map((item) => (
               <Area
@@ -98,7 +98,7 @@ export default function Chart({
                 type="monotone"
                 dataKey={item.key}
                 stroke={item.stroke}
-                strokeWidth={2}
+                strokeWidth={2.4}
                 fill={`url(#${buildGradientId(title, item.key)})`}
               />
             ))}
@@ -113,18 +113,18 @@ export default function Chart({
       return (
         <ResponsiveContainer width="100%" height={height}>
           <BarChart data={data} layout="vertical" barCategoryGap={14}>
-            <CartesianGrid stroke="#27272f" strokeDasharray="3 3" />
-            <XAxis type="number" stroke="#71717a" tickLine={false} axisLine={{ stroke: "#3f3f46" }} />
+            <CartesianGrid stroke="#e8ddd1" strokeDasharray="4 4" />
+            <XAxis type="number" stroke="#869396" tickLine={false} axisLine={{ stroke: "#d9d1c7" }} />
             <YAxis
               dataKey={categoryKey}
               type="category"
-              stroke="#71717a"
-              width={96}
+              stroke="#869396"
+              width={110}
               tickLine={false}
-              axisLine={{ stroke: "#3f3f46" }}
+              axisLine={{ stroke: "#d9d1c7" }}
             />
             <Tooltip content={(props) => <ChartTooltip {...props} series={series} />} />
-            <Bar dataKey={bar.key} fill={bar.stroke} radius={[0, 10, 10, 0]} />
+            <Bar dataKey={bar.key} fill={bar.stroke} radius={[0, 12, 12, 0]} />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -147,18 +147,18 @@ export default function Chart({
                 endAngle={-270}
               >
                 {data.map((item) => (
-                  <Cell key={item[categoryKey]} fill={item.color} stroke="#111118" strokeWidth={3} />
+                  <Cell key={item[categoryKey]} fill={item.color} stroke="#fffaf4" strokeWidth={3} />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
           {legend.length ? (
-            <div className="flex flex-wrap items-center justify-center gap-5 pt-1">
+            <div className="flex flex-wrap items-center justify-center gap-4 pt-1">
               {legend.map((item) => (
-                <div key={item.label} className="flex items-center gap-2 text-base text-zinc-400">
+                <div key={item.label} className="flex items-center gap-2 text-[0.98rem] text-[color:var(--ink-soft)]">
                   <span className={`h-3.5 w-3.5 rounded-full ${item.dotClassName}`} />
                   <span>{item.label}</span>
-                  <span className="font-semibold text-zinc-50">{item.value}</span>
+                  <span className="font-semibold text-[color:var(--ink)]">{item.value}</span>
                 </div>
               ))}
             </div>
@@ -173,11 +173,11 @@ export default function Chart({
       return (
         <ResponsiveContainer width="100%" height={height}>
           <RadarChart data={data}>
-            <PolarGrid stroke="#4a4a55" />
-            <PolarAngleAxis dataKey={categoryKey} stroke="#787885" tickLine={false} />
-            <PolarRadiusAxis angle={90} domain={[0, 100]} stroke="#666676" tickCount={5} />
+            <PolarGrid stroke="#ddd1c5" />
+            <PolarAngleAxis dataKey={categoryKey} stroke="#869396" tickLine={false} />
+            <PolarRadiusAxis angle={90} domain={[0, 100]} stroke="#b4bfc1" tickCount={5} />
             <Tooltip content={(props) => <ChartTooltip {...props} series={series} />} />
-            <Radar dataKey={radar.key} stroke={radar.stroke} fill={radar.stroke} fillOpacity={0.42} />
+            <Radar dataKey={radar.key} stroke={radar.stroke} fill={radar.stroke} fillOpacity={0.28} />
           </RadarChart>
         </ResponsiveContainer>
       );
@@ -191,8 +191,8 @@ export default function Chart({
       title={title}
       subtitle={description}
       className={`p-6 ${className}`.trim()}
-      titleClassName="text-[1.15rem] font-bold leading-none text-zinc-50 sm:text-[1.2rem]"
-      subtitleClassName="pt-1 text-[0.98rem] text-zinc-500"
+      titleClassName="app-heading text-[1.45rem] leading-tight text-[color:var(--ink)]"
+      subtitleClassName="pt-1 text-[0.98rem] text-[color:var(--ink-soft)]"
     >
       {renderChart()}
     </Card>

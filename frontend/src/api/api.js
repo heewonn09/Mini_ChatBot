@@ -4,6 +4,35 @@ const api = axios.create({
   baseURL: "http://127.0.0.1:8000/api",
 });
 
+export function getErrorMessage(error, fallback = "Something went wrong.") {
+  if (!error) return fallback;
+  if (typeof error === "string") return error;
+
+  const detail = error.response?.data?.detail;
+
+  if (typeof detail === "string" && detail.trim()) {
+    return detail;
+  }
+
+  if (Array.isArray(detail) && detail.length) {
+    return detail
+      .map((item) => item?.msg || item?.message || item?.detail)
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  if (detail && typeof detail === "object") {
+    if (typeof detail.message === "string" && detail.message.trim()) return detail.message;
+    if (typeof detail.error === "string" && detail.error.trim()) return detail.error;
+  }
+
+  if (typeof error.message === "string" && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 export async function bootstrapDemoUser() {
   try {
     const { data } = await api.get("/users", { params: { limit: 1 } });
