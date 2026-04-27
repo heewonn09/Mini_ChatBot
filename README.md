@@ -23,6 +23,71 @@
 
 ---
 
+
+## ⚡ Quick Start
+
+```bash
+git clone <your-repo-url>
+cd Mini_ChatBot
+
+# backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn backend.main:app --reload
+
+# frontend
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## 📸 Screenshots
+
+> 실제 캡처 이미지는 아래 경로에 추가하면 README에서 바로 노출됩니다.
+
+### Dashboard
+![dashboard](./docs/dashboard.png)
+
+### Analysis
+![analysis](./docs/analysis.png)
+
+### Chat
+![chat](./docs/chat.png)
+
+## 🎥 Demo
+- Local Demo: http://127.0.0.1:5173
+
+---
+
+## 🔥 What makes this different?
+
+- UI 전용 API 계층(`/api/ui`) 설계로 프론트 결합도 감소
+- AI 미사용 환경에서도 fallback 분석으로 UX 유지
+- 행동 로그 → 분석 → 채팅 코칭까지 연결된 end-to-end 루프 설계
+
+> This project separates domain APIs and UI APIs to reduce frontend complexity and improve scalability.
+
+---
+
+## 🧠 Challenges & Solutions
+
+### 1) React 렌더링 안정성 이슈
+- 문제: 화면 데이터 구조가 바뀌거나 비어있을 때 렌더링 실패 가능성이 존재
+- 해결: `Outlet context` + fallback 데이터(`FALLBACK_OVERVIEW`) + 조건부 렌더링으로 안전한 표시 패턴 적용
+
+### 2) API 네트워크 불안정
+- 문제: Axios 네트워크 에러 발생 시 원인 파악이 어렵고 UX가 급격히 저하됨
+- 해결: request/response interceptor + 에러 분류(`response/request/setup`) + 사용자 친화 메시지 처리(`getErrorMessage`) 도입
+
+### 3) bcrypt/패스워드 해시 호환성
+- 문제: 런타임 환경에 따라 passlib+bcrypt 조합에서 해시 검증 이슈가 발생할 수 있음
+- 해결: `pbkdf2_sha256`를 기본 해시로 사용하고 `bcrypt`는 legacy 검증 용도로 유지해 인증 안정성 확보
+
+---
+
 ## 1. 프로젝트 개요
 
 ### 문제 정의
