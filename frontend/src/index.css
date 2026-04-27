@@ -228,3 +228,35 @@ progress {
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
   background: rgba(255, 255, 255, 0.94);
 }
+
+[data-theme="dark"] .app-panel,
+[data-theme="dark"] .app-panel-strong,
+[data-theme="dark"] .app-panel-soft {
+  background: linear-gradient(180deg, rgba(23, 32, 41, 0.94), rgba(17, 24, 31, 0.92));
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .app-secondary-button,
+[data-theme="dark"] .app-chip,
+[data-theme="dark"] .app-field,
+[data-theme="dark"] .app-textarea {
+  background: rgba(21, 30, 38, 0.92);
+  color: var(--ink);
+  border-color: var(--line-strong);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .app-field::placeholder,
+[data-theme="dark"] .app-textarea::placeholder {
+  color: #b8c7d3;
+}
+
+[data-theme="dark"] .app-field:focus,
+[data-theme="dark"] .app-textarea:focus {
+  background: rgba(26, 36, 45, 0.95);
+}
+
+[data-theme="dark"] {
+  --ink: #f2f7fb;
+  --ink-soft: #d0dbe5;
+}

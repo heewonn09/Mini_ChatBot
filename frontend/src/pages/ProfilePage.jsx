@@ -17,6 +17,7 @@ import { useOutletContext } from "react-router-dom";
 import { fetchProfileView, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
+import { useAppSettings } from "../context/AppSettingsContext";
 
 const metricUiMap = {
   check: {
@@ -79,6 +80,7 @@ function progressToneClass(tone) {
 }
 
 function ProfilePage() {
+  const { t, language } = useAppSettings();
   const { user, error: appError, refreshOverview } = useOutletContext();
   const [profile, setProfile] = useState(null);
   const [profileError, setProfileError] = useState("");
@@ -118,7 +120,7 @@ function ProfilePage() {
   }, [user, reloadKey]);
 
   if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">Loading profile...</Card>;
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{t.profile.loading}</Card>;
   }
 
   const errorMessage = profileError || (appError ? getErrorMessage(appError, "We couldn't load your profile.") : "");
@@ -130,7 +132,7 @@ function ProfilePage() {
   if (!profile) {
     return (
       <Card className="app-panel-strong space-y-4 p-6 text-[color:var(--ink-soft)]">
-        <p>No profile data available yet.</p>
+        <p>{t.profile.noData}</p>
         {user?.id ? (
           <button
             type="button"
@@ -140,7 +142,7 @@ function ProfilePage() {
             }}
             className="app-secondary-button"
           >
-            Refresh
+            {t.common.refresh}
           </button>
         ) : null}
       </Card>
@@ -164,15 +166,15 @@ function ProfilePage() {
         profileIcon={User}
         title={profile.display_name}
         description={profile.summary_description}
-        meta={`Member since ${profile.member_since}`}
+        meta={t.profile.memberSince.replace("{date}", profile.member_since)}
       />
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
         <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
           <div className="space-y-4">
-            <p className="app-kicker">Profile summary</p>
+            <p className="app-kicker">{t.profile.profileSummary}</p>
             <h2 className="app-heading text-[2.3rem] leading-[1.02] text-[color:var(--ink)] sm:text-[2.9rem]">
-              {profile.summary_title || (streakStat?.value ? `${streakStat.value} of visible momentum.` : "Your rhythm is taking shape.")}
+              {profile.summary_title || (streakStat?.value ? `${streakStat.value} of visible momentum.` : t.profile.fallbackMomentum)}
             </h2>
             <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">{profile.summary_description}</p>
 
@@ -226,10 +228,10 @@ function ProfilePage() {
         <Card className="p-6">
           <div className="space-y-7">
             <div className="space-y-2">
-              <p className="app-kicker">Consistency map</p>
-              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Weekly Activity</h2>
+              <p className="app-kicker">{t.profile.consistencyMap}</p>
+              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.profile.weeklyActivity}</h2>
               <p className="text-[0.98rem] leading-7 text-[color:var(--ink-soft)]">
-                Productive moments versus everything else across your week.
+                {t.profile.productiveVsOther}
               </p>
             </div>
 
@@ -248,11 +250,11 @@ function ProfilePage() {
             <div className="flex items-center gap-6 border-t border-[rgba(24,50,53,0.08)] pt-5">
               <div className="flex items-center gap-2 text-[0.98rem] text-[color:var(--ink-soft)]">
                 <span className="h-3.5 w-3.5 rounded bg-[#0f766e]" />
-                <span>Productive</span>
+                <span>{t.profile.productive}</span>
               </div>
               <div className="flex items-center gap-2 text-[0.98rem] text-[color:var(--ink-soft)]">
                 <span className="h-3.5 w-3.5 rounded bg-[#ddc7bc]" />
-                <span>Other</span>
+                <span>{t.profile.other}</span>
               </div>
             </div>
           </div>
@@ -262,7 +264,7 @@ function ProfilePage() {
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <Target size={18} className="text-[#0f766e]" />
-              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Weekly Goals</h2>
+              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.profile.weeklyGoals}</h2>
             </div>
 
             <div className="space-y-5">
@@ -290,10 +292,10 @@ function ProfilePage() {
         <div className="space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
-              <p className="app-kicker">Recent check-ins</p>
-              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Latest activity</h2>
+              <p className="app-kicker">{t.profile.recentCheckins}</p>
+              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.profile.latestActivity}</h2>
             </div>
-            <span className="app-chip text-sm">{recentActivity.length} items</span>
+            <span className="app-chip text-sm">{`${recentActivity.length} ${t.common.items}`}</span>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -306,7 +308,7 @@ function ProfilePage() {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-semibold text-[color:var(--ink-soft)]">{item.tag || "Other"}</span>
                     <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-soft)]">
-                      {new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {new Date(item.created_at).toLocaleDateString(language === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
                     </span>
                   </div>
                   <p className="font-semibold text-[color:var(--ink)]">{item.text}</p>
@@ -322,7 +324,7 @@ function ProfilePage() {
         <div className="space-y-6">
           <div className="flex items-center gap-2">
             <Trophy size={18} className="text-[#dd7a5f]" />
-            <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Achievements</h2>
+            <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.profile.achievements}</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -343,10 +345,10 @@ function ProfilePage() {
                     {achievement.unlocked ? (
                       <div className="flex items-center gap-2 text-sm font-semibold text-[#0f766e]">
                         <CheckCircle2 size={14} />
-                        <span>Unlocked</span>
+                        <span>{t.profile.unlocked}</span>
                       </div>
                     ) : (
-                      <div className="text-sm font-semibold text-[color:var(--ink-soft)]">Still in progress</div>
+                      <div className="text-sm font-semibold text-[color:var(--ink-soft)]">{t.profile.inProgress}</div>
                     )}
                   </div>
                 </Card>
