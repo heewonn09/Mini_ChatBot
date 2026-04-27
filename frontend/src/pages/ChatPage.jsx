@@ -13,7 +13,7 @@ const fallbackSuggestions = [
 ];
 
 function ChatPage() {
-  const { user } = useOutletContext();
+  const { user, t } = useOutletContext();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [suggestions, setSuggestions] = useState(fallbackSuggestions);
@@ -56,7 +56,7 @@ function ChatPage() {
   };
 
   if (loading) {
-    return <Card className="p-6 text-zinc-300">Loading chat assistant...</Card>;
+    return <Card className="p-6 text-zinc-300">{t.chatLoading}</Card>;
   }
 
   return (

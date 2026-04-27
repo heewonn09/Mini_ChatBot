@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.behavior import User
 from backend.schemas.behavior import UserCreate, UserResponse
+from backend.schemas.auth import UserLoginRequest
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -26,6 +27,19 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+@router.post("/login", response_model=UserResponse)
+def login_user(payload: UserLoginRequest, db: Session = Depends(get_db)):
+    """Login with username or email"""
+    user = db.query(User).filter(
+        (User.email == payload.identifier) | (User.username == payload.identifier)
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return user
 
 
 @router.get("/{user_id}", response_model=UserResponse)

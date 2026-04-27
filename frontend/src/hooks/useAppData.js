@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { bootstrapDemoUser, ensureSeedLogs, fetchOverview } from "../api/api";
+import { ensureSeedLogs, fetchOverview } from "../api/api";
 
-export default function useAppData() {
-  const [user, setUser] = useState(null);
+export default function useAppData(user) {
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -17,13 +16,16 @@ export default function useAppData() {
 
   useEffect(() => {
     const init = async () => {
+      if (!user?.id) {
+        setOverview(null);
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         setError("");
-        const createdUser = await bootstrapDemoUser();
-        setUser(createdUser);
-        await ensureSeedLogs(createdUser.id);
-        const data = await fetchOverview(createdUser.id);
+        await ensureSeedLogs(user.id);
+        const data = await fetchOverview(user.id);
         setOverview(data);
       } catch {
         setError("We couldn't load your Mindflow data.");
@@ -33,7 +35,7 @@ export default function useAppData() {
     };
 
     init();
-  }, []);
+  }, [user]);
 
   return { user, overview, loading, error, refreshOverview };
 }
