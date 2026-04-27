@@ -132,15 +132,10 @@ flowchart LR
 
 ## 3. 기술 아키텍처
 
-```mermaid
-flowchart TD
-    U[User] --> FE[React 19 + Vite Frontend]
-    FE --> API[FastAPI Backend]
-    API --> DB[(SQLite / MySQL)]
-    API --> PA[PatternAnalysisService]
-    API --> AI[AIFeedbackService]
-    AI --> GEM[Google Gemini API (optional)]
-```
+
+<img width="1377" height="962" alt="mermaid-diagram" src="https://github.com/user-attachments/assets/081dc9b4-48cc-4414-8109-aec1655aba63" />
+
+
 
 ### 레이어 구성
 
