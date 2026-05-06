@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
+import { useAppSettings } from "../context/AppSettingsContext";
 import { askAssistant, fetchChatBootstrap, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
@@ -14,6 +15,7 @@ const fallbackSuggestions = [
 
 function ChatPage() {
   const { user } = useOutletContext();
+  const { t } = useAppSettings();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [suggestions, setSuggestions] = useState(fallbackSuggestions);
@@ -68,7 +70,7 @@ function ChatPage() {
   };
 
   if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">Loading chat assistant...</Card>;
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{t.chat.loading}</Card>;
   }
 
   return (
@@ -76,8 +78,8 @@ function ChatPage() {
       <PageHeader
         variant="icon"
         badgeIcon={Bot}
-        title="Chat Assistant"
-        description="Ask for a quick interpretation of your patterns, a focus reset, or a practical next step."
+        title={t.chat.title}
+        description={t.chat.description}
       />
 
       <div className="grid gap-6 xl:grid-cols-[0.88fr,1.12fr]">
@@ -87,14 +89,14 @@ function ChatPage() {
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-white/14">
                 <Sparkles size={20} strokeWidth={2.2} />
               </div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-white/70">Conversation starter</p>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-white/70">{t.chat.starter}</p>
               <p className="mt-4 text-[1rem] leading-8 text-white/92">{messages[0]?.text}</p>
             </div>
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <p className="app-kicker">Try asking</p>
-                <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Suggested prompts</h2>
+                <p className="app-kicker">{t.chat.tryAsking}</p>
+                <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.chat.suggested}</h2>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -112,9 +114,9 @@ function ChatPage() {
             </div>
 
             <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] p-5">
-              <p className="app-kicker">Best use</p>
+              <p className="app-kicker">{t.chat.bestUse}</p>
               <p className="mt-3 text-[1rem] leading-7 text-[color:var(--ink-soft)]">
-                Use short, direct questions. "What pattern should I fix first?" usually gives better coaching than a long prompt.
+                {t.chat.bestUseDesc}
               </p>
             </div>
           </div>
@@ -151,7 +153,7 @@ function ChatPage() {
                   <Sparkles size={18} strokeWidth={2.2} />
                 </div>
                 <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-white/78 px-5 py-4 text-[color:var(--ink-soft)] shadow-[var(--shadow-sm)]">
-                  Thinking...
+                  {t.chat.thinking}
                 </div>
               </div>
             ) : null}
@@ -165,7 +167,7 @@ function ChatPage() {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 className="flex-1 bg-transparent px-3 py-2 text-[1rem] text-[color:var(--ink)] outline-none placeholder:text-[color:var(--ink-soft)]"
-                placeholder="Ask about your habits..."
+                placeholder={t.chat.placeholder}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();

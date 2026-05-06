@@ -7,7 +7,8 @@ from backend.database import engine, Base, create_tables   # create_tables 추�
 from backend.routers import users, behaviors, analysis, ui, auth
 
 # ✅ 올바른 모델 import (중요!)
-from backend.models.users import User, BehaviorLog
+from backend.models.behavior import User, BehaviorLog
+from backend.models.chat import ChatHistory
 
 settings = get_settings()
 
