@@ -53,47 +53,36 @@ npm run dev
 
 ---
 
-## 4) DEMO 버전 (원커맨드 시드)
+## DEMO 모드 실행
 
-아래 스크립트는 데모 계정/행동로그/기본 채팅 히스토리를 생성하고 프론트 빌드를 준비합니다.
+원커맨드 준비:
 
 ```bash
 ./run_demo.sh
 ```
 
-스크립트 동작:
-1. `scripts/demo_seed.py` 실행 (데모 유저 + 로그 + 채팅 시드)
-2. `frontend` 의존성 설치 후 빌드
+실행 내용:
+1. 백엔드 의존성 설치
+2. `scripts/demo_seed.py` 실행
+   - 데모 유저 생성
+   - 행동 로그 시드
+   - 채팅 히스토리 시드
+3. 프론트 의존성 설치 + 빌드
 
-기본 데모 계정(환경변수로 변경 가능):
-- Email: `demo@mindflow.local`
-- Password: `demo12345`
+기본 데모 계정:
+- `demo@mindflow.local`
+- `demo12345`
 
-변경용 환경변수:
+오버라이드 환경변수:
 - `DEMO_EMAIL`
 - `DEMO_USERNAME`
 - `DEMO_PASSWORD`
 
 ---
 
-## 5) Docker Compose 실행
+## 환경변수
 
-```bash
-docker compose up --build
-```
-
-포함 서비스:
-- `mysql` (3307)
-- `redis` (6379)
-- `backend` (8000)
-
-`docker-compose.yml`에서 `DATABASE_URL`, `REDIS_URL`, `GOOGLE_API_KEY`, `JWT_SECRET_KEY`를 주입합니다.
-
----
-
-## 6) 환경변수
-
-루트의 `.env.example` 기준:
+`.env.example` 기준:
 
 - `DATABASE_URL`
 - `DATABASE_ECHO`
@@ -102,11 +91,24 @@ docker compose up --build
 - `VITE_API_BASE_URL`
 - `REDIS_URL`
 
-보안상 `.env`는 Git에 커밋하지 않습니다.
+> `.env` 파일은 민감정보가 포함되므로 Git에 커밋하지 않습니다.
 
 ---
 
-## 7) API 개요
+## Docker Compose 실행
+
+```bash
+docker compose up --build
+```
+
+기본 서비스:
+- `backend` (8000)
+- `mysql` (3307 -> 3306)
+- `redis` (6379)
+
+---
+
+## API 요약
 
 ### Auth
 - `POST /api/auth/signup`
@@ -122,43 +124,60 @@ docker compose up --build
 
 ### Analysis
 - `POST /api/analysis/{user_id}`
-  - Redis 캐시 키: `analysis:{user_id}:{days}`
+  - Redis 캐시 적용
 
 ### UI
 - `GET /api/ui/{user_id}/overview`
 - `GET /api/ui/{user_id}/analysis`
 - `GET /api/ui/{user_id}/profile`
 - `GET /api/ui/{user_id}/chat/bootstrap`
-- `POST /api/ui/{user_id}/chat`
-  - Rate limit: 기본 30 req / 60 sec / user
-- `GET /api/ui/{user_id}/chat/history`
-  - 최근 대화 50개 조회 (오래된 순)
+- `GET /api/ui/{user_id}/chat/history` (최근 대화 조회)
+- `POST /api/ui/{user_id}/chat` (rate limit 적용)
 
 ---
 
-## 8) 현재 상태와 다음 단계
+## 테스트/CI
 
-### 현재 완료
-- 채팅 히스토리 저장 및 컨텍스트 반영
-- Redis 캐시/레이트리밋 동작 경로 반영
-- 로컬 DEMO 시드 스크립트 + 원커맨드 실행
-- Chat 페이지 KR/EN 분리 적용
+### 로컬 테스트
 
-### 권장 다음 단계
-- 전체 페이지 KR/EN 100% 번역키 추출/적용
-- Redis 세션/토큰 블랙리스트 연계
-- DB 마이그레이션(Alembic) 도입
-- E2E 테스트(로그인 → 로그작성 → 분석 → 채팅) 자동화
+```bash
+python -m compileall backend
+python -m unittest discover -s backend/tests -p 'test_*.py'
+```
+
+### GitHub Actions
+
+- `backend-tests.yml`
+  - backend 의존성 설치
+  - compileall
+  - unittest
+- `frontend-tests.yml`
+  - npm ci
+  - lint
+  - build
 
 ---
 
-## 9) 트러블슈팅
+## 트러블슈팅
 
-- `ModuleNotFoundError` 발생 시: 백엔드 의존성 설치 여부 확인
-  - `pip install -r backend/requirements.txt`
-- 프론트 빌드 시 Vite 플러그인 누락 오류:
-  - `frontend/package.json` 의존성 설치 상태 확인
-  - `npm install` 재실행
-- Redis 미가동 환경:
-  - 앱은 메모리 fallback으로 동작하지만, 운영환경에서는 Redis 실행 권장
+1) `ModuleNotFoundError`
+- 백엔드 의존성 설치 확인: `pip install -r backend/requirements.txt`
+
+2) npm install/build 실패
+- 레지스트리 접근/사내 보안정책 확인
+- `npm cache clean --force` 후 재시도
+
+3) Redis 미연결
+- 개발환경에서는 fallback으로 동작 가능
+- 운영환경에서는 Redis 연결을 권장
+
+---
+
+## 향후 확장 제안
+
+- 페이지 전체 KR/EN 번역 100% 커버
+- Redis 세션/토큰 블랙리스트
+- Alembic 마이그레이션 도입
+- E2E 테스트 자동화
+- 채팅 장기 메모리 요약/압축 전략
 
