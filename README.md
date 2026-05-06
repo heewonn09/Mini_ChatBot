@@ -41,7 +41,7 @@ Mindflow는 “기록 → 분석 → 피드백” 루프를 빠르게 만들기 
 - Redis unavailable 시 메모리 fallback
 - EN/KR UI 토글(현재 공통 + Chat 중심)
 
----
+원커맨드 준비:
 
 ## 기술 스택/아키텍처
 
