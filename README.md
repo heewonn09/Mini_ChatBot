@@ -1,86 +1,48 @@
 # Mindflow (Mini_ChatBot)
 
-행동 기록을 기반으로 패턴을 분석하고, AI 코치와 대화할 수 있는 풀스택 서비스입니다.  
-현재 버전은 **사용자 인증 + 행동 로그 + 분석 + 채팅 히스토리 + Redis 캐시/레이트리밋 + DEMO 시드 + CI**까지 포함합니다.
+행동 기록 + 감정 패턴 분석 + AI 코칭을 결합한 풀스택 앱입니다.  
+FastAPI(백엔드) + React/Vite(프론트) 기반이며, Redis 캐시/레이트리밋, 채팅 히스토리 저장, 로컬 DEMO 시드를 포함합니다.
 
 ---
 
-## 목차
-1. [프로젝트 개요](#프로젝트-개요)
-2. [핵심 기능](#핵심-기능)
-3. [기술 스택/아키텍처](#기술-스택아키텍처)
-4. [빠른 실행 (Local)](#빠른-실행-local)
-5. [DEMO 모드 실행](#demo-모드-실행)
-6. [환경변수](#환경변수)
-7. [Docker Compose 실행](#docker-compose-실행)
-8. [API 요약](#api-요약)
-9. [테스트/CI](#테스트ci)
-10. [트러블슈팅](#트러블슈팅)
-11. [향후 확장 제안](#향후-확장-제안)
+## 1) 핵심 기능
+
+- 회원가입/로그인(JWT) 기반 사용자별 데이터 분리
+- 행동 로그 저장 및 패턴 분석
+- AI 채팅 코치 + 채팅 히스토리 저장(`chat_history`)
+- Redis 기반 분석 캐시(응답 가속)
+- Redis 기반 채팅 rate limit(남용 방지)
+- KR/EN UI 토글(현재 공통/채팅 중심으로 적용)
 
 ---
 
-## 프로젝트 개요
+## 2) 아키텍처 요약
 
-Mindflow는 “기록 → 분석 → 피드백” 루프를 빠르게 만들기 위한 프로젝트입니다.
-
-- **기록**: 사용자 행동/감정 로그 저장
-- **분석**: 패턴 계산 및 인사이트 생성
-- **대화**: AI 코치에게 질문 + 과거 대화 기억
-
----
-
-## 핵심 기능
-
-- JWT 기반 회원가입/로그인
-- 사용자별 행동 로그 CRUD
-- 최근 N일 행동 패턴 분석
-- 채팅 히스토리 DB 저장 (`chat_history`)
-- Redis 기반 분석 캐시 (`analysis:{user_id}:{days}`)
-- Redis 기반 채팅 레이트리밋 (`rate:chat:{user_id}`)
-- Redis unavailable 시 메모리 fallback
-- EN/KR UI 토글(현재 공통 + Chat 중심)
+- **Backend**: FastAPI + SQLAlchemy
+  - 도메인 모델: `User`, `BehaviorLog`, `ChatHistory`
+  - 라우터: `auth`, `users`, `behaviors`, `analysis`, `ui`
+- **Frontend**: React + Vite
+  - 라우팅 + 대시보드/분석/로그/채팅/프로필
+  - Axios 인터셉터 + 토큰 자동 주입
+- **Data/Infra**:
+  - DB: SQLite(기본) / MySQL(옵션)
+  - Cache/Throttle: Redis
 
 ---
 
-## 기술 스택/아키텍처
+## 3) 빠른 시작 (로컬 개발)
 
-### Backend
-- FastAPI
-- SQLAlchemy
-- Pydantic
-- JWT (`python-jose`)
-- Redis client (fallback 포함)
-
-### Frontend
-- React + Vite
-- React Router
-- Axios
-
-### Infra
-- SQLite (기본)
-- MySQL (옵션)
-- Redis
-- Docker Compose
-- GitHub Actions (backend/frontend workflow)
-
----
-
-## 빠른 실행 (Local)
-
-### 1) 백엔드
+### A. 수동 실행
 
 ```bash
+# 1) 백엔드
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r backend/requirements.txt
 cp .env.example .env
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
 
-### 2) 프론트엔드
-
-```bash
+# 2) 프론트엔드 (새 터미널)
 cd frontend
 npm install
 npm run dev
