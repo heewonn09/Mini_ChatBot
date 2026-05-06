@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 import { useAppSettings } from "../context/AppSettingsContext";
-import { askAssistant, fetchChatBootstrap, getErrorMessage } from "../api/api";
+import { askAssistant, fetchChatBootstrap, fetchChatHistory, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 
@@ -28,9 +28,10 @@ function ChatPage() {
     let active = true;
 
     const load = async () => {
-      const bootstrap = await fetchChatBootstrap(user.id);
+      const [bootstrap, history] = await Promise.all([fetchChatBootstrap(user.id), fetchChatHistory(user.id)]);
       if (!active) return;
-      setMessages([{ role: "assistant", text: bootstrap.intro }]);
+      const normalized = (history.items || []).map((item) => ({ role: item.role, text: item.message }));
+      setMessages(normalized.length ? normalized : [{ role: "assistant", text: bootstrap.intro }]);
       setSuggestions(bootstrap.suggested_prompts?.length ? bootstrap.suggested_prompts : fallbackSuggestions);
       setLoading(false);
     };

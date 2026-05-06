@@ -84,36 +84,25 @@ Mini_ChatBot/
 
 ```mermaid
 flowchart LR
-    A[회원가입/로그인] --> B[행동 로그 기록]
-    B --> C[대시보드 요약]
-    C --> D[심층 분석 화면]
-    D --> E[AI 코치 채팅]
-    E --> F[프로필/목표/업적]
+  U[User Browser] --> F[React Frontend]
+  F --> B[FastAPI Backend]
+  B --> DB[(SQLite/MySQL)]
+  B --> R[(Redis Cache/RateLimit)]
+  B --> AI[Gemini API Optional]
 ```
-
-### 페이지별 역할
-
-- **Auth**: 이메일/아이디 기반 가입/로그인 + JWT 발급
-- **Log**: 카테고리, 감정, 시간 포함 행동 기록 생성
-- **Dashboard**: 주간 핵심 카드 + 타임라인 + 감정 추이 + 최근 활동
-- **Analysis**: 분포/레이더/추천 액션 중심 심층 분석
-- **Chat**: 분석 기반 질의응답형 코칭
-- **Profile**: 활동 통계, 주간 목표, 업적 시각화
 
 ---
 
 ## 🏗️ 아키텍처 요약
 
-### 레이어 구성
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-| 레이어 | 구현 |
-| --- | --- |
-| **Frontend** | React Router 기반 멀티페이지, Axios API 클라이언트, Recharts 시각화 |
-| **Backend API** | FastAPI 라우터 분리(`auth`, `behaviors`, `analysis`, `ui`, `users`) |
-| **Domain Model** | `User`, `BehaviorLog` 중심의 관계형 모델 |
-| **Analysis Engine** | 감정 비율/강도 평균/트렌드/리스크 패턴 계산 |
-| **AI Layer** | Gemini 호출 + 실패/미설정 대비 fallback 생성 |
-| **Auth/Security** | JWT Bearer 인증, 사용자 본인 데이터 접근 제한 |
+- Backend: `http://127.0.0.1:8000`
+- Frontend: `http://127.0.0.1:5173`
 
 ### 왜 `/api/ui` 계층이 중요한가?
 
@@ -161,7 +150,9 @@ flowchart LR
 
 운영 관점에서 이는 데모/개발/네트워크 장애 상황에서 강력한 안정장치입니다.
 
----
+### Analysis
+- `POST /api/analysis/{user_id}`
+  - Redis 캐시 적용
 
 ## 🌐 API 요약
 
@@ -237,7 +228,6 @@ docker compose up --build
 - 프론트(`5173`)와 백엔드(`8000`) 주소가 다를 때 발생할 수 있습니다.
 - 백엔드 CORS 설정 및 실제 접속 URL을 일치시켜 주세요.
 
----
 
 ## 🚀 향후 개선 아이디어
 
@@ -247,7 +237,7 @@ docker compose up --build
 - 실시간 알림(일일 리마인더, 주간 리포트)
 - 테스트 자동화(backend pytest + frontend vitest/e2e)
 
----
+## 배포 전 체크리스트
 
 ## 📄 License
 

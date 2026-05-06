@@ -227,6 +227,11 @@ export async function fetchChatBootstrap(userId) {
   return data;
 }
 
+export async function fetchChatHistory(userId) {
+  const { data } = await withErrorLogging("fetchChatHistory", () => api.get(`/ui/${userId}/chat/history`));
+  return data;
+}
+
 export async function createBehavior(userId, payload) {
   const { data } = await withErrorLogging("createBehavior", () => api.post(`/behaviors/${userId}`, payload));
   return data;
