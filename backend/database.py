@@ -11,8 +11,8 @@ def _build_engine(database_url: str):
         database_url,
         echo=settings.database_echo,
         connect_args={"check_same_thread": False} if is_sqlite else {},
-        pool_pre_ping=True,  # Verify connections before using them
-        pool_recycle=3600,   # Recycle connections every hour
+        pool_pre_ping=True,
+        pool_recycle=3600,
     )
 
 
@@ -22,9 +22,11 @@ def _create_engine_with_fallback():
         with primary_engine.connect():
             pass
         return primary_engine
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ MySQL 연결 실패: {e}")
         if settings.database_url.startswith("sqlite"):
             raise
+        print("🔄 SQLite fallback 사용")
         fallback_url = "sqlite:///./mini_chatbot.db"
         return _build_engine(fallback_url)
 
@@ -38,6 +40,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Base class for models
 Base = declarative_base()
 
+# ==================== 가장 중요한 부분 ====================
+# 모든 모델을 여기서 import (테이블 생성을 위해)
+from backend.models.users import User, BehaviorLog
+# 다른 모델이 있으면 아래에 계속 추가
+# from backend.models.behavior import XXX
+# =========================================================
 
 def get_db() -> Session:
     """Dependency for getting database session"""
@@ -46,3 +54,9 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+
+# 테이블 자동 생성 함수 (startup에서 호출용)
+def create_tables():
+    Base.metadata.create_all(bind=engine)
+    print(" All tables created successfully!")
