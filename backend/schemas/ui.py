@@ -126,3 +126,13 @@ class ChatResponse(BaseModel):
 class ChatBootstrapResponse(BaseModel):
     intro: str
     suggested_prompts: List[str]
+
+
+class ChatHistoryItem(BaseModel):
+    role: str
+    message: str
+    created_at: datetime
+
+
+class ChatHistoryResponse(BaseModel):
+    items: List[ChatHistoryItem]

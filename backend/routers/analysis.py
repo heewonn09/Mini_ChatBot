@@ -6,6 +6,7 @@ from backend.models.behavior import User
 from backend.schemas.behavior import PatternAnalysisRequest, PatternAnalysisResult
 from backend.services.pattern_analysis_service import PatternAnalysisService
 from backend.services.ai_feedback_service import AIFeedbackService
+from backend.redis_client import redis_store
 
 router = APIRouter(prefix="/api/analysis", tags=["Analysis"])
 
@@ -29,6 +30,11 @@ def analyze_user_patterns(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    cache_key = f"analysis:{user_id}:{request.days}"
+    cached = redis_store.get_json(cache_key)
+    if cached:
+        return PatternAnalysisResult(**cached)
+
     # Run pattern analysis
     analysis = PatternAnalysisService.analyze_behaviors(
         user_id=user_id,
@@ -38,5 +44,6 @@ def analyze_user_patterns(
     
     # Generate AI feedback
     analysis.ai_feedback = ai_service.generate_feedback(analysis)
-    
+    redis_store.set_json(cache_key, analysis.model_dump(mode="json"), ex_seconds=300)
+
     return analysis
