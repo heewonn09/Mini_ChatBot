@@ -1,4 +1,11 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: mini_chatbot_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
   mysql:
     image: mysql:8.0
     container_name: pattern_mysql
@@ -23,8 +30,12 @@ services:
       - "8000:8000"
     depends_on:
       - mysql
+      - redis
     environment:
       - DATABASE_URL=mysql+pymysql://user:user123@mysql:3306/pattern_db
+      - REDIS_URL=redis://redis:6379/0
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-in-production}
     volumes:
       - ./backend:/app
     working_dir: /app
