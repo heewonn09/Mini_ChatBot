@@ -62,7 +62,7 @@ npm run dev
 ```
 
 스크립트 동작:
-1. `scripts_demo_seed.py` 실행 (데모 유저 + 로그 + 채팅 시드)
+1. `scripts/demo_seed.py` 실행 (데모 유저 + 로그 + 채팅 시드)
 2. `frontend` 의존성 설치 후 빌드
 
 기본 데모 계정(환경변수로 변경 가능):

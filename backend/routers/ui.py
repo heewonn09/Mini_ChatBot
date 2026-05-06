@@ -54,7 +54,6 @@ def get_overview(
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
-    _check_chat_rate_limit(user_id)
     user = _get_user(user_id, db)
     logs = _get_logs(user_id, db, days=7, ascending=True)
 
@@ -246,6 +245,7 @@ def chat_with_assistant(
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
+    _check_chat_rate_limit(user_id)
     user = _get_user(user_id, db)
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=14, db=db)
     summary = ai_service.generate_feedback(analysis)
