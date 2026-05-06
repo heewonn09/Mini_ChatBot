@@ -42,7 +42,8 @@ Base = declarative_base()
 
 # ==================== 가장 중요한 부분 ====================
 # 모든 모델을 여기서 import (테이블 생성을 위해)
-from backend.models.users import User, BehaviorLog
+from backend.models.behavior import User, BehaviorLog
+from backend.models.chat import ChatHistory
 # 다른 모델이 있으면 아래에 계속 추가
 # from backend.models.behavior import XXX
 # =========================================================

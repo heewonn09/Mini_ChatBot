@@ -6,6 +6,7 @@ from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.models.chat import ChatHistory
 from backend.models.behavior import BehaviorLog, User
 from backend.schemas.ui import (
     AchievementItem,
@@ -30,8 +31,11 @@ from backend.schemas.ui import (
 )
 from backend.services.ai_feedback_service import AIFeedbackService
 from backend.services.pattern_analysis_service import PatternAnalysisService
+from backend.redis_client import redis_store
 
 router = APIRouter(prefix="/api/ui", tags=["UI"])
+CHAT_RATE_LIMIT = 30
+CHAT_RATE_WINDOW = 60
 ai_service = AIFeedbackService()
 
 NEGATIVE_EMOTIONS = {"sad", "angry", "anxious", "stressed", "depressed"}
@@ -50,6 +54,7 @@ def get_overview(
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
+    _check_chat_rate_limit(user_id)
     user = _get_user(user_id, db)
     logs = _get_logs(user_id, db, days=7, ascending=True)
 
@@ -227,6 +232,10 @@ def get_chat_bootstrap(
         f"you understand your habits better. Your strongest signal right now is {top_emotion}."
     )
 
+    history = db.query(ChatHistory).filter(ChatHistory.user_id == user_id).order_by(ChatHistory.created_at.desc()).limit(6).all()
+    if history:
+        intro += " I also remember your recent conversation context."
+
     return ChatBootstrapResponse(intro=intro, suggested_prompts=CHAT_SUGGESTIONS)
 
 
@@ -241,11 +250,19 @@ def chat_with_assistant(
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=14, db=db)
     summary = ai_service.generate_feedback(analysis)
 
+    recent_messages = db.query(ChatHistory).filter(ChatHistory.user_id == user_id).order_by(ChatHistory.created_at.desc()).limit(8).all()
+    memory = "\n".join(f"{item.role}: {item.message}" for item in reversed(recent_messages))
+
     answer = (
         f"Question: {payload.message}\n\n"
+        f"Recent conversation memory:\n{memory if memory else '(none)'}\n\n"
         f"Here is a concise behavior summary for {_format_display_name(user.username)} based on the most recent logs.\n\n"
         f"{summary}"
     )
+
+    db.add(ChatHistory(user_id=user_id, role="user", message=payload.message))
+    db.add(ChatHistory(user_id=user_id, role="assistant", message=answer))
+    db.commit()
     return ChatResponse(answer=answer)
 
 
@@ -623,3 +640,10 @@ def _build_profile_summary_description(
         f"and your strongest focus window is around {_hour_range(best_hour)}. "
         "Keep feeding the timeline with small, honest check-ins."
     )
+
+
+def _check_chat_rate_limit(user_id: int):
+    key = f"rate:chat:{user_id}"
+    count = redis_store.incr_with_ttl(key, CHAT_RATE_WINDOW)
+    if count > CHAT_RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Too many chat requests. Try again in a minute.")

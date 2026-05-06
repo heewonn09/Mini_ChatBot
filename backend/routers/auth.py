@@ -6,7 +6,7 @@ from backend.auth import create_access_token, get_current_user, hash_password, v
 from backend.database import get_db
 
 #  여기 수정 (behavior → users)
-from backend.models.users import User
+from backend.models.behavior import User
 
 from backend.schemas.behavior import TokenResponse, UserCreate, UserLogin   # schemas는 그대로
 
