@@ -131,6 +131,8 @@ docker compose up --build
 - `GET /api/ui/{user_id}/chat/bootstrap`
 - `POST /api/ui/{user_id}/chat`
   - Rate limit: 기본 30 req / 60 sec / user
+- `GET /api/ui/{user_id}/chat/history`
+  - 최근 대화 50개 조회 (오래된 순)
 
 ---
 

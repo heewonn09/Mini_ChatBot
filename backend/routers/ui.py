@@ -13,6 +13,8 @@ from backend.schemas.ui import (
     AnalysisResponse,
     BehaviorDistributionItem,
     ChatBootstrapResponse,
+    ChatHistoryItem,
+    ChatHistoryResponse,
     ChatRequest,
     ChatResponse,
     EmotionTrendPoint,
@@ -264,6 +266,25 @@ def chat_with_assistant(
     db.add(ChatHistory(user_id=user_id, role="assistant", message=answer))
     db.commit()
     return ChatResponse(answer=answer)
+
+
+@router.get("/{user_id}/chat/history", response_model=ChatHistoryResponse)
+def get_chat_history(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    rows = (
+        db.query(ChatHistory)
+        .filter(ChatHistory.user_id == user_id)
+        .order_by(ChatHistory.created_at.asc())
+        .limit(50)
+        .all()
+    )
+    return ChatHistoryResponse(
+        items=[ChatHistoryItem(role=row.role, message=row.message, created_at=row.created_at) for row in rows]
+    )
 
 
 def _get_user(user_id: int, db: Session) -> User:
