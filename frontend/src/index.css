@@ -260,3 +260,34 @@ progress {
   --ink: #f2f7fb;
   --ink-soft: #d0dbe5;
 }
+
+:root {
+  --bg: #f6efe7;
+  --surface: #fffaf4;
+  --surface-soft: #f7f0e7;
+  --text: #183235;
+  --text-muted: #5f6f73;
+  --primary: #0f766e;
+  --primary-contrast: #ffffff;
+  --border: rgba(24, 50, 53, 0.16);
+  --chip-bg: rgba(255,255,255,0.78);
+  --chip-text: var(--text);
+}
+[data-theme="dark"] {
+  --bg: #0f151b;
+  --surface: #172029;
+  --surface-soft: #1d2630;
+  --text: #eef4fa;
+  --text-muted: #b6c2cd;
+  --primary: #1b8d84;
+  --primary-contrast: #ffffff;
+  --border: rgba(224,236,247,0.25);
+  --chip-bg: #22303c;
+  --chip-text: var(--text);
+}
+html, body { background: var(--bg) !important; color: var(--text) !important; }
+.app-chip { background: var(--chip-bg); color: var(--chip-text); border-color: var(--border); }
+.app-secondary-button { background: var(--surface); color: var(--text); border-color: var(--border); }
+.app-field, .app-textarea, select, input, textarea { background: var(--surface); color: var(--text); border-color: var(--border); }
+.app-field::placeholder, .app-textarea::placeholder { color: var(--text-muted); }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

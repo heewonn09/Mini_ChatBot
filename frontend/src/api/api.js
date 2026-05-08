@@ -244,9 +244,9 @@ export async function fetchBehaviors(userId, limit = 20) {
   return data;
 }
 
-export async function askAssistant(userId, message) {
+export async function askAssistant(userId, message, language = "en") {
   const { data } = await withErrorLogging("askAssistant", () =>
-    api.post(`/ui/${userId}/chat`, { message })
+    api.post(`/ui/${userId}/chat`, { message, language })
   );
   return data;
 }

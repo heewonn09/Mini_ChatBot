@@ -15,7 +15,7 @@ const fallbackSuggestions = [
 
 function ChatPage() {
   const { user } = useOutletContext();
-  const { t } = useAppSettings();
+  const { t, language } = useAppSettings();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [suggestions, setSuggestions] = useState(fallbackSuggestions);
@@ -55,7 +55,7 @@ function ChatPage() {
     setSending(true);
 
     try {
-      const data = await askAssistant(user.id, value);
+      const data = await askAssistant(user.id, value, language);
       setMessages([...next, { role: "assistant", text: data.answer }]);
     } catch (error) {
       setMessages([
