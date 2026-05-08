@@ -34,7 +34,7 @@ function Card({
   const hasValue = value !== undefined && value !== null && value !== "";
 
   return (
-    <article className={`app-panel rounded-[2rem] border ${className}`.trim()}>
+    <article className={`app-panel rounded-[2rem] border border-white/30 bg-white/55 backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 hover:scale-[1.005] ${className}`.trim()}>
       {(icon || trendUi) ? (
         <div className="mb-4 flex items-start justify-between">
           {icon ? (

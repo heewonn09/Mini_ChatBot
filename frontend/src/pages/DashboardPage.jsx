@@ -79,7 +79,7 @@ function DashboardPage() {
       <PageHeader
         variant="hero"
         title={t("dashboard.welcome", { name: welcomeName })}
-        description="A calmer control room for your focus windows, distractions, and small daily wins."
+        description={t("dashboard.heroDesc")}
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr,0.95fr]">
@@ -89,11 +89,11 @@ function DashboardPage() {
               <p className="app-kicker">{t("dashboard.weekAtGlance")}</p>
               <div className="space-y-4">
                 <h2 className="app-heading text-[2.35rem] leading-[1.02] text-[color:var(--ink)] sm:text-[3rem]">
-                  {leadInsight?.title ?? "Your routines are becoming easier to read."}
+                  {leadInsight?.title ?? t("dashboard.routineFallback")}
                 </h2>
                 <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">
                   {leadInsight?.description ??
-                    "Keep logging consistently and Mindflow will keep turning scattered moments into clear patterns."}
+                    t("dashboard.patternFallback")}
                 </p>
               </div>
 
@@ -120,16 +120,16 @@ function DashboardPage() {
 
               <div className="space-y-4">
                 <div className="rounded-[1.35rem] bg-white/12 p-4">
-                  <p className="text-sm font-semibold text-white/72">What to protect</p>
-                  <p className="mt-2 text-base leading-7 text-white">{focusInsight?.description ?? "Your best hours are worth guarding from noise."}</p>
+                  <p className="text-sm font-semibold text-white/72">{t("dashboard.whatToProtect")}</p>
+                  <p className="mt-2 text-base leading-7 text-white">{focusInsight?.description ?? t("dashboard.protectFallback")}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-[1.35rem] bg-white/10 p-4">
-                    <p className="text-sm text-white/70">Risk zone</p>
+                    <p className="text-sm text-white/70">{t("dashboard.riskZone")}</p>
                     <p className="mt-2 text-lg font-bold">{statsByTitle["Worst Habit Time"]?.value ?? "--"}</p>
                   </div>
                   <div className="rounded-[1.35rem] bg-white/10 p-4">
-                    <p className="text-sm text-white/70">Momentum</p>
+                    <p className="text-sm text-white/70">{t("dashboard.momentum")}</p>
                     <p className="mt-2 text-lg font-bold">{statsByTitle["Weekly Progress"]?.value ?? "--"}</p>
                   </div>
                 </div>
@@ -203,8 +203,8 @@ function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Chart
-          title="Daily Activity Timeline"
-          description="Focus vs. distraction across the day"
+          title={t("dashboard.dailyTimeline")}
+          description={t("dashboard.focusVsDistraction")}
           variant="area-compare"
           data={overview.daily_timeline}
           categoryKey="label"
@@ -212,13 +212,13 @@ function DashboardPage() {
           series={[
             {
               key: "focus",
-              label: "Focus",
+              label: t("dashboard.focus"),
               stroke: "#0f766e",
               dotClassName: "bg-[#0f766e]",
             },
             {
               key: "distraction",
-              label: "Distraction",
+              label: t("dashboard.distraction"),
               stroke: "#dd7a5f",
               dotClassName: "bg-[#dd7a5f]",
             },
@@ -226,8 +226,8 @@ function DashboardPage() {
         />
 
         <Chart
-          title="Emotion Trends"
-          description="Productive energy versus distracted energy"
+          title={t("dashboard.emotionTrends")}
+          description={t("dashboard.productiveEnergy")}
           variant="area-compare"
           data={overview.emotion_trends}
           categoryKey="label"
@@ -235,13 +235,13 @@ function DashboardPage() {
           series={[
             {
               key: "productive",
-              label: "Productive",
+              label: t("dashboard.productive"),
               stroke: "#0f766e",
               dotClassName: "bg-[#0f766e]",
             },
             {
               key: "distracted",
-              label: "Distracted",
+              label: t("dashboard.distracted"),
               stroke: "#d9a85a",
               dotClassName: "bg-[#d9a85a]",
             },
@@ -251,8 +251,8 @@ function DashboardPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
         <Chart
-          title="Habit Frequency"
-          description="The behaviors showing up the most this week"
+          title={t("dashboard.habitFrequency")}
+          description={t("dashboard.habitsThisWeek")}
           variant="bar-horizontal"
           data={overview.habit_frequency}
           categoryKey="tag"

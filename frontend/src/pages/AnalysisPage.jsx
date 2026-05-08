@@ -13,8 +13,12 @@ import Chart from "../components/Chart";
 import AIInsightCard from "../components/ui/AIInsightCard";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
+import { useAppSettings } from "../context/AppSettingsContext";
+import { useI18n } from "../i18n/useI18n";
 
 function AnalysisPage() {
+  const { language } = useAppSettings();
+  const t = useI18n(language);
   const { user, overview, error: appError, refreshOverview } = useOutletContext();
   const [analysis, setAnalysis] = useState(null);
   const [analysisError, setAnalysisError] = useState("");
@@ -37,7 +41,7 @@ function AnalysisPage() {
       } catch (error) {
         if (active) {
           setAnalysis(null);
-          setAnalysisError(getErrorMessage(error, "We couldn't load your AI insights."));
+          setAnalysisError(getErrorMessage(error, t("analysis.loadError")));
         }
       } finally {
         if (active) {
@@ -86,10 +90,10 @@ function AnalysisPage() {
   };
 
   if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">Loading AI insights...</Card>;
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{t("analysis.loading")}</Card>;
   }
 
-  const errorMessage = analysisError || (appError ? getErrorMessage(appError, "We couldn't load your AI insights.") : "");
+  const errorMessage = analysisError || (appError ? getErrorMessage(appError, t("analysis.loadError")) : "");
 
   if (errorMessage) {
     return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{errorMessage}</Card>;
@@ -98,7 +102,7 @@ function AnalysisPage() {
   if (!analysis) {
     return (
       <Card className="app-panel-strong space-y-4 p-6 text-[color:var(--ink-soft)]">
-        <p>No AI analysis available yet.</p>
+        <p>{t("analysis.empty")}</p>
         {user?.id ? (
           <button
             type="button"
@@ -108,7 +112,7 @@ function AnalysisPage() {
             }}
             className="app-secondary-button"
           >
-            Refresh
+            {t("common.refresh")}
           </button>
         ) : null}
       </Card>
@@ -125,20 +129,20 @@ function AnalysisPage() {
       <PageHeader
         variant="icon"
         badgeIcon={Brain}
-        title="AI Insights"
-        description="A pattern-focused view of where you drift, where you lock in, and what your next adjustment should be."
+        title={t("analysis.title")}
+        description={t("analysis.description")}
       />
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.15fr,0.85fr]">
           <div className="space-y-4">
-            <p className="app-kicker">Pattern spotlight</p>
+            <p className="app-kicker">{t("analysis.spotlight")}</p>
             <h2 className="app-heading text-[2.35rem] leading-[1.02] text-[color:var(--ink)] sm:text-[2.95rem]">
-              {spotlight?.title ?? "Your strongest signal is ready to act on."}
+              {spotlight?.title ?? t("analysis.spotlightFallback")}
             </h2>
             <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">
               {spotlight?.description ??
-                "Mindflow compares recent behavior logs and surfaces the pattern most worth protecting or correcting next."}
+                t("analysis.spotlightDescFallback")}
             </p>
           </div>
 
@@ -175,8 +179,8 @@ function AnalysisPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Chart
-          title="Behavior Distribution"
-          description="How your recent time splits across focus, neutral, and distracting behaviors"
+          title={t("analysis.behaviorDistribution")}
+          description={t("analysis.behaviorDistributionDesc")}
           variant="donut"
           data={distribution}
           categoryKey="label"
@@ -184,7 +188,7 @@ function AnalysisPage() {
           series={[
             {
               key: "value",
-              label: "Share",
+              label: t("analysis.share"),
               stroke: "#0f766e",
               dotClassName: "bg-[#0f766e]",
             },
@@ -193,8 +197,8 @@ function AnalysisPage() {
         />
 
         <Chart
-          title="Weekly Pattern"
-          description="A time-of-day read on your productive rhythm"
+          title={t("analysis.weeklyPattern")}
+          description={t("analysis.weeklyPatternDesc")}
           variant="radar"
           data={weeklyPattern}
           categoryKey="label"
@@ -202,7 +206,7 @@ function AnalysisPage() {
           series={[
             {
               key: "value",
-              label: "Performance",
+              label: t("analysis.performance"),
               stroke: "#0f766e",
               dotClassName: "bg-[#0f766e]",
             },
@@ -214,7 +218,7 @@ function AnalysisPage() {
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-[color:var(--ink)]">
             <TrendingUp size={18} className="text-[#0f766e]" />
-            <h2 className="app-heading text-[2rem]">Recommended Actions</h2>
+            <h2 className="app-heading text-[2rem]">{t("analysis.recommendedActions")}</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
