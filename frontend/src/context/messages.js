@@ -27,6 +27,17 @@ export const messages = {
       noData: "No data available yet.",
       items: "items",
     },
+    command: {
+      title: "Quick actions",
+      hint: "Type a command...",
+      goDashboard: "Go to Dashboard",
+      goLog: "Go to Log",
+      goAnalysis: "Go to Analysis",
+      goProfile: "Go to Profile",
+      close: "Close",
+      shortcut: "Press Cmd+K / Ctrl+K"
+    },
+
     log: {
       title: "Log Behavior",
       descriptionWithTag: "Capture what happened, how it felt, and when it happened. Your most repeated pattern right now is {tag}.",
@@ -115,6 +126,17 @@ export const messages = {
       noData: "아직 데이터가 없습니다.",
       items: "개",
     },
+    command: {
+      title: "빠른 실행",
+      hint: "명령어를 입력하세요...",
+      goDashboard: "대시보드로 이동",
+      goLog: "기록하기",
+      goAnalysis: "분석으로 이동",
+      goProfile: "프로필로 이동",
+      close: "닫기",
+      shortcut: "Cmd+K / Ctrl+K"
+    },
+
     log: {
       title: "행동 기록",
       descriptionWithTag: "무슨 일이 있었고, 어떤 기분이었는지, 언제였는지 기록해보세요. 지금 가장 많이 반복된 패턴은 {tag}입니다.",

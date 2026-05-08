@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Brain,
   CalendarDays,
@@ -18,6 +18,7 @@ import { fetchProfileView, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 import { useAppSettings } from "../context/AppSettingsContext";
+import { normalizeCategory, normalizeMood } from "../i18n/normalize";
 
 const metricUiMap = {
   check: {
@@ -158,6 +159,16 @@ function ProfilePage() {
   const maxProductive = Math.max(...weeklyActivity.map((item) => item.productive ?? 0), 1);
   const maxOther = Math.max(...weeklyActivity.map((item) => item.other ?? 0), 1);
   const streakStat = stats.find((item) => item.title === "Current Streak");
+  const memberSinceText = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "long" }).format(new Date(profile.member_since));
+  const heatmap = useMemo(() => {
+    const today = new Date();
+    const days = Array.from({ length: 84 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() - (83 - i)); return d; });
+    return days.map((d) => {
+      const key = d.toDateString();
+      const count = recentActivity.filter((item) => new Date(item.created_at).toDateString() === key).length;
+      return { key, count };
+    });
+  }, [recentActivity]);
 
   return (
     <section className="space-y-8">
@@ -166,7 +177,7 @@ function ProfilePage() {
         profileIcon={User}
         title={profile.display_name}
         description={profile.summary_description}
-        meta={t.profile.memberSince.replace("{date}", profile.member_since)}
+        meta={t.profile.memberSince.replace("{date}", memberSinceText)}
       />
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
@@ -306,15 +317,27 @@ function ProfilePage() {
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-[color:var(--ink-soft)]">{item.tag || "Other"}</span>
+                    <span className="text-sm font-semibold text-[color:var(--ink-soft)]">{t(`categories.${normalizeCategory(item.tag)}`)}</span>
                     <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-soft)]">
                       {new Date(item.created_at).toLocaleDateString(language === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
                     </span>
                   </div>
                   <p className="font-semibold text-[color:var(--ink)]">{item.text}</p>
-                  <p className="text-sm text-[color:var(--ink-soft)]">{item.emotion}</p>
+                  <p className="text-sm text-[color:var(--ink-soft)]">{t(`mood.${normalizeMood(item.emotion)}`)}</p>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+
+      <Card className="p-6">
+        <div className="space-y-4">
+          <h2 className="app-heading text-[1.6rem] text-[color:var(--ink)]">Activity Heatmap</h2>
+          <div className="grid grid-cols-12 gap-1">
+            {heatmap.map((d) => (
+              <div key={d.key} className={`h-3 rounded-sm ${d.count > 3 ? "bg-[#0f766e]" : d.count > 1 ? "bg-[#59a79f]" : d.count > 0 ? "bg-[#b5dcd7]" : "bg-[rgba(24,50,53,0.08)]"}`} title={`${d.key}: ${d.count}`} />
             ))}
           </div>
         </div>
