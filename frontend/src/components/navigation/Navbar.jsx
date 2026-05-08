@@ -26,11 +26,11 @@ function Navbar() {
   const navigate = useNavigate();
 
   const navItems = [
-    { name: t.nav.dashboard, path: "/dashboard", icon: LayoutDashboard },
-    { name: t.nav.log, path: "/log", icon: CirclePlus },
-    { name: t.nav.analysis, path: "/analysis", icon: LineChart },
-    { name: t.nav.chat, path: "/chat", icon: MessageSquare },
-    { name: t.nav.profile, path: "/profile", icon: User },
+    { name: t("nav.dashboard"), path: "/dashboard", icon: LayoutDashboard },
+    { name: t("nav.log"), path: "/log", icon: CirclePlus },
+    { name: t("nav.analysis"), path: "/analysis", icon: LineChart },
+    { name: t("nav.chat"), path: "/chat", icon: MessageSquare },
+    { name: t("nav.profile"), path: "/profile", icon: User },
   ];
 
   return (
@@ -43,7 +43,7 @@ function Navbar() {
             </span>
             <div>
               <div className="app-heading text-[1.8rem] leading-none text-[color:var(--ink)]">Mindflow</div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-soft)]">{t.nav.studio}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-soft)]">{t("nav.studio")}</p>
             </div>
           </NavLink>
 
@@ -74,7 +74,7 @@ function Navbar() {
             </button>
             <div className="items-center gap-3 rounded-full border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] px-4 py-2 xl:flex hidden">
               <span className="h-2.5 w-2.5 rounded-full bg-[#0f766e]" />
-              <span className="text-sm font-semibold text-[color:var(--ink)]">{t.nav.slogan}</span>
+              <span className="text-sm font-semibold text-[color:var(--ink)]">{t("nav.slogan")}</span>
             </div>
           </div>
         </div>

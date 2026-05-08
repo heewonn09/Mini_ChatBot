@@ -1,0 +1,4 @@
+export const translations = {
+  en: { nav:{dashboard:'Dashboard',log:'Log',analysis:'Analysis',chat:'Chat',profile:'Profile',studio:'Behavior studio',slogan:'Track. Reflect. Adjust.'}, common:{loading:'Loading Mindflow data...',refresh:'Refresh',items:'items',other:'Other'}, categories:{study:'Study',break:'Break',social_media:'Social Media',exercise:'Exercise',youtube:'YouTube',other:'Other'}, mood:{happy:'Happy',neutral:'Neutral',stressed:'Stressed',focused:'Focused',motivated:'Motivated',anxious:'Anxious',sad:'Sad',distracted:'Distracted'} },
+  ko: { nav:{dashboard:'대시보드',log:'기록',analysis:'분석',chat:'채팅',profile:'프로필',studio:'행동 스튜디오',slogan:'기록하고, 돌아보고, 조정하세요.'}, common:{loading:'Mindflow 데이터를 불러오는 중...',refresh:'새로고침',items:'개',other:'기타'}, categories:{study:'공부',break:'휴식',social_media:'소셜 미디어',exercise:'운동',youtube:'유튜브',other:'기타'}, mood:{happy:'행복',neutral:'보통',stressed:'스트레스',focused:'집중',motivated:'동기부여',anxious:'불안',sad:'슬픔',distracted:'산만'} }
+};

@@ -83,6 +83,10 @@ function getMoodText(t, key) {
   return { label: t.log.moodStressed, description: t.log.moodStressedDesc };
 }
 
+function toCode(value = "") {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
 function activityToneClass(emotion) {
   if (emotion === "happy" || emotion === "focused" || emotion === "motivated") {
     return "bg-[#def2ee] text-[#0f766e]";
@@ -119,7 +123,7 @@ function LogPage() {
         setList(data);
         setRelativeBaseTime(Date.now());
       } catch (error) {
-        setLogsError(getErrorMessage(error, "We couldn't load your recent behavior logs."));
+        setLogsError(getErrorMessage(error, t("log.loadError")));
       } finally {
         setLogsLoading(false);
       }
@@ -196,7 +200,7 @@ function LogPage() {
       setRelativeBaseTime(Date.now());
       await refreshOverview();
     } catch (error) {
-      setLogsError(getErrorMessage(error, "We couldn't save that behavior log."));
+      setLogsError(getErrorMessage(error, t("log.saveError")));
     } finally {
       setSubmitting(false);
     }
@@ -362,7 +366,7 @@ function LogPage() {
                       </span>
                       <div className="space-y-1">
                         <p className="text-[1rem] font-bold">{item.label}</p>
-                        <p className="text-sm opacity-80">{item.tag}</p>
+                        <p className="text-sm opacity-80">{t(`categories.${toCode(item.tag)}`)}</p>
                       </div>
                     </button>
                   );
@@ -403,9 +407,9 @@ function LogPage() {
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <span className={`rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] ${activityToneClass(item.emotion)}`}>
-                              {item.emotion}
+                              {t(`mood.${toCode(item.emotion)}`)}
                             </span>
-                            <span className="text-sm text-[color:var(--ink-soft)]">{item.tag}</span>
+                            <span className="text-sm text-[color:var(--ink-soft)]">{t(`categories.${toCode(item.tag)}`)}</span>
                           </div>
                           <p className="font-semibold text-[color:var(--ink)]">{item.text}</p>
                         </div>
