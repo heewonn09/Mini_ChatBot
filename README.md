@@ -223,6 +223,19 @@ docker compose up --build
 - `GOOGLE_API_KEY` 미설정 또는 Gemini 호출 실패 상황일 수 있습니다.
 - fallback 모드는 정상 동작이며, 키 설정 시 고급 응답을 받을 수 있습니다.
 
+
+### 5) DB 스키마 불일치(예: `users.password_hash` 없음)
+
+개발 중 기존 MySQL/SQLite 스키마가 꼬였을 때는 아래 절차로 초기화할 수 있습니다.
+
+```bash
+python backend/reset_db.py
+```
+
+또는 수동으로 `users`, `behavior_logs`, `chat_history` 테이블을 DROP 후 서버를 재실행하면 `create_all()`로 재생성됩니다.
+
+서버 시작 시 `users.password_hash` 컬럼이 없는 경우 런타임 마이그레이션(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)`)이 자동으로 시도됩니다.
+
 ### 4) CORS 오류
 
 - 프론트(`5173`)와 백엔드(`8000`) 주소가 다를 때 발생할 수 있습니다.
