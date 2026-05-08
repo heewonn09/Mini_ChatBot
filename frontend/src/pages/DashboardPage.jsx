@@ -6,11 +6,28 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
+import { useAppSettings } from "../context/AppSettingsContext";
 import Chart from "../components/Chart";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 
 const statUiMap = {
+  most_frequent_behavior: {
+    Icon: TrendingDown,
+    iconClassName: "bg-[#f8e2d9] text-[#dd7a5f]",
+  },
+  worst_habit_time: {
+    Icon: Clock3,
+    iconClassName: "bg-[#f8ecd7] text-[#b67f20]",
+  },
+  best_focus_time: {
+    Icon: Target,
+    iconClassName: "bg-[#def2ee] text-[#0f766e]",
+  },
+  weekly_progress: {
+    Icon: TrendingUp,
+    iconClassName: "bg-[#e7eee3] text-[#597b61]",
+  },
   "Most Frequent Behavior": {
     Icon: TrendingDown,
     iconClassName: "bg-[#f8e2d9] text-[#dd7a5f]",
@@ -39,8 +56,13 @@ function activityToneClass(emotion) {
   return "bg-[#f8ecd7] text-[#b67f20]";
 }
 
+function toCode(value = "") {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
 function DashboardPage() {
   const { overview } = useOutletContext();
+  const { t } = useAppSettings();
   const statsByTitle = Object.fromEntries((overview.stat_cards ?? []).map((card) => [card.title, card]));
   const welcomeName = overview.welcome_name?.split(" ")[0] ?? "there";
   const leadInsight = overview.insights?.[0];
@@ -131,9 +153,9 @@ function DashboardPage() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] ${activityToneClass(item.emotion)}`}>
-                          {item.emotion}
+                          {t(`mood.${toCode(item.emotion)}`)}
                         </span>
-                        <span className="text-sm text-[color:var(--ink-soft)]">{item.tag}</span>
+                        <span className="text-sm text-[color:var(--ink-soft)]">{t(`categories.${toCode(item.tag)}`)}</span>
                       </div>
                       <p className="text-[1rem] font-semibold text-[color:var(--ink)]">{item.text}</p>
                     </div>
@@ -150,13 +172,14 @@ function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {overview.stat_cards.map((card) => {
-          const ui = statUiMap[card.title] ?? statUiMap["Weekly Progress"];
+          const key = toCode(card.title);
+          const ui = statUiMap[key] ?? statUiMap.weekly_progress;
           const Icon = ui.Icon;
 
           return (
             <Card
               key={card.title}
-              title={card.title}
+              title={t(`stats.${toCode(card.title)}`)}
               value={card.value}
               subtitle={card.subtitle}
               icon={<Icon size={18} strokeWidth={2.2} />}
