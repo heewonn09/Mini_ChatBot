@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { getErrorMessage, getStoredToken } from "../api/api";
 import Navbar from "../components/navigation/Navbar";
+import CommandMenu from "../components/navigation/CommandMenu";
 import Card from "../components/ui/Card";
 import { useAppSettings } from "../context/AppSettingsContext";
 import useAppData from "../hooks/useAppData";
@@ -22,6 +23,8 @@ function AppLayout() {
       </div>
 
       <Navbar />
+
+      <CommandMenu />
 
       <main className="relative pb-32 pt-28 md:pb-16 md:pt-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

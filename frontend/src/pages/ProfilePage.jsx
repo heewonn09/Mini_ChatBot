@@ -18,6 +18,8 @@ import { fetchProfileView, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 import { useAppSettings } from "../context/AppSettingsContext";
+import { normalizeCategory, normalizeMood } from "../i18n/normalize";
+import { useI18n } from "../i18n/useI18n";
 
 const metricUiMap = {
   check: {
@@ -80,7 +82,8 @@ function progressToneClass(tone) {
 }
 
 function ProfilePage() {
-  const { t, language } = useAppSettings();
+  const { language } = useAppSettings();
+  const t = useI18n(language);
   const { user, error: appError, refreshOverview } = useOutletContext();
   const [profile, setProfile] = useState(null);
   const [profileError, setProfileError] = useState("");
@@ -158,6 +161,8 @@ function ProfilePage() {
   const maxProductive = Math.max(...weeklyActivity.map((item) => item.productive ?? 0), 1);
   const maxOther = Math.max(...weeklyActivity.map((item) => item.other ?? 0), 1);
   const streakStat = stats.find((item) => item.title === "Current Streak");
+  const memberSinceDate = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: language === "ko" ? "long" : "short" }).format(new Date(profile.member_since));
+  const heatmapDays = Array.from({ length: 84 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (83 - i)); const key = d.toISOString().slice(0,10); const count = recentActivity.filter((item) => item.created_at?.startsWith(key)).length; return { key, count }; });
 
   return (
     <section className="space-y-8">
@@ -166,7 +171,7 @@ function ProfilePage() {
         profileIcon={User}
         title={profile.display_name}
         description={profile.summary_description}
-        meta={t.profile.memberSince.replace("{date}", profile.member_since)}
+        meta={t("profile.memberSince", { date: memberSinceDate })}
       />
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
@@ -306,15 +311,26 @@ function ProfilePage() {
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-[color:var(--ink-soft)]">{item.tag || "Other"}</span>
+                    <span className="text-sm font-semibold text-[color:var(--ink-soft)]">{t(`categories.${normalizeCategory(item.tag)}`)}</span>
                     <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-soft)]">
                       {new Date(item.created_at).toLocaleDateString(language === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
                     </span>
                   </div>
                   <p className="font-semibold text-[color:var(--ink)]">{item.text}</p>
-                  <p className="text-sm text-[color:var(--ink-soft)]">{item.emotion}</p>
+                  <p className="text-sm text-[color:var(--ink-soft)]">{t(`mood.${normalizeMood(item.emotion)}`)}</p>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="space-y-4">
+          <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">Visual Momentum</h2>
+          <div className="grid grid-cols-12 gap-1">
+            {heatmapDays.map((day) => (
+              <div key={day.key} title={`${day.key}: ${day.count}`} className={`h-3.5 rounded-sm ${day.count > 2 ? "bg-[#0f766e]" : day.count > 1 ? "bg-[#58a79d]" : day.count > 0 ? "bg-[#b7dcd6]" : "bg-[#e9f1ef]"}`} />
             ))}
           </div>
         </div>

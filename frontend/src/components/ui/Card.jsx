@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { motion } from "framer-motion";
 
 const trendMap = {
   up: {
@@ -31,10 +32,15 @@ function Card({
   bodyClassName = "",
 }) {
   const trendUi = trend ? trendMap[trend] ?? trendMap.neutral : null;
+  const MotionArticle = motion.article;
   const hasValue = value !== undefined && value !== null && value !== "";
 
   return (
-    <article className={`app-panel rounded-[2rem] border ${className}`.trim()}>
+    <MotionArticle
+      whileHover={{ y: -4, scale: 1.005 }}
+      transition={{ type: "spring", stiffness: 280, damping: 22 }}
+      className={`app-panel rounded-[2rem] border border-white/30 bg-white/55 backdrop-blur-xl ${className}`.trim()}
+    >
       {(icon || trendUi) ? (
         <div className="mb-4 flex items-start justify-between">
           {icon ? (
@@ -72,7 +78,7 @@ function Card({
 
       {children ? <div className={title || hasValue || subtitle ? "mt-6" : ""}>{children}</div> : null}
       {footer ? <div className="mt-5">{footer}</div> : null}
-    </article>
+    </MotionArticle>
   );
 }
 
