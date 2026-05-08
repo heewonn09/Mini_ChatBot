@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from backend.config import get_settings
 
@@ -60,4 +60,19 @@ def get_db() -> Session:
 # 테이블 자동 생성 함수 (startup에서 호출용)
 def create_tables():
     Base.metadata.create_all(bind=engine)
+    run_schema_migrations()
     print(" All tables created successfully!")
+
+def run_schema_migrations():
+    """Lightweight runtime migration for development environments."""
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    columns = {col["name"] for col in inspector.get_columns("users")}
+    if "password_hash" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+            if "password" in columns:
+                conn.execute(text("UPDATE users SET password_hash = password WHERE password_hash IS NULL"))
+

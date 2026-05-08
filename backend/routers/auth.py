@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.auth import create_access_token, get_current_user, hash_password, verify_password
 from backend.database import get_db
@@ -15,9 +16,12 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 @router.post("/signup", response_model=TokenResponse, status_code=201)
 def signup(payload: UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(
-        (User.email == payload.email) | (User.username == payload.username)
-    ).first()
+    try:
+        existing = db.query(User).filter(
+            (User.email == payload.email) | (User.username == payload.username)
+        ).first()
+    except SQLAlchemyError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Authentication service unavailable")
     if existing:
         raise HTTPException(status_code=400, detail="User with this email or username already exists")
 
@@ -36,9 +40,13 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        or_(User.email == payload.username_or_email, User.username == payload.username_or_email)
-    ).first()
+    try:
+        user = db.query(User).filter(
+            or_(User.email == payload.username_or_email, User.username == payload.username_or_email)
+        ).first()
+    except SQLAlchemyError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Authentication service unavailable")
+
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
