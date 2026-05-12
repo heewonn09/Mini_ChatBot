@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from backend.auth import require_same_user
@@ -166,7 +166,7 @@ def get_profile_view(
 ):
     user = _get_user(user_id, db)
     all_logs = _get_logs(user_id, db, days=30, ascending=True)
-    recent_logs = [log for log in all_logs if log.created_at >= datetime.utcnow() - timedelta(days=7)]
+    recent_logs = [log for log in all_logs if log.created_at >= datetime.now(timezone.utc) - timedelta(days=7)]
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
     days_active = len({log.created_at.date() for log in all_logs})
     current_streak = _current_streak(all_logs)
@@ -295,7 +295,7 @@ def _get_user(user_id: int, db: Session) -> User:
 
 
 def _get_logs(user_id: int, db: Session, days: int, ascending: bool = False) -> list[BehaviorLog]:
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
     query = db.query(BehaviorLog).filter(
         (BehaviorLog.user_id == user_id) & (BehaviorLog.created_at >= since)
     )
@@ -316,10 +316,10 @@ def _is_positive(log: BehaviorLog) -> int:
 
 
 def _group_logs_by_hour(logs: list[BehaviorLog]) -> dict[int, list[BehaviorLog]]:
-    groups = defaultdict(list)
+    groups: dict[int, list[BehaviorLog]] = defaultdict(list)
     for log in logs:
         groups[log.created_at.hour].append(log)
-    return groups or {9: []}
+    return groups if groups else {0: []}
 
 
 def _ratio(logs: list[BehaviorLog], predicate) -> float:
@@ -353,11 +353,14 @@ def _build_timeline(logs: list[BehaviorLog]) -> list[TimelinePoint]:
     grouped = defaultdict(list)
 
     for log in logs:
-        for hour in bins:
-            if hour == 0 and (log.created_at.hour >= 21 or log.created_at.hour < 3):
-                grouped[hour].append(log)
-            elif hour != 0 and hour <= log.created_at.hour < hour + 3:
-                grouped[hour].append(log)
+        h = log.created_at.hour
+        for bin_start in bins:
+            if bin_start == 0 and 0 <= h < 3:
+                grouped[bin_start].append(log)
+                break
+            elif bin_start != 0 and bin_start <= h < bin_start + 3:
+                grouped[bin_start].append(log)
+                break
 
     points = []
     for index, hour in enumerate(bins):

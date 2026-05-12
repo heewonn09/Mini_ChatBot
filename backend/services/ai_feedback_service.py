@@ -1,5 +1,12 @@
+import logging
+
 from backend.config import get_settings
 from backend.schemas.behavior import PatternAnalysisResult
+
+logger = logging.getLogger(__name__)
+
+# Current stable Gemini model (gemini-pro was deprecated March 2025)
+_GEMINI_MODEL = "gemini-1.5-flash"
 
 
 class AIFeedbackService:
@@ -18,9 +25,11 @@ class AIFeedbackService:
             settings = get_settings()
             if settings.google_api_key:
                 genai.configure(api_key=settings.google_api_key)
-                self.model = genai.GenerativeModel("gemini-pro")
-        except (ImportError, Exception) as e:
-            print(f"Warning: Google AI not available: {e}")
+                self.model = genai.GenerativeModel(_GEMINI_MODEL)
+        except ImportError:
+            logger.warning("google-generativeai package not installed; AI feedback disabled")
+        except Exception as e:
+            logger.warning("Google AI initialisation failed: %s", e)
             self.model = None
     
     def generate_feedback(self, analysis: PatternAnalysisResult) -> str:
@@ -110,9 +119,10 @@ class AIFeedbackService:
                 prompt,
                 generation_config=genai.types.GenerationConfig(
                     candidate_count=1,
-                    temperature=0.7
-                )
+                    temperature=0.7,
+                ),
             )
             return response.text.strip()
         except Exception as e:
-            return f"Error generating feedback: {str(e)}"
+            logger.error("Gemini generate_content failed: %s", e)
+            return "AI feedback temporarily unavailable. Please try again later."

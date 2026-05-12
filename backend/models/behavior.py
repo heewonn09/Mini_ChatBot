@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Float, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.database import Base
 
 
@@ -11,8 +11,8 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationship
     behavior_logs = relationship("BehaviorLog", back_populates="user", cascade="all, delete-orphan")
@@ -31,7 +31,7 @@ class BehaviorLog(Base):
     emotion = Column(String(50), nullable=False)  # happy, sad, angry, neutral, anxious, etc.
     tag = Column(String(100), nullable=True)  # sleep, work, exercise, social, etc.
     intensity = Column(Float, default=5.0)  # 1-10 scale for emotion intensity
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     
     # Relationship
     user = relationship("User", back_populates="behavior_logs")

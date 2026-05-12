@@ -17,16 +17,19 @@ def _build_engine(database_url: str):
 
 
 def _create_engine_with_fallback():
-    primary_engine = _build_engine(settings.database_url)
     try:
+        primary_engine = _build_engine(settings.database_url)
         with primary_engine.connect():
             pass
         return primary_engine
-    except Exception as e:
-        print(f"⚠️ MySQL 연결 실패: {e}")
+    except BaseException as e:
+        # BaseException is intentional: pyo3/Rust-backed drivers (e.g. cryptography)
+        # raise PanicException which is a BaseException, not Exception.
+        import logging as _logging
+        _logging.getLogger(__name__).warning("Primary DB unreachable (%s: %s)", type(e).__name__, e)
         if settings.database_url.startswith("sqlite"):
             raise
-        print("🔄 SQLite fallback 사용")
+        _logging.getLogger(__name__).info("Falling back to SQLite")
         fallback_url = "sqlite:///./mini_chatbot.db"
         return _build_engine(fallback_url)
 

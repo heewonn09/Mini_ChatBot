@@ -42,6 +42,15 @@ function logApiError(error, context = "") {
   });
 }
 
+// Sanitise request payload before logging – omit fields that may carry credentials.
+function sanitisePayload(data) {
+  if (!data || typeof data !== "object") return data;
+  const SENSITIVE = new Set(["password", "password_hash", "token", "access_token"]);
+  return Object.fromEntries(
+    Object.entries(data).map(([k, v]) => [k, SENSITIVE.has(k) ? "[REDACTED]" : v])
+  );
+}
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -52,7 +61,9 @@ api.interceptors.request.use(
     console.debug("[API REQUEST]", {
       method: config.method?.toUpperCase(),
       url: buildUrl(config),
-      payload: config.data,
+      payload: sanitisePayload(
+        typeof config.data === "string" ? JSON.parse(config.data) : config.data
+      ),
       params: config.params,
     });
 
@@ -70,7 +81,6 @@ api.interceptors.response.use(
       method: response.config?.method?.toUpperCase(),
       url: buildUrl(response.config),
       status: response.status,
-      data: response.data,
     });
     return response;
   },
