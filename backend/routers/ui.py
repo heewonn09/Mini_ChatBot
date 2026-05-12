@@ -1,478 +1,223 @@
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 
-from backend.auth import require_same_user
 from backend.database import get_db
-from backend.models.behavior import BehaviorLog
 from backend.models.chat import ChatHistory
-from backend.models.user import User
-from backend.redis_client import redis_client
+from backend.models.behavior import BehaviorLog, User
 from backend.schemas.ui import (
-    AnalysisViewResponse,
+    AchievementItem,
+    AnalysisResponse,
+    BehaviorDistributionItem,
     ChatBootstrapResponse,
     ChatHistoryItem,
     ChatHistoryResponse,
     ChatRequest,
     ChatResponse,
-    DashboardOverviewResponse,
-    ProfileViewResponse,
+    EmotionTrendPoint,
+    GoalItem,
+    HabitFrequencyItem,
+    InsightItem,
+    OverviewResponse,
+    ProfileMetricItem,
+    ProfileResponse,
+    RadarMetricItem,
+    RecommendationItem,
+    RecentActivityItem,
+    StatCard,
+    TimelinePoint,
+    WeeklyActivityItem,
 )
 from backend.services.ai_feedback_service import AIFeedbackService
 from backend.services.pattern_analysis_service import PatternAnalysisService
+from backend.redis_client import redis_store
 
-router = APIRouter(prefix="/ui", tags=["ui"])
+router = APIRouter(prefix="/api/ui", tags=["UI"])
+CHAT_RATE_LIMIT = 30
+CHAT_RATE_WINDOW = 60
 ai_service = AIFeedbackService()
 
-
-# ---------------------------------------------------------------------------
-# Helper utilities
-# ---------------------------------------------------------------------------
-
-def _get_user(user_id: int, db: Session) -> User:
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
+NEGATIVE_EMOTIONS = {"sad", "angry", "anxious", "stressed", "depressed"}
+POSITIVE_EMOTIONS = {"happy", "focused", "calm", "motivated", "neutral"}
+CHAT_SUGGESTIONS = [
+    "Why am I unproductive?",
+    "Analyze my habits",
+    "How can I focus better?",
+    "What's my best time to study?",
+]
 
 
-def _format_display_name(username: str) -> str:
-    """Capitalise the first letter of each word in the username."""
-    return username.replace("_", " ").title()
-
-
-def _check_chat_rate_limit(user_id: int):
-    key = f"rate:chat:{user_id}"
-    count = redis_client.incr_with_ttl(key, ttl=60)
-    if count > 20:
-        raise HTTPException(status_code=429, detail="Too many chat requests. Try again in a minute.")
-
-
-# ---------------------------------------------------------------------------
-# Dashboard overview
-# ---------------------------------------------------------------------------
-
-@router.get("/{user_id}/overview", response_model=DashboardOverviewResponse)
+@router.get("/{user_id}/overview", response_model=OverviewResponse)
 def get_overview(
     user_id: int,
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     user = _get_user(user_id, db)
+    logs = _get_logs(user_id, db, days=7, ascending=True)
+
+    if not logs:
+        return OverviewResponse(
+            welcome_name=_format_display_name(user.username),
+            stat_cards=[
+                StatCard(
+                    title="Most Frequent Behavior",
+                    value="No logs yet",
+                    subtitle="Start logging to see patterns",
+                    trend="neutral",
+                ),
+                StatCard(title="Worst Habit Time", value="-", subtitle="Need more data", trend="neutral"),
+                StatCard(title="Best Focus Time", value="-", subtitle="Need more data", trend="neutral"),
+                StatCard(title="Weekly Progress", value="0%", subtitle="Add at least one behavior", trend="neutral"),
+            ],
+            daily_timeline=_build_timeline([]),
+            emotion_trends=_build_weekday_trends([]),
+            habit_frequency=[],
+            insights=[
+                InsightItem(
+                    title="No data yet",
+                    description="Log your first behavior to unlock AI insights.",
+                    type="info",
+                )
+            ],
+            recent_activity=[],
+        )
+
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
+    tag_counter = Counter(log.tag or "Other" for log in logs)
+    most_tag, most_count = tag_counter.most_common(1)[0]
+    hour_groups = _group_logs_by_hour(logs)
+    worst_hour = max(hour_groups, key=lambda hour: _ratio(hour_groups[hour], _is_negative))
+    best_hour = max(hour_groups, key=lambda hour: _ratio(hour_groups[hour], _is_positive))
+    progress_value = _weekly_progress(logs)
+    progress_prefix = "+" if progress_value >= 0 else ""
 
-    now = datetime.now(timezone.utc)
-    week_ago = now - timedelta(days=7)
-    recent_logs = (
-        db.query(BehaviorLog)
-        .filter(BehaviorLog.user_id == user_id, BehaviorLog.created_at >= week_ago)
-        .order_by(BehaviorLog.created_at.desc())
-        .limit(20)
-        .all()
-    )
-
-    # Build timeline bins (3-hour windows)
-    timeline_bins = {}
-    for log in recent_logs:
-        h = log.created_at.hour
-        bin_start = (h // 3) * 3
-        if bin_start not in timeline_bins:
-            timeline_bins[bin_start] = {"focus": 0, "distraction": 0}
-        tag = (log.tag or "").lower()
-        if tag in ("study", "exercise"):
-            timeline_bins[bin_start]["focus"] += 1
-        elif tag in ("social_media", "youtube"):
-            timeline_bins[bin_start]["distraction"] += 1
-
-    timeline = [
-        {"hour": h, "focus": v["focus"], "distraction": v["distraction"]}
-        for h, v in sorted(timeline_bins.items())
-    ]
-
-    # Emotion trend data
-    emotion_map: dict[str, dict] = {}
-    for log in recent_logs:
-        e = log.emotion or "neutral"
-        if e not in emotion_map:
-            emotion_map[e] = {"productive": 0, "distracted": 0}
-        tag = (log.tag or "").lower()
-        if tag in ("study", "exercise"):
-            emotion_map[e]["productive"] += 1
-        elif tag in ("social_media", "youtube"):
-            emotion_map[e]["distracted"] += 1
-    emotion_trends = [
-        {"emotion": e, "productive": v["productive"], "distracted": v["distracted"]}
-        for e, v in emotion_map.items()
-    ]
-
-    # Habit frequency
-    tag_counts: dict[str, int] = {}
-    for log in recent_logs:
-        t = log.tag or "other"
-        tag_counts[t] = tag_counts.get(t, 0) + 1
-    habit_frequency = [
-        {"habit": t, "count": c}
-        for t, c in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
-    ]
-
-    # Stat cards
-    stat_cards = []
-    if analysis.behavior_patterns:
-        top = analysis.behavior_patterns[0]
-        stat_cards.append({"key": "most_frequent_behavior", "value": top.emotion})
-    if analysis.risky_patterns:
-        rp = analysis.risky_patterns[0]
-        stat_cards.append({"key": "worst_habit_time", "value": rp.pattern})
-    best_focus = _find_best_focus_hour(recent_logs)
-    if best_focus is not None:
-        stat_cards.append({"key": "best_focus_time", "value": f"{best_focus}:00"})
-    total = len(recent_logs)
-    stat_cards.append({"key": "weekly_progress", "value": f"{total} logs"})
-
-    # Recent activity (last 5 logs)
-    recent_activity = [
-        {
-            "id": log.id,
-            "text": log.text,
-            "tag": log.tag,
-            "emotion": log.emotion,
-            "created_at": log.created_at.isoformat(),
-        }
-        for log in recent_logs[:5]
-    ]
-
-    # Focus window & risk zone
-    focus_window = _get_focus_window(recent_logs)
-    risk_zone = _get_risk_zone(recent_logs)
-
-    # Routine / pattern / protect summaries
-    routine_summary = _build_routine_summary(analysis)
-    pattern_summary = _build_pattern_summary(analysis)
-    protect_summary = _build_protect_summary(analysis)
-
-    return DashboardOverviewResponse(
-        user_display_name=_format_display_name(user.username),
-        stat_cards=stat_cards,
-        timeline=timeline,
-        emotion_trends=emotion_trends,
-        habit_frequency=habit_frequency,
-        recent_activity=recent_activity,
-        focus_window=focus_window,
-        risk_zone=risk_zone,
-        routine_summary=routine_summary,
-        pattern_summary=pattern_summary,
-        protect_summary=protect_summary,
+    return OverviewResponse(
+        welcome_name=_format_display_name(user.username),
+        stat_cards=[
+            StatCard(
+                title="Most Frequent Behavior",
+                value=most_tag,
+                subtitle=f"{most_count} times this week",
+                trend="up",
+            ),
+            StatCard(
+                title="Worst Habit Time",
+                value=_hour_range(worst_hour),
+                subtitle="Higher distraction tendency",
+                trend="down",
+            ),
+            StatCard(
+                title="Best Focus Time",
+                value=_hour_range(best_hour),
+                subtitle="Highest productivity tendency",
+                trend="up",
+            ),
+            StatCard(
+                title="Weekly Progress",
+                value=f"{progress_prefix}{progress_value}%",
+                subtitle="Better than last week" if progress_value >= 0 else "Slightly behind last week",
+                trend="up" if progress_value >= 0 else "down",
+            ),
+        ],
+        daily_timeline=_build_timeline(logs),
+        emotion_trends=_build_weekday_trends(logs),
+        habit_frequency=[HabitFrequencyItem(tag=tag, count=count) for tag, count in tag_counter.most_common(6)],
+        insights=_build_analysis_insights(logs, analysis),
+        recent_activity=[
+            RecentActivityItem(
+                id=log.id,
+                text=log.text,
+                tag=log.tag,
+                emotion=log.emotion,
+                created_at=log.created_at,
+            )
+            for log in sorted(logs, key=lambda item: item.created_at, reverse=True)[:6]
+        ],
     )
 
 
-def _find_best_focus_hour(logs) -> Optional[int]:
-    focus_hours: dict[int, int] = {}
-    for log in logs:
-        if (log.tag or "").lower() in ("study", "exercise"):
-            h = log.created_at.hour
-            focus_hours[h] = focus_hours.get(h, 0) + 1
-    if not focus_hours:
-        return None
-    return max(focus_hours, key=lambda h: focus_hours[h])
-
-
-def _get_focus_window(logs) -> Optional[str]:
-    best = _find_best_focus_hour(logs)
-    if best is None:
-        return None
-    end = (best + 2) % 24
-    return f"{best:02d}:00 – {end:02d}:00"
-
-
-def _get_risk_zone(logs) -> Optional[str]:
-    distract_hours: dict[int, int] = {}
-    for log in logs:
-        if (log.tag or "").lower() in ("social_media", "youtube"):
-            h = log.created_at.hour
-            distract_hours[h] = distract_hours.get(h, 0) + 1
-    if not distract_hours:
-        return None
-    worst = max(distract_hours, key=lambda h: distract_hours[h])
-    end = (worst + 2) % 24
-    return f"{worst:02d}:00 – {end:02d}:00"
-
-
-def _build_routine_summary(analysis) -> Optional[str]:
-    if not analysis.behavior_patterns:
-        return None
-    top = analysis.behavior_patterns[0]
-    return f"Your most common state is {top.emotion} ({top.percentage}% of logs)."
-
-
-def _build_pattern_summary(analysis) -> Optional[str]:
-    if not analysis.emotional_trends:
-        return None
-    trend = analysis.emotional_trends[0]
-    return f"{trend.emotion.capitalize()} is showing a {trend.trend} trend recently."
-
-
-def _build_protect_summary(analysis) -> Optional[str]:
-    if not analysis.risky_patterns:
-        return None
-    rp = analysis.risky_patterns[0]
-    return f"Watch out for {rp.pattern}: {rp.description}"
-
-
-# ---------------------------------------------------------------------------
-# Analysis view
-# ---------------------------------------------------------------------------
-
-@router.get("/{user_id}/analysis", response_model=AnalysisViewResponse)
+@router.get("/{user_id}/analysis", response_model=AnalysisResponse)
 def get_analysis_view(
     user_id: int,
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     _get_user(user_id, db)
+    logs = _get_logs(user_id, db, days=7, ascending=True)
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
-    ai_feedback = ai_service.generate_feedback(analysis)
 
-    behavior_distribution = [
-        {"name": p.emotion, "value": p.percentage, "count": p.count}
-        for p in analysis.behavior_patterns
-    ]
-
-    weekly_pattern = _build_weekly_pattern(user_id, db)
-
-    spotlight = None
-    spotlight_desc = None
-    if analysis.behavior_patterns:
-        top = analysis.behavior_patterns[0]
-        spotlight = f"{top.emotion.capitalize()} dominates at {top.percentage}%"
-        spotlight_desc = f"You logged {top.emotion} {top.count} times over the last 7 days."
-
-    recommended_actions = []
-    if analysis.risky_patterns:
-        for rp in analysis.risky_patterns[:2]:
-            recommended_actions.append({"action": f"Address {rp.pattern}", "detail": rp.description})
-    if analysis.behavior_patterns:
-        recommended_actions.append({
-            "action": "Keep logging consistently",
-            "detail": "More data gives sharper insights.",
-        })
-
-    performance_score = _calculate_performance(analysis)
-
-    return AnalysisViewResponse(
-        ai_feedback=ai_feedback,
-        behavior_distribution=behavior_distribution,
-        weekly_pattern=weekly_pattern,
-        spotlight=spotlight,
-        spotlight_desc=spotlight_desc,
-        recommended_actions=recommended_actions,
-        performance_score=performance_score,
+    return AnalysisResponse(
+        insights=_build_analysis_insights(logs, analysis),
+        behavior_distribution=_build_behavior_distribution(logs),
+        weekly_pattern=_build_weekly_pattern(logs),
+        recommendations=_build_recommendations(logs, analysis),
     )
 
 
-def _build_weekly_pattern(user_id: int, db: Session):
-    now = datetime.now(timezone.utc)
-    week_ago = now - timedelta(days=7)
-    logs = (
-        db.query(BehaviorLog)
-        .filter(BehaviorLog.user_id == user_id, BehaviorLog.created_at >= week_ago)
-        .all()
-    )
-    bins = {}
-    for log in logs:
-        h = log.created_at.hour
-        bin_start = (h // 3) * 3
-        if bin_start not in bins:
-            bins[bin_start] = {"productive": 0, "neutral": 0, "distracted": 0}
-        tag = (log.tag or "").lower()
-        if tag in ("study", "exercise"):
-            bins[bin_start]["productive"] += 1
-        elif tag in ("social_media", "youtube"):
-            bins[bin_start]["distracted"] += 1
-        else:
-            bins[bin_start]["neutral"] += 1
-    return [
-        {"hour": h, **v}
-        for h, v in sorted(bins.items())
-    ]
-
-
-def _calculate_performance(analysis) -> int:
-    if not analysis.behavior_patterns:
-        return 50
-    productive_pct = sum(
-        p.percentage for p in analysis.behavior_patterns
-        if p.emotion in ("focused", "motivated", "happy")
-    )
-    risk_penalty = len(analysis.risky_patterns) * 5
-    return max(0, min(100, int(productive_pct) - risk_penalty))
-
-
-# ---------------------------------------------------------------------------
-# Profile view
-# ---------------------------------------------------------------------------
-
-@router.get("/{user_id}/profile", response_model=ProfileViewResponse)
+@router.get("/{user_id}/profile", response_model=ProfileResponse)
 def get_profile_view(
     user_id: int,
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     user = _get_user(user_id, db)
-    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=30, db=db)
-
-    all_logs = (
-        db.query(BehaviorLog)
-        .filter(BehaviorLog.user_id == user_id)
-        .order_by(BehaviorLog.created_at.desc())
-        .limit(100)
-        .all()
+    all_logs = _get_logs(user_id, db, days=30, ascending=True)
+    recent_logs = [log for log in all_logs if log.created_at >= datetime.now(timezone.utc) - timedelta(days=7)]
+    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
+    days_active = len({log.created_at.date() for log in all_logs})
+    current_streak = _current_streak(all_logs)
+    recent_tag_counter = Counter(log.tag or "Other" for log in recent_logs)
+    morning_positive = len(
+        [log for log in recent_logs if 6 <= log.created_at.hour < 12 and _is_positive(log)]
     )
+    focus_groups = _group_logs_by_hour(recent_logs)
+    best_hour = max(focus_groups, key=lambda hour: _ratio(focus_groups[hour], _is_positive))
 
-    # Stats cards
-    stats = [
-        {"title": "Total Behaviors", "value": str(len(all_logs)), "icon": "check"},
-        {"title": "Days Active", "value": str(_count_active_days(all_logs)), "icon": "calendar"},
-        {"title": "Current Streak", "value": f"{_calculate_streak(all_logs)}d", "icon": "flame"},
-        {"title": "Insights Generated", "value": str(max(1, len(all_logs) // 5)), "icon": "trend"},
-    ]
-
-    # Top habits
-    tag_counts: dict[str, int] = {}
-    for log in all_logs:
-        t = log.tag or "other"
-        tag_counts[t] = tag_counts.get(t, 0) + 1
-    top_habits = [
-        {"tag": t, "count": c}
-        for t, c in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-    ]
-
-    # Weekly activity
-    weekly_activity = _build_weekly_activity(all_logs)
-
-    # Goals
-    goals = _build_goals(all_logs, analysis)
-
-    # Achievements
-    achievements = _build_achievements(all_logs, analysis)
-
-    # Summary
-    summary_title, summary_description = _build_profile_summary(user.username, analysis, all_logs)
-
-    member_since = user.created_at.isoformat() if hasattr(user, "created_at") and user.created_at else datetime.now(timezone.utc).isoformat()
-
-    recent_activity_items = [
-        {
-            "id": log.id,
-            "text": log.text,
-            "tag": log.tag,
-            "emotion": log.emotion,
-            "created_at": log.created_at.isoformat(),
-        }
-        for log in all_logs[:30]
-    ]
-
-    return ProfileViewResponse(
+    return ProfileResponse(
         display_name=_format_display_name(user.username),
-        member_since=member_since,
-        stats=stats,
-        top_habits=top_habits,
-        weekly_activity=weekly_activity,
-        goals=goals,
-        achievements=achievements,
-        summary_title=summary_title,
-        summary_description=summary_description,
-        recent_activity=recent_activity_items,
+        member_since=user.created_at.strftime("%B %Y"),
+        summary_title=_build_profile_summary_title(current_streak, days_active, len(all_logs)),
+        summary_description=_build_profile_summary_description(
+            recent_logs=recent_logs,
+            recent_tag_counter=recent_tag_counter,
+            best_hour=best_hour,
+        ),
+        stats=[
+            ProfileMetricItem(title="Total Behaviors", value=str(len(all_logs)), icon="check"),
+            ProfileMetricItem(title="Days Active", value=str(days_active), icon="calendar"),
+            ProfileMetricItem(title="Current Streak", value=f"{current_streak} days", icon="flame"),
+            ProfileMetricItem(
+                title="Insights Generated",
+                value=str(len(_build_analysis_insights(recent_logs, analysis))),
+                icon="trend",
+            ),
+        ],
+        top_habits=[HabitFrequencyItem(tag=tag, count=count) for tag, count in recent_tag_counter.most_common(4)],
+        recent_activity=[
+            RecentActivityItem(
+                id=log.id,
+                text=log.text,
+                tag=log.tag,
+                emotion=log.emotion,
+                created_at=log.created_at,
+            )
+            for log in sorted(recent_logs, key=lambda item: item.created_at, reverse=True)[:5]
+        ],
+        weekly_activity=_build_weekly_activity(recent_logs),
+        goals=_build_goals(recent_logs),
+        achievements=_build_achievements(
+            all_logs=all_logs,
+            recent_logs=recent_logs,
+            morning_positive=morning_positive,
+            current_streak=current_streak,
+            analysis=analysis,
+        ),
     )
 
-
-def _count_active_days(logs) -> int:
-    return len({log.created_at.date() for log in logs})
-
-
-def _calculate_streak(logs) -> int:
-    if not logs:
-        return 0
-    dates = sorted({log.created_at.date() for log in logs}, reverse=True)
-    streak = 1
-    for i in range(1, len(dates)):
-        if (dates[i - 1] - dates[i]).days == 1:
-            streak += 1
-        else:
-            break
-    return streak
-
-
-def _build_weekly_activity(logs):
-    now = datetime.now(timezone.utc)
-    days = []
-    labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    for i in range(6, -1, -1):
-        day = (now - timedelta(days=i)).date()
-        day_logs = [log for log in logs if log.created_at.date() == day]
-        productive = sum(
-            1 for log in day_logs if (log.tag or "").lower() in ("study", "exercise")
-        )
-        other = len(day_logs) - productive
-        days.append({"label": labels[day.weekday()], "productive": productive, "other": other})
-    return days
-
-
-def _build_goals(logs, analysis):
-    now = datetime.now(timezone.utc)
-    week_ago = now - timedelta(days=7)
-    week_logs = [log for log in logs if log.created_at >= week_ago]
-    study_count = sum(1 for log in week_logs if (log.tag or "").lower() == "study")
-    exercise_count = sum(1 for log in week_logs if (log.tag or "").lower() == "exercise")
-    return [
-        {"title": "Study sessions", "current": min(study_count, 5), "total": 5, "tone": "normal"},
-        {"title": "Workouts", "current": min(exercise_count, 3), "total": 3, "tone": "normal"},
-        {"title": "Total logs", "current": min(len(week_logs), 10), "total": 10, "tone": "normal"},
-    ]
-
-
-def _build_achievements(logs, analysis):
-    streak = _calculate_streak(logs)
-    active_days = _count_active_days(logs)
-    study_logs = [log for log in logs if (log.tag or "").lower() == "study"]
-    morning_logs = [log for log in logs if log.created_at.hour < 9]
-    return [
-        {"title": "First Week", "description": "Logged for 7 days.", "unlocked": active_days >= 7},
-        {"title": "Morning Person", "description": "Logged 5 morning entries.", "unlocked": len(morning_logs) >= 5},
-        {"title": "Focus Master", "description": "20 study sessions logged.", "unlocked": len(study_logs) >= 20},
-        {"title": "Consistency King", "description": "14-day streak.", "unlocked": streak >= 14},
-        {"title": "Self Awareness", "description": "50 total logs.", "unlocked": len(logs) >= 50},
-        {"title": "Habit Breaker", "description": "Reduced distracting entries.", "unlocked": False},
-    ]
-
-
-def _build_profile_summary(username: str, analysis, logs):
-    name = _format_display_name(username)
-    if not logs:
-        return None, f"Start logging your behaviors to get a personalized summary, {name}."
-    streak = _calculate_streak(logs)
-    if streak >= 7:
-        title = f"{streak} days of consistent momentum."
-    elif analysis.behavior_patterns:
-        top = analysis.behavior_patterns[0]
-        title = f"{top.percentage}% {top.emotion} — your dominant state."
-    else:
-        title = "Your pattern map is forming."
-    productive_pct = sum(
-        p.percentage for p in analysis.behavior_patterns
-        if p.emotion in ("focused", "motivated", "happy")
-    )
-    desc = (
-        f"{name} has logged {len(logs)} behaviors. "
-        f"Productive states make up {productive_pct:.0f}% of recent activity."
-    )
-    return title, desc
-
-
-# ---------------------------------------------------------------------------
-# Chat
-# ---------------------------------------------------------------------------
 
 @router.get("/{user_id}/chat/bootstrap", response_model=ChatBootstrapResponse)
 def get_chat_bootstrap(
@@ -481,27 +226,18 @@ def get_chat_bootstrap(
     db: Session = Depends(get_db),
 ):
     user = _get_user(user_id, db)
-    name = _format_display_name(user.username)
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
-
-    if analysis.behavior_patterns:
-        top = analysis.behavior_patterns[0]
-        intro = (
-            f"Hi {name}! I can see {top.emotion} is your dominant state ({top.percentage}% of recent logs). "
-            f"Want to dig into what's driving that?"
-        )
-    else:
-        intro = f"Hi {name}! Start by asking me about your habits or patterns — I'm here to help."
-
-    return ChatBootstrapResponse(
-        intro=intro,
-        suggested_prompts=[
-            "What's my most productive time of day?",
-            "Which habit should I fix first?",
-            "Why do I keep getting distracted?",
-            "How can I build a better morning routine?",
-        ],
+    top_emotion = analysis.behavior_patterns[0].emotion if analysis.behavior_patterns else "your habits"
+    intro = (
+        "Hi! I'm your behavior analysis assistant. I've analyzed your recent patterns and I'm ready to help "
+        f"you understand your habits better. Your strongest signal right now is {top_emotion}."
     )
+
+    history = db.query(ChatHistory).filter(ChatHistory.user_id == user_id).order_by(ChatHistory.created_at.desc()).limit(6).all()
+    if history:
+        intro += " I also remember your recent conversation context."
+
+    return ChatBootstrapResponse(intro=intro, suggested_prompts=CHAT_SUGGESTIONS)
 
 
 @router.post("/{user_id}/chat", response_model=ChatResponse)
@@ -563,3 +299,382 @@ def _get_user(user_id: int, db: Session) -> User:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+def _get_logs(user_id: int, db: Session, days: int, ascending: bool = False) -> list[BehaviorLog]:
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    query = db.query(BehaviorLog).filter(
+        (BehaviorLog.user_id == user_id) & (BehaviorLog.created_at >= since)
+    )
+    order = BehaviorLog.created_at.asc() if ascending else BehaviorLog.created_at.desc()
+    return query.order_by(order).all()
+
+
+def _format_display_name(username: str) -> str:
+    return username.replace("_", " ").title()
+
+
+def _is_negative(log: BehaviorLog) -> int:
+    return int(log.emotion.lower() in NEGATIVE_EMOTIONS)
+
+
+def _is_positive(log: BehaviorLog) -> int:
+    return int(log.emotion.lower() in POSITIVE_EMOTIONS)
+
+
+def _group_logs_by_hour(logs: list[BehaviorLog]) -> dict[int, list[BehaviorLog]]:
+    groups: dict[int, list[BehaviorLog]] = defaultdict(list)
+    for log in logs:
+        groups[log.created_at.hour].append(log)
+    return groups if groups else {0: []}
+
+
+def _ratio(logs: list[BehaviorLog], predicate) -> float:
+    if not logs:
+        return 0
+    return sum(predicate(log) for log in logs) / len(logs)
+
+
+def _to_12_hour(hour: int) -> tuple[int, str]:
+    normalized = hour % 24
+    suffix = "am" if normalized < 12 else "pm"
+    return (12 if normalized % 12 == 0 else normalized % 12), suffix
+
+
+def _hour_range(hour: int) -> str:
+    start_hour, start_suffix = _to_12_hour(hour)
+    end_hour, end_suffix = _to_12_hour(hour + 3)
+    return f"{start_hour}{start_suffix} - {end_hour}{end_suffix}"
+
+
+def _weekly_progress(logs: list[BehaviorLog]) -> int:
+    positive = sum(_is_positive(log) for log in logs)
+    negative = sum(_is_negative(log) for log in logs)
+    baseline = max(1, len(logs))
+    return round(((positive - negative) / baseline) * 25)
+
+
+def _build_timeline(logs: list[BehaviorLog]) -> list[TimelinePoint]:
+    bins = [6, 9, 12, 15, 18, 21, 0]
+    labels = ["6am", "9am", "12pm", "3pm", "6pm", "9pm", "12am"]
+    grouped = defaultdict(list)
+
+    for log in logs:
+        h = log.created_at.hour
+        for bin_start in bins:
+            if bin_start == 0 and 0 <= h < 3:
+                grouped[bin_start].append(log)
+                break
+            elif bin_start != 0 and bin_start <= h < bin_start + 3:
+                grouped[bin_start].append(log)
+                break
+
+    points = []
+    for index, hour in enumerate(bins):
+        block = grouped.get(hour, [])
+        points.append(
+            TimelinePoint(
+                label=labels[index],
+                focus=round(_ratio(block, _is_positive) * 100, 1) if block else 0,
+                distraction=round(_ratio(block, _is_negative) * 100, 1) if block else 0,
+            )
+        )
+    return points
+
+
+def _build_weekday_trends(logs: list[BehaviorLog]) -> list[EmotionTrendPoint]:
+    grouped = defaultdict(list)
+    for log in logs:
+        grouped[log.created_at.weekday()].append(log)
+
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    return [
+        EmotionTrendPoint(
+            label=day,
+            productive=round(_ratio(grouped.get(index, []), _is_positive) * 100, 1),
+            distracted=round(_ratio(grouped.get(index, []), _is_negative) * 100, 1),
+        )
+        for index, day in enumerate(days)
+    ]
+
+
+def _build_analysis_insights(logs: list[BehaviorLog], analysis) -> list[InsightItem]:
+    if not logs:
+        return [
+            InsightItem(
+                title="No activity to analyze yet",
+                description="Log a few behaviors and your AI insights will appear here.",
+                type="info",
+            )
+        ]
+
+    hour_groups = _group_logs_by_hour(logs)
+    worst_hour = max(hour_groups, key=lambda hour: _ratio(hour_groups[hour], _is_negative))
+    best_hour = max(hour_groups, key=lambda hour: _ratio(hour_groups[hour], _is_positive))
+    study_count = len([log for log in logs if (log.tag or "").lower() in {"study", "reading", "work"}])
+    late_logs = len([log for log in logs if log.created_at.hour >= 21 or log.created_at.hour < 1])
+
+    insights = [
+        InsightItem(
+            title="You tend to procrastinate at night",
+            description=f"Between {_hour_range(worst_hour)}, your distraction rate is the highest this week.",
+            type="warning",
+        ),
+        InsightItem(
+            title="Your focus peaks in the morning",
+            description=f"{_hour_range(best_hour)} shows your strongest productivity pattern.",
+            type="success",
+        ),
+        InsightItem(
+            title="Inconsistent sleep schedule detected",
+            description=f"You logged {late_logs} late-night behaviors this week. A steadier cutoff time could help.",
+            type="warning",
+        ),
+        InsightItem(
+            title="Study sessions are improving",
+            description=f"You logged {study_count} focused study or work sessions this week. Keep building on that rhythm.",
+            type="info",
+        ),
+    ]
+
+    if analysis.risky_patterns:
+        insights[0] = InsightItem(
+            title=analysis.risky_patterns[0].pattern.replace("_", " ").title(),
+            description=analysis.risky_patterns[0].description,
+            type="warning",
+        )
+
+    return insights[:4]
+
+
+def _build_behavior_distribution(logs: list[BehaviorLog]) -> list[BehaviorDistributionItem]:
+    if not logs:
+        return []
+
+    positive = sum(_is_positive(log) for log in logs)
+    negative = sum(_is_negative(log) for log in logs)
+    neutral = max(0, len(logs) - positive - negative)
+    total = len(logs)
+
+    return [
+        BehaviorDistributionItem(
+            label="Productive",
+            value=round((positive / total) * 100, 1),
+            category="productive",
+        ),
+        BehaviorDistributionItem(
+            label="Neutral",
+            value=round((neutral / total) * 100, 1),
+            category="neutral",
+        ),
+        BehaviorDistributionItem(
+            label="Distracting",
+            value=round((negative / total) * 100, 1),
+            category="distracting",
+        ),
+    ]
+
+
+def _build_weekly_pattern(logs: list[BehaviorLog]) -> list[RadarMetricItem]:
+    segments = {
+        "Morning": [log for log in logs if 6 <= log.created_at.hour < 12],
+        "Afternoon": [log for log in logs if 12 <= log.created_at.hour < 17],
+        "Evening": [log for log in logs if 17 <= log.created_at.hour < 21],
+        "Night": [log for log in logs if log.created_at.hour >= 21 or log.created_at.hour < 6],
+        "Focus": logs,
+        "Energy": logs,
+    }
+
+    metrics = []
+    for label, items in segments.items():
+        if label == "Energy":
+            value = round((sum(log.intensity for log in items) / len(items)) * 10, 1) if items else 0
+        else:
+            value = round(_ratio(items, _is_positive) * 100, 1) if items else 0
+        metrics.append(RadarMetricItem(label=label, value=value))
+    return metrics
+
+
+def _build_recommendations(logs: list[BehaviorLog], analysis) -> list[RecommendationItem]:
+    worst_label = "9pm - 12am"
+    if logs:
+        worst_groups = _group_logs_by_hour(logs)
+        worst_hour = max(worst_groups, key=lambda hour: _ratio(worst_groups[hour], _is_negative))
+        worst_label = _hour_range(worst_hour)
+
+    recommendations = [
+        RecommendationItem(
+            title="Block distracting websites",
+            description=f"Protect your most vulnerable window around {worst_label} with tighter blockers or app limits.",
+            impact="High",
+        ),
+        RecommendationItem(
+            title="Set a consistent sleep schedule",
+            description="Aim for the same screen-off and bedtime routine every night to reduce late-hour drift.",
+            impact="High",
+        ),
+        RecommendationItem(
+            title="Take regular breaks",
+            description="Use short focus sprints with deliberate breaks so productive sessions stay sustainable.",
+            impact="Medium",
+        ),
+        RecommendationItem(
+            title="Plan tomorrow before logging off",
+            description="Write your top task for the next day before bed so mornings start with less friction.",
+            impact="Medium",
+        ),
+    ]
+
+    if analysis.risky_patterns:
+        recommendations[0] = RecommendationItem(
+            title="Reduce your highest-risk pattern",
+            description=analysis.risky_patterns[0].description,
+            impact="High" if analysis.risky_patterns[0].severity == "high" else "Medium",
+        )
+
+    return recommendations
+
+
+def _build_weekly_activity(logs: list[BehaviorLog]) -> list[WeeklyActivityItem]:
+    grouped = defaultdict(list)
+    for log in logs:
+        grouped[log.created_at.weekday()].append(log)
+
+    labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    items = []
+    for index, label in enumerate(labels):
+        block = grouped.get(index, [])
+        productive = sum(_is_positive(log) for log in block)
+        other = max(0, len(block) - productive)
+        items.append(WeeklyActivityItem(label=label, productive=productive, other=other))
+    return items
+
+
+def _build_goals(logs: list[BehaviorLog]) -> list[GoalItem]:
+    study_sessions = len([log for log in logs if (log.tag or "").lower() in {"study", "reading", "work"}])
+    exercise_sessions = len([log for log in logs if (log.tag or "").lower() == "exercise"])
+    sleep_success = len(
+        {
+            log.created_at.date()
+            for log in logs
+            if log.created_at.hour < 23 and (log.created_at.hour >= 18 or log.created_at.hour < 6)
+        }
+    )
+
+    definitions = [
+        ("Log 30 behaviors", len(logs), 30),
+        ("Study 20 hours", min(study_sessions * 4, 20), 20),
+        ("Exercise 5 times", exercise_sessions, 5),
+        ("Sleep before 11pm", sleep_success, 7),
+    ]
+
+    goals = []
+    for title, current, total in definitions:
+        tone = "warning" if (current / total if total else 0) < 0.5 else "success"
+        goals.append(GoalItem(title=title, current=current, total=total, tone=tone))
+    return goals
+
+
+def _build_achievements(
+    all_logs: list[BehaviorLog],
+    recent_logs: list[BehaviorLog],
+    morning_positive: int,
+    current_streak: int,
+    analysis,
+) -> list[AchievementItem]:
+    timeline = _build_timeline(recent_logs)
+    best_focus = max(timeline, key=lambda point: point.focus, default=TimelinePoint(label="6am", focus=0, distraction=0))
+    distribution = _build_behavior_distribution(recent_logs)
+    distracting_ratio = distribution[-1].value if distribution else 100
+
+    return [
+        AchievementItem(
+            title="First Week",
+            description="Logged behaviors for 7 days straight",
+            unlocked=current_streak >= 7,
+            icon="🎉",
+        ),
+        AchievementItem(
+            title="Morning Person",
+            description="Started 5 days before 8am",
+            unlocked=morning_positive >= 5,
+            icon="🌅",
+        ),
+        AchievementItem(
+            title="Focus Master",
+            description="Achieved 90%+ focus for a day",
+            unlocked=best_focus.focus >= 85,
+            icon="🎯",
+        ),
+        AchievementItem(
+            title="Consistency King",
+            description="30-day streak",
+            unlocked=current_streak >= 30,
+            icon="👑",
+        ),
+        AchievementItem(
+            title="Self Awareness",
+            description="Generated 50 insights",
+            unlocked=len(all_logs) >= 50 and len(_build_analysis_insights(recent_logs, analysis)) >= 4,
+            icon="🧠",
+        ),
+        AchievementItem(
+            title="Habit Breaker",
+            description="Reduced bad habit by 50%",
+            unlocked=distracting_ratio <= 25 and len(all_logs) >= 20,
+            icon="💪",
+        ),
+    ]
+
+
+def _current_streak(logs: list[BehaviorLog]) -> int:
+    if not logs:
+        return 0
+
+    active_days = sorted({log.created_at.date() for log in logs}, reverse=True)
+    streak = 0
+    cursor = active_days[0]
+
+    for day in active_days:
+        if day == cursor:
+            streak += 1
+            cursor = cursor - timedelta(days=1)
+        elif day < cursor:
+            break
+
+    return streak
+
+
+def _build_profile_summary_title(current_streak: int, days_active: int, total_logs: int) -> str:
+    if current_streak >= 14:
+        return f"You're holding a {current_streak}-day rhythm."
+    if current_streak >= 7:
+        return f"{current_streak} days of visible momentum."
+    if days_active >= 5:
+        return "Your routine is starting to stabilize."
+    if total_logs >= 1:
+        return "Your pattern map is beginning to form."
+    return "Your rhythm is taking shape."
+
+
+def _build_profile_summary_description(
+    recent_logs: list[BehaviorLog],
+    recent_tag_counter: Counter,
+    best_hour: int,
+) -> str:
+    if not recent_logs:
+        return "Log a few more moments and Mindflow will surface your strongest habits, best focus window, and recovery patterns."
+
+    top_tag, top_count = recent_tag_counter.most_common(1)[0]
+    return (
+        f"Your most common pattern this week is {top_tag} ({top_count} logs), "
+        f"and your strongest focus window is around {_hour_range(best_hour)}. "
+        "Keep feeding the timeline with small, honest check-ins."
+    )
+
+
+def _check_chat_rate_limit(user_id: int):
+    key = f"rate:chat:{user_id}"
+    count = redis_store.incr_with_ttl(key, CHAT_RATE_WINDOW)
+    if count > CHAT_RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Too many chat requests. Try again in a minute.")
