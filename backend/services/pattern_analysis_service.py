@@ -1,15 +1,14 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from app.models.behavior import BehaviorLog, User
-from app.schemas.behavior import (
+from backend.models.behavior import BehaviorLog
+from backend.schemas.behavior import (
     BehaviorPattern,
     EmotionalTrend,
     RiskyPattern,
     PatternAnalysisResult,
 )
 from typing import List
-import numpy as np
+from statistics import fmean
 
 
 class PatternAnalysisService:
@@ -25,15 +24,15 @@ class PatternAnalysisService:
         Analyze user behavior logs for the last N days
         """
         # Get the date range
-        end_date = datetime.utcnow()
+        end_date = datetime.now(timezone.utc).replace(tzinfo=None)
         start_date = end_date - timedelta(days=days)
-        
-        # Fetch behavior logs
+
+        # Fetch behavior logs ordered chronologically so trend analysis is meaningful
         logs = db.query(BehaviorLog).filter(
             (BehaviorLog.user_id == user_id) &
             (BehaviorLog.created_at >= start_date) &
             (BehaviorLog.created_at <= end_date)
-        ).all()
+        ).order_by(BehaviorLog.created_at.asc()).all()
         
         if not logs:
             return PatternAnalysisResult(
@@ -88,9 +87,7 @@ class PatternAnalysisService:
                     emotion=emotion,
                     count=data["count"],
                     percentage=round((data["count"] / total_logs) * 100, 2),
-                    intensity_avg=round(
-                        np.mean(data["intensities"]), 2
-                    ),
+                    intensity_avg=round(fmean(data["intensities"]), 2),
                 )
             )
         
@@ -119,8 +116,8 @@ class PatternAnalysisService:
             else:
                 # Calculate trend: compare first half with second half
                 mid = len(intensities) // 2
-                first_half_avg = np.mean(intensities[:mid])
-                second_half_avg = np.mean(intensities[mid:])
+                first_half_avg = fmean(intensities[:mid])
+                second_half_avg = fmean(intensities[mid:])
                 
                 if second_half_avg > first_half_avg + 1:
                     trend_str = "increasing"
@@ -159,7 +156,7 @@ class PatternAnalysisService:
         for emotion in negative_emotions:
             if emotion in emotion_counts:
                 count = emotion_counts[emotion]
-                avg_intensity = np.mean(emotion_avg_intensity[emotion])
+                avg_intensity = fmean(emotion_avg_intensity[emotion])
                 percentage = (count / len(logs)) * 100
                 
                 if percentage > 40 and avg_intensity > 6:

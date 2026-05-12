@@ -1,16 +1,24 @@
-from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 
 # ============= User Schemas =============
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
+    email: str = Field(..., min_length=5, max_length=100)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        if "@" not in value or value.startswith("@") or value.endswith("@"):
+            raise ValueError("Invalid email format")
+        return value
 
 
 class UserCreate(UserBase):
-    pass
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class UserResponse(UserBase):
@@ -22,12 +30,24 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
+class UserLogin(BaseModel):
+    username_or_email: str = Field(..., min_length=3, max_length=100)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
 # ============= BehaviorLog Schemas =============
 class BehaviorLogBase(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
     emotion: str = Field(..., min_length=1, max_length=50)
     tag: Optional[str] = Field(None, max_length=100)
     intensity: float = Field(default=5.0, ge=1, le=10)
+    created_at: Optional[datetime] = None
 
 
 class BehaviorLogCreate(BehaviorLogBase):

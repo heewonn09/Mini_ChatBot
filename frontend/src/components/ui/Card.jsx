@@ -1,30 +1,79 @@
-export default function Card({ title, value, subtitle, icon, color, trend }) {
+import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+
+const trendMap = {
+  up: {
+    Icon: ArrowUp,
+    container: "bg-[#def2ee] text-[#0f766e]",
+  },
+  down: {
+    Icon: ArrowDown,
+    container: "bg-[#f8e2d9] text-[#dd7a5f]",
+  },
+  neutral: {
+    Icon: Minus,
+    container: "bg-[rgba(247,240,231,0.92)] text-[color:var(--ink-soft)]",
+  },
+};
+
+function Card({
+  title,
+  value,
+  subtitle,
+  icon,
+  iconClassName = "",
+  trend,
+  footer,
+  children,
+  className = "",
+  titleClassName = "",
+  valueClassName = "",
+  subtitleClassName = "",
+  bodyClassName = "",
+}) {
+  const trendUi = trend ? trendMap[trend] ?? trendMap.neutral : null;
+  const hasValue = value !== undefined && value !== null && value !== "";
+
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 hover:bg-zinc-900 transition">
-      
-      {/* 상단 */}
-      <div className="flex items-center justify-between mb-4">
-        <div className={`w-10 h-10 flex items-center justify-center rounded-xl ${color}`}>
-          {icon}
+    <article className={`app-panel rounded-[2rem] border border-white/30 bg-white/55 backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 hover:scale-[1.005] ${className}`.trim()}>
+      {(icon || trendUi) ? (
+        <div className="mb-4 flex items-start justify-between">
+          {icon ? (
+            <div className={`flex h-11 w-11 items-center justify-center rounded-[1.2rem] ${iconClassName}`.trim()}>
+              {icon}
+            </div>
+          ) : (
+            <span />
+          )}
+          {trendUi ? (
+            <span className={`flex h-8 w-8 items-center justify-center rounded-full ${trendUi.container}`}>
+              <trendUi.Icon size={13} />
+            </span>
+          ) : null}
         </div>
+      ) : null}
 
-        {trend && (
-          <span className={`text-xs px-2 py-1 rounded-full ${
-            trend === "up"
-              ? "bg-green-500/20 text-green-400"
-              : "bg-red-500/20 text-red-400"
-          }`}>
-            {trend === "up" ? "↑" : "↓"}
-          </span>
-        )}
-      </div>
+      {(title || hasValue || subtitle) ? (
+        <div className={`space-y-1.5 ${bodyClassName}`.trim()}>
+          {title ? (
+            <h2 className={`text-[0.98rem] font-semibold text-[color:var(--ink-soft)] ${titleClassName}`.trim()}>
+              {title}
+            </h2>
+          ) : null}
+          {hasValue ? (
+            <p className={`text-[2.15rem] font-bold leading-tight text-[color:var(--ink)] ${valueClassName}`.trim()}>
+              {value}
+            </p>
+          ) : null}
+          {subtitle ? (
+            <p className={`text-[0.98rem] text-[color:var(--ink-soft)] ${subtitleClassName}`.trim()}>{subtitle}</p>
+          ) : null}
+        </div>
+      ) : null}
 
-      {/* 텍스트 */}
-      <p className="text-xs text-zinc-400">{title}</p>
-      <h2 className="text-xl font-semibold mt-1">{value}</h2>
-      {subtitle && (
-        <p className="text-xs text-zinc-500 mt-1">{subtitle}</p>
-      )}
-    </div>
+      {children ? <div className={title || hasValue || subtitle ? "mt-6" : ""}>{children}</div> : null}
+      {footer ? <div className="mt-5">{footer}</div> : null}
+    </article>
   );
 }
+
+export default Card;

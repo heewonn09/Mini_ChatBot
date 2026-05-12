@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
+from backend.auth import require_same_user
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models.behavior import BehaviorLog, User
-from app.schemas.behavior import (
+from backend.database import get_db
+from backend.models.behavior import BehaviorLog, User
+from backend.schemas.behavior import (
     BehaviorLogCreate,
     BehaviorLogResponse,
     BehaviorLogUpdate,
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/behaviors", tags=["Behaviors"])
 def create_behavior_log(
     user_id: int,
     behavior: BehaviorLogCreate,
+    _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     """Create a new behavior log for a user"""
@@ -24,7 +26,12 @@ def create_behavior_log(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    db_behavior = BehaviorLog(user_id=user_id, **behavior.dict())
+    payload = behavior.model_dump(exclude={"created_at"})
+    db_behavior = BehaviorLog(user_id=user_id, **payload)
+
+    if behavior.created_at is not None:
+        db_behavior.created_at = behavior.created_at
+
     db.add(db_behavior)
     db.commit()
     db.refresh(db_behavior)
@@ -32,7 +39,12 @@ def create_behavior_log(
 
 
 @router.get("/{user_id}/{log_id}", response_model=BehaviorLogResponse)
-def get_behavior_log(user_id: int, log_id: int, db: Session = Depends(get_db)):
+def get_behavior_log(
+    user_id: int,
+    log_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     """Get a specific behavior log"""
     behavior = db.query(BehaviorLog).filter(
         (BehaviorLog.id == log_id) & (BehaviorLog.user_id == user_id)
@@ -48,6 +60,7 @@ def list_user_behaviors(
     user_id: int,
     skip: int = 0,
     limit: int = 50,
+    _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     """List all behavior logs for a user"""
@@ -71,6 +84,7 @@ def update_behavior_log(
     user_id: int,
     log_id: int,
     behavior: BehaviorLogUpdate,
+    _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     """Update a behavior log"""
@@ -81,7 +95,7 @@ def update_behavior_log(
     if not db_behavior:
         raise HTTPException(status_code=404, detail="Behavior log not found")
     
-    update_data = behavior.dict(exclude_unset=True)
+    update_data = behavior.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_behavior, key, value)
     
@@ -92,7 +106,12 @@ def update_behavior_log(
 
 
 @router.delete("/{user_id}/{log_id}", status_code=204)
-def delete_behavior_log(user_id: int, log_id: int, db: Session = Depends(get_db)):
+def delete_behavior_log(
+    user_id: int,
+    log_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
     """Delete a behavior log"""
     behavior = db.query(BehaviorLog).filter(
         (BehaviorLog.id == log_id) & (BehaviorLog.user_id == user_id)
