@@ -126,3 +126,53 @@ class AIFeedbackService:
         except Exception as e:
             logger.error("Gemini generate_content failed: %s", e)
             return "AI feedback temporarily unavailable. Please try again later."
+
+    def generate_chat_response(
+        self,
+        user_message: str,
+        username: str,
+        behavior_summary: str,
+        conversation_memory: str,
+        language: str = "en",
+    ) -> str:
+        """Generate a conversational AI reply to the user's message."""
+        lang_instruction = (
+            "항상 한국어로 답변하세요."
+            if language == "ko"
+            else "Always reply in English."
+        )
+
+        if not self.model:
+            return (
+                f"안녕하세요, {username}님! AI 어시스턴트가 현재 준비 중입니다."
+                if language == "ko"
+                else f"Hi {username}! The AI assistant is currently unavailable. Please check your API key."
+            )
+
+        prompt = (
+            f"{self.system_instruction}\n"
+            f"{lang_instruction}\n\n"
+            f"User: {username}\n\n"
+            f"Recent behavior summary:\n{behavior_summary}\n\n"
+            f"Conversation so far:\n{conversation_memory if conversation_memory else '(none)'}\n\n"
+            f"User message: {user_message}\n\n"
+            "Respond directly and conversationally. Do not repeat the question or the behavior summary."
+        )
+
+        try:
+            import google.generativeai as genai
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    candidate_count=1,
+                    temperature=0.8,
+                ),
+            )
+            return response.text.strip()
+        except Exception as e:
+            logger.error("Gemini chat failed: %s", e)
+            return (
+                "일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요."
+                if language == "ko"
+                else "I'm temporarily unable to respond. Please try again in a moment."
+            )
