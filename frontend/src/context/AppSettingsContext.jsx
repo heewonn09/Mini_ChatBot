@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { messages } from "./messages";
 import { useI18n } from "../i18n/useI18n";
 import { translations } from "../i18n/translations";
 
@@ -26,8 +25,7 @@ export function AppSettingsProvider({ children }) {
       setLanguage,
       theme,
       setTheme,
-      t: Object.assign(translate, messages[language] ?? {}, translations[language] ?? {}),
-      dict: messages[language],
+      t: Object.assign(translate, translations[language] ?? {}),
     }),
     [language, theme, translate]
   );

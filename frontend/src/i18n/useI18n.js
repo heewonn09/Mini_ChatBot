@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { messages } from '../context/messages';
 import { translations } from './translations';
 
 function getByPath(obj, key) {
@@ -11,8 +10,8 @@ function interpolate(text, vars = {}) {
 }
 
 export function createTranslator(language) {
-  const locale = { ...(messages[language] ?? {}), ...(translations[language] ?? {}) };
-  const fallbackLocale = { ...(messages.en ?? {}), ...(translations.en ?? {}) };
+  const locale = translations[language] ?? {};
+  const fallbackLocale = translations.en ?? {};
 
   return (key, vars) => {
     const value = getByPath(locale, key) ?? getByPath(fallbackLocale, key);

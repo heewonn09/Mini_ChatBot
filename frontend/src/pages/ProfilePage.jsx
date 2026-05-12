@@ -19,7 +19,6 @@ import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { normalizeCategory, normalizeMood } from "../i18n/normalize";
-import { useI18n } from "../i18n/useI18n";
 
 const metricUiMap = {
   check: {
@@ -82,8 +81,7 @@ function progressToneClass(tone) {
 }
 
 function ProfilePage() {
-  const { language } = useAppSettings();
-  const t = useI18n(language);
+  const { t, language } = useAppSettings();
   const { user, error: appError, refreshOverview } = useOutletContext();
   const [profile, setProfile] = useState(null);
   const [profileError, setProfileError] = useState("");
