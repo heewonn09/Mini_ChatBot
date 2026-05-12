@@ -28,12 +28,21 @@ function ChatPage() {
     let active = true;
 
     const load = async () => {
-      const [bootstrap, history] = await Promise.all([fetchChatBootstrap(user.id), fetchChatHistory(user.id)]);
-      if (!active) return;
-      const normalized = (history.items || []).map((item) => ({ role: item.role, text: item.message }));
-      setMessages(normalized.length ? normalized : [{ role: "assistant", text: bootstrap.intro }]);
-      setSuggestions(bootstrap.suggested_prompts?.length ? bootstrap.suggested_prompts : fallbackSuggestions);
-      setLoading(false);
+      try {
+        const [bootstrap, history] = await Promise.all([
+          fetchChatBootstrap(user.id),
+          fetchChatHistory(user.id),
+        ]);
+        if (!active) return;
+        const normalized = (history.items || []).map((item) => ({ role: item.role, text: item.message }));
+        setMessages(normalized.length ? normalized : [{ role: "assistant", text: bootstrap.intro }]);
+        setSuggestions(bootstrap.suggested_prompts?.length ? bootstrap.suggested_prompts : fallbackSuggestions);
+      } catch {
+        if (!active) return;
+        setMessages([{ role: "assistant", text: t.chat.loadError ?? "Could not load chat history. Please refresh." }]);
+      } finally {
+        if (active) setLoading(false);
+      }
     };
 
     load();

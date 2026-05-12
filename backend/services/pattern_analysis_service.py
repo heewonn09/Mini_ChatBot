@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from backend.models.behavior import BehaviorLog
 from backend.schemas.behavior import (
@@ -24,15 +24,15 @@ class PatternAnalysisService:
         Analyze user behavior logs for the last N days
         """
         # Get the date range
-        end_date = datetime.utcnow()
+        end_date = datetime.now(timezone.utc).replace(tzinfo=None)
         start_date = end_date - timedelta(days=days)
-        
-        # Fetch behavior logs
+
+        # Fetch behavior logs ordered chronologically so trend analysis is meaningful
         logs = db.query(BehaviorLog).filter(
             (BehaviorLog.user_id == user_id) &
             (BehaviorLog.created_at >= start_date) &
             (BehaviorLog.created_at <= end_date)
-        ).all()
+        ).order_by(BehaviorLog.created_at.asc()).all()
         
         if not logs:
             return PatternAnalysisResult(

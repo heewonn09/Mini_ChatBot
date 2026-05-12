@@ -1,38 +1,52 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect
 import logging
 
 from backend.config import get_settings
-from backend.database import engine, Base, create_tables   # create_tables 추가
+from backend.database import engine, create_tables
 from backend.routers import users, behaviors, analysis, ui, auth
-
-# ✅ 올바른 모델 import (중요!)
-from backend.models.behavior import User, BehaviorLog
-from backend.models.chat import ChatHistory
+from backend.models.behavior import User, BehaviorLog  # noqa: F401 – ensures tables are registered
+from backend.models.chat import ChatHistory  # noqa: F401
 
 settings = get_settings()
 
-# Configure logging
 logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Starting %s (env=%s)...", settings.app_name, settings.app_env)
+    create_tables()
+    tables = inspect(engine).get_table_names()
+    logger.info("Active tables: %s", tables)
+    yield
+    logger.info("Shutting down %s", settings.app_name)
+
+
 app = FastAPI(
     title=settings.app_name,
     description="AI-powered behavior pattern analysis chatbot",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(behaviors.router)
@@ -52,27 +66,6 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
-
-
-# ==================== Startup ====================
-@app.on_event("startup")
-async def startup_event():
-    logger.info(f"Starting {settings.app_name}...")
-    logger.info(f"Environment: {settings.app_env}")
-    
-    # ✅ 테이블 생성 (MySQL이 제대로 연결되었을 때 실행)
-    create_tables()
-    
-    # 테이블 존재 여부 확인 로그
-    from sqlalchemy import inspect
-    inspector = inspect(engine)
-    tables = inspector.get_table_names()
-    logger.info(f"Created tables: {tables}")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info(f"Shutting down {settings.app_name}")
 
 
 if __name__ == "__main__":
