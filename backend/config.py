@@ -1,6 +1,13 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from pathlib import Path
 
+class Settings(BaseSettings):
+    # 기존 필드들 동일...
+
+    class Config:
+        env_file = Path(__file__).parent.parent / ".env"  # 수정
+        case_sensitive = False
 
 class Settings(BaseSettings):
     # Database
@@ -18,9 +25,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     log_level: str = "INFO"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+
 
 
 @lru_cache()
