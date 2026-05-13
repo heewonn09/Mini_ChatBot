@@ -1,24 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
-import { useAppSettings } from "../context/AppSettingsContext";
 import { askAssistant, fetchChatBootstrap, fetchChatHistory, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 
-const fallbackSuggestions = [
-  "Why am I unproductive?",
-  "Analyze my habits",
-  "How can I focus better?",
-  "What's my best time to study?",
+const FALLBACK_SUGGESTIONS = [
+  "왜 나는 생산적이지 않을까요?",
+  "내 습관을 분석해줘",
+  "어떻게 하면 더 집중할 수 있나요?",
+  "공부하기 가장 좋은 시간대가 언제인가요?",
 ];
 
 function ChatPage() {
   const { user } = useOutletContext();
-  const { t, language } = useAppSettings();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
-  const [suggestions, setSuggestions] = useState(fallbackSuggestions);
+  const [suggestions, setSuggestions] = useState(FALLBACK_SUGGESTIONS);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
@@ -36,10 +34,10 @@ function ChatPage() {
         if (!active) return;
         const normalized = (history.items || []).map((item) => ({ role: item.role, text: item.message }));
         setMessages(normalized.length ? normalized : [{ role: "assistant", text: bootstrap.intro }]);
-        setSuggestions(bootstrap.suggested_prompts?.length ? bootstrap.suggested_prompts : fallbackSuggestions);
+        setSuggestions(bootstrap.suggested_prompts?.length ? bootstrap.suggested_prompts : FALLBACK_SUGGESTIONS);
       } catch {
         if (!active) return;
-        setMessages([{ role: "assistant", text: t.chat.loadError ?? "Could not load chat history. Please refresh." }]);
+        setMessages([{ role: "assistant", text: "채팅 기록을 불러오지 못했습니다. 새로고침해주세요." }]);
       } finally {
         if (active) setLoading(false);
       }
@@ -64,14 +62,14 @@ function ChatPage() {
     setSending(true);
 
     try {
-      const data = await askAssistant(user.id, value, language);
+      const data = await askAssistant(user.id, value);
       setMessages([...next, { role: "assistant", text: data.answer }]);
     } catch (error) {
       setMessages([
         ...next,
         {
           role: "assistant",
-          text: getErrorMessage(error, "I couldn't answer that just now. Please try again in a moment."),
+          text: getErrorMessage(error, "지금은 답변하지 못했어요. 잠시 후 다시 시도해주세요."),
         },
       ]);
     } finally {
@@ -80,7 +78,7 @@ function ChatPage() {
   };
 
   if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{t.chat.loading}</Card>;
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">채팅 어시스턴트를 불러오는 중...</Card>;
   }
 
   return (
@@ -88,8 +86,8 @@ function ChatPage() {
       <PageHeader
         variant="icon"
         badgeIcon={Bot}
-        title={t.chat.title}
-        description={t.chat.description}
+        title="채팅 어시스턴트"
+        description="패턴 해석, 집중 리셋, 실천 가능한 다음 행동을 물어보세요."
       />
 
       <div className="grid gap-6 xl:grid-cols-[0.88fr,1.12fr]">
@@ -99,14 +97,14 @@ function ChatPage() {
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-white/14">
                 <Sparkles size={20} strokeWidth={2.2} />
               </div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-white/70">{t.chat.starter}</p>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-white/70">대화 시작</p>
               <p className="mt-4 text-[1rem] leading-8 text-white/92">{messages[0]?.text}</p>
             </div>
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <p className="app-kicker">{t.chat.tryAsking}</p>
-                <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.chat.suggested}</h2>
+                <p className="app-kicker">이렇게 질문해보세요</p>
+                <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">추천 질문</h2>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -124,9 +122,9 @@ function ChatPage() {
             </div>
 
             <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] p-5">
-              <p className="app-kicker">{t.chat.bestUse}</p>
+              <p className="app-kicker">활용 팁</p>
               <p className="mt-3 text-[1rem] leading-7 text-[color:var(--ink-soft)]">
-                {t.chat.bestUseDesc}
+                짧고 직접적인 질문이 좋아요. 예: "지금 가장 먼저 고칠 패턴이 뭐야?"
               </p>
             </div>
           </div>
@@ -163,7 +161,7 @@ function ChatPage() {
                   <Sparkles size={18} strokeWidth={2.2} />
                 </div>
                 <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-white/78 px-5 py-4 text-[color:var(--ink-soft)] shadow-[var(--shadow-sm)]">
-                  {t.chat.thinking}
+                  생각 중...
                 </div>
               </div>
             ) : null}
@@ -177,7 +175,7 @@ function ChatPage() {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 className="flex-1 bg-transparent px-3 py-2 text-[1rem] text-[color:var(--ink)] outline-none placeholder:text-[color:var(--ink-soft)]"
-                placeholder={t.chat.placeholder}
+                placeholder="습관에 대해 질문해보세요..."
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();

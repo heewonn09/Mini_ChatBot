@@ -86,18 +86,11 @@ class AIFeedbackService:
         username: str,
         behavior_summary: str,
         conversation_memory: str,
-        language: str = "en",
     ) -> str:
-        lang_instruction = (
-            "항상 한국어로 답변하세요." if language == "ko" else "Always reply in English."
-        )
+        lang_instruction = "항상 한국어로 답변하세요."
 
         if not self.api_key:
-            return (
-                f"안녕하세요, {username}님! AI 어시스턴트가 현재 준비 중입니다. API 키를 확인해주세요."
-                if language == "ko"
-                else f"Hi {username}! The AI assistant is currently unavailable. Please check your API key."
-            )
+            return f"안녕하세요, {username}님! AI 어시스턴트가 현재 준비 중입니다. API 키를 확인해주세요."
 
         prompt = (
             f"{self.system_instruction}\n"
@@ -113,11 +106,7 @@ class AIFeedbackService:
             return _call_gemini(self.api_key, prompt, temperature=0.8)
         except Exception as e:
             logger.error("Gemini chat failed: %s", e)
-            return (
-                "일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요."
-                if language == "ko"
-                else "I'm temporarily unable to respond. Please try again in a moment."
-            )
+            return "일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요."
 
     def _fallback_feedback(self, analysis: PatternAnalysisResult) -> str:
         total_logs = analysis.total_logs

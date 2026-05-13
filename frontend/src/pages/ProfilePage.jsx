@@ -17,53 +17,28 @@ import { useOutletContext } from "react-router-dom";
 import { fetchProfileView, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
-import { useAppSettings } from "../context/AppSettingsContext";
-import { normalizeCategory, normalizeMood } from "../i18n/normalize";
+import { normalizeCategory, normalizeMood, CATEGORY_KO, MOOD_KO } from "../utils/normalize";
 
 const metricUiMap = {
-  check: {
-    Icon: CheckCircle2,
-    iconClassName: "bg-[#f8ecd7] text-[#b67f20]",
-  },
-  calendar: {
-    Icon: CalendarDays,
-    iconClassName: "bg-[#def2ee] text-[#0f766e]",
-  },
-  flame: {
-    Icon: Flame,
-    iconClassName: "bg-[#f8e2d9] text-[#dd7a5f]",
-  },
-  trend: {
-    Icon: TrendingUp,
-    iconClassName: "bg-[#e7eee3] text-[#597b61]",
-  },
+  check: { Icon: CheckCircle2, iconClassName: "bg-[#f8ecd7] text-[#b67f20]" },
+  calendar: { Icon: CalendarDays, iconClassName: "bg-[#def2ee] text-[#0f766e]" },
+  flame: { Icon: Flame, iconClassName: "bg-[#f8e2d9] text-[#dd7a5f]" },
+  trend: { Icon: TrendingUp, iconClassName: "bg-[#e7eee3] text-[#597b61]" },
 };
 
 const achievementUiMap = {
-  "First Week": {
-    Icon: Sparkles,
-    iconClassName: "bg-[#def2ee] text-[#0f766e]",
-  },
-  "Morning Person": {
-    Icon: Sunrise,
-    iconClassName: "bg-[#f8ecd7] text-[#b67f20]",
-  },
-  "Focus Master": {
-    Icon: Target,
-    iconClassName: "bg-[#e7eee3] text-[#597b61]",
-  },
-  "Consistency King": {
-    Icon: Crown,
-    iconClassName: "bg-[#f8e2d9] text-[#dd7a5f]",
-  },
-  "Self Awareness": {
-    Icon: Brain,
-    iconClassName: "bg-[#def2ee] text-[#0f766e]",
-  },
-  "Habit Breaker": {
-    Icon: ShieldCheck,
-    iconClassName: "bg-[#f5dfd3] text-[#c86f56]",
-  },
+  "First Week": { Icon: Sparkles, iconClassName: "bg-[#def2ee] text-[#0f766e]" },
+  "첫 번째 주": { Icon: Sparkles, iconClassName: "bg-[#def2ee] text-[#0f766e]" },
+  "Morning Person": { Icon: Sunrise, iconClassName: "bg-[#f8ecd7] text-[#b67f20]" },
+  "아침형 인간": { Icon: Sunrise, iconClassName: "bg-[#f8ecd7] text-[#b67f20]" },
+  "Focus Master": { Icon: Target, iconClassName: "bg-[#e7eee3] text-[#597b61]" },
+  "집중 마스터": { Icon: Target, iconClassName: "bg-[#e7eee3] text-[#597b61]" },
+  "Consistency King": { Icon: Crown, iconClassName: "bg-[#f8e2d9] text-[#dd7a5f]" },
+  "꾸준함의 왕": { Icon: Crown, iconClassName: "bg-[#f8e2d9] text-[#dd7a5f]" },
+  "Self Awareness": { Icon: Brain, iconClassName: "bg-[#def2ee] text-[#0f766e]" },
+  "자기 인식": { Icon: Brain, iconClassName: "bg-[#def2ee] text-[#0f766e]" },
+  "Habit Breaker": { Icon: ShieldCheck, iconClassName: "bg-[#f5dfd3] text-[#c86f56]" },
+  "습관 파괴자": { Icon: ShieldCheck, iconClassName: "bg-[#f5dfd3] text-[#c86f56]" },
 };
 
 const barHeights = ["h-3", "h-4", "h-5", "h-6", "h-7", "h-8", "h-9"];
@@ -81,7 +56,6 @@ function progressToneClass(tone) {
 }
 
 function ProfilePage() {
-  const { t, language } = useAppSettings();
   const { user, error: appError, refreshOverview } = useOutletContext();
   const [profile, setProfile] = useState(null);
   const [profileError, setProfileError] = useState("");
@@ -105,7 +79,7 @@ function ProfilePage() {
       } catch (error) {
         if (active) {
           setProfile(null);
-          setProfileError(getErrorMessage(error, "We couldn't load your profile."));
+          setProfileError(getErrorMessage(error, "프로필을 불러오지 못했습니다."));
         }
       } finally {
         if (active) {
@@ -122,10 +96,10 @@ function ProfilePage() {
   }, [user, reloadKey]);
 
   if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{t.profile.loading}</Card>;
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">프로필을 불러오는 중...</Card>;
   }
 
-  const errorMessage = profileError || (appError ? getErrorMessage(appError, "We couldn't load your profile.") : "");
+  const errorMessage = profileError || (appError ? getErrorMessage(appError, "프로필을 불러오지 못했습니다.") : "");
 
   if (errorMessage) {
     return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{errorMessage}</Card>;
@@ -134,7 +108,7 @@ function ProfilePage() {
   if (!profile) {
     return (
       <Card className="app-panel-strong space-y-4 p-6 text-[color:var(--ink-soft)]">
-        <p>{t.profile.noData}</p>
+        <p>아직 프로필 데이터가 없습니다.</p>
         {user?.id ? (
           <button
             type="button"
@@ -144,7 +118,7 @@ function ProfilePage() {
             }}
             className="app-secondary-button"
           >
-            {t.common.refresh}
+            새로고침
           </button>
         ) : null}
       </Card>
@@ -159,8 +133,8 @@ function ProfilePage() {
   const achievements = profile.achievements ?? [];
   const maxProductive = Math.max(...weeklyActivity.map((item) => item.productive ?? 0), 1);
   const maxOther = Math.max(...weeklyActivity.map((item) => item.other ?? 0), 1);
-  const streakStat = stats.find((item) => item.title === "Current Streak");
-  const memberSinceDate = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: language === "ko" ? "long" : "short" }).format(new Date(profile.member_since));
+  const streakStat = stats.find((item) => item.title === "Current Streak" || item.title === "현재 연속 기록");
+  const memberSinceDate = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" }).format(new Date(profile.member_since));
   const heatmapDays = Array.from({ length: 84 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (83 - i)); const key = d.toISOString().slice(0,10); const entries = recentActivity.filter((item) => item.created_at?.startsWith(key)); const byMood = entries.reduce((acc, item) => { const moodKey = normalizeMood(item.emotion); acc[moodKey] = (acc[moodKey] || 0) + 1; return acc; }, {}); return { key, count: entries.length, byMood }; });
 
   return (
@@ -170,15 +144,15 @@ function ProfilePage() {
         profileIcon={User}
         title={profile.display_name}
         description={profile.summary_description}
-        meta={t("profile.memberSince", { date: memberSinceDate })}
+        meta={`가입일 ${memberSinceDate}`}
       />
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
         <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
           <div className="space-y-4">
-            <p className="app-kicker">{t.profile.profileSummary}</p>
+            <p className="app-kicker">프로필 요약</p>
             <h2 className="app-heading text-[2.3rem] leading-[1.02] text-[color:var(--ink)] sm:text-[2.9rem]">
-              {profile.summary_title || (streakStat?.value ? `${streakStat.value} of visible momentum.` : t.profile.fallbackMomentum)}
+              {profile.summary_title || (streakStat?.value ? `${streakStat.value}만큼의 모멘텀이 보여요.` : "당신의 리듬이 점점 선명해지고 있어요.")}
             </h2>
             <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">{profile.summary_description}</p>
 
@@ -232,10 +206,10 @@ function ProfilePage() {
         <Card className="p-6">
           <div className="space-y-7">
             <div className="space-y-2">
-              <p className="app-kicker">{t.profile.consistencyMap}</p>
-              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.profile.weeklyActivity}</h2>
+              <p className="app-kicker">일관성 지도</p>
+              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">주간 활동</h2>
               <p className="text-[0.98rem] leading-7 text-[color:var(--ink-soft)]">
-                {t.profile.productiveVsOther}
+                이번 주 생산적인 순간과 기타 활동의 비율입니다.
               </p>
             </div>
 
@@ -254,11 +228,11 @@ function ProfilePage() {
             <div className="flex items-center gap-6 border-t border-[rgba(24,50,53,0.08)] pt-5">
               <div className="flex items-center gap-2 text-[0.98rem] text-[color:var(--ink-soft)]">
                 <span className="h-3.5 w-3.5 rounded bg-[#0f766e]" />
-                <span>{t.profile.productive}</span>
+                <span>생산적</span>
               </div>
               <div className="flex items-center gap-2 text-[0.98rem] text-[color:var(--ink-soft)]">
                 <span className="h-3.5 w-3.5 rounded bg-[#ddc7bc]" />
-                <span>{t.profile.other}</span>
+                <span>기타</span>
               </div>
             </div>
           </div>
@@ -268,7 +242,7 @@ function ProfilePage() {
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <Target size={18} className="text-[#0f766e]" />
-              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.profile.weeklyGoals}</h2>
+              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">주간 목표</h2>
             </div>
 
             <div className="space-y-5">
@@ -296,10 +270,10 @@ function ProfilePage() {
         <div className="space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
-              <p className="app-kicker">{t.profile.recentCheckins}</p>
-              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.profile.latestActivity}</h2>
+              <p className="app-kicker">최근 체크인</p>
+              <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">최근 활동</h2>
             </div>
-            <span className="app-chip text-sm">{`${recentActivity.length} ${t.common.items}`}</span>
+            <span className="app-chip text-sm">{`${recentActivity.length}개`}</span>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -310,13 +284,13 @@ function ProfilePage() {
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-[color:var(--ink-soft)]">{t(`categories.${normalizeCategory(item.tag)}`)}</span>
+                    <span className="text-sm font-semibold text-[color:var(--ink-soft)]">{CATEGORY_KO[normalizeCategory(item.tag)] ?? item.tag}</span>
                     <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-soft)]">
-                      {new Date(item.created_at).toLocaleDateString(language === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
+                      {new Date(item.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
                     </span>
                   </div>
                   <p className="font-semibold text-[color:var(--ink)]">{item.text}</p>
-                  <p className="text-sm text-[color:var(--ink-soft)]">{t(`mood.${normalizeMood(item.emotion)}`)}</p>
+                  <p className="text-sm text-[color:var(--ink-soft)]">{MOOD_KO[normalizeMood(item.emotion)] ?? item.emotion}</p>
                 </div>
               </div>
             ))}
@@ -326,12 +300,12 @@ function ProfilePage() {
 
       <Card className="p-6">
         <div className="space-y-4">
-          <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t("profile.visualMomentum")}</h2>
+          <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">비주얼 모멘텀</h2>
           <div className="relative grid grid-cols-12 gap-1">
             {hoveredDay ? (
               <div className="absolute -top-16 left-1/2 z-10 w-64 -translate-x-1/2 rounded-lg border border-white/30 bg-white/95 p-2 text-xs shadow-lg">
-                <p className="font-semibold">{hoveredDay.key} · {hoveredDay.count} {t.common.items}</p>
-                <p className="text-[color:var(--ink-soft)]">{Object.entries(hoveredDay.byMood).map(([k,v]) => `${t(`mood.${k}`)} ${v}`).join(", ") || t.common.noData}</p>
+                <p className="font-semibold">{hoveredDay.key} · {hoveredDay.count}개</p>
+                <p className="text-[color:var(--ink-soft)]">{Object.entries(hoveredDay.byMood).map(([k,v]) => `${MOOD_KO[k] ?? k} ${v}`).join(", ") || "데이터가 없습니다."}</p>
               </div>
             ) : null}
             {heatmapDays.map((day) => (
@@ -346,7 +320,7 @@ function ProfilePage() {
         <div className="space-y-6">
           <div className="flex items-center gap-2">
             <Trophy size={18} className="text-[#dd7a5f]" />
-            <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.profile.achievements}</h2>
+            <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">업적</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -367,10 +341,10 @@ function ProfilePage() {
                     {achievement.unlocked ? (
                       <div className="flex items-center gap-2 text-sm font-semibold text-[#0f766e]">
                         <CheckCircle2 size={14} />
-                        <span>{t.profile.unlocked}</span>
+                        <span>달성 완료</span>
                       </div>
                     ) : (
-                      <div className="text-sm font-semibold text-[color:var(--ink-soft)]">{t.profile.inProgress}</div>
+                      <div className="text-sm font-semibold text-[color:var(--ink-soft)]">진행 중</div>
                     )}
                   </div>
                 </Card>

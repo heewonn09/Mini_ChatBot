@@ -220,9 +220,9 @@ export async function fetchBehaviors(userId, limit = 20) {
   return data;
 }
 
-export async function askAssistant(userId, message, language = "en") {
+export async function askAssistant(userId, message) {
   const { data } = await withErrorLogging("askAssistant", () =>
-    api.post(`/ui/${userId}/chat`, { message, language })
+    api.post(`/ui/${userId}/chat`, { message })
   );
   return data;
 }

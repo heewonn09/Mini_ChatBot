@@ -13,12 +13,8 @@ import Chart from "../components/Chart";
 import AIInsightCard from "../components/ui/AIInsightCard";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
-import { useAppSettings } from "../context/AppSettingsContext";
-import { useI18n } from "../i18n/useI18n";
 
 function AnalysisPage() {
-  const { language } = useAppSettings();
-  const t = useI18n(language);
   const { user, overview, error: appError, refreshOverview } = useOutletContext();
   const [analysis, setAnalysis] = useState(null);
   const [analysisError, setAnalysisError] = useState("");
@@ -41,7 +37,7 @@ function AnalysisPage() {
       } catch (error) {
         if (active) {
           setAnalysis(null);
-          setAnalysisError(getErrorMessage(error, t("analysis.loadError")));
+          setAnalysisError(getErrorMessage(error, "AI 인사이트를 불러오지 못했습니다."));
         }
       } finally {
         if (active) {
@@ -90,10 +86,10 @@ function AnalysisPage() {
   };
 
   if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{t("analysis.loading")}</Card>;
+    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">AI 인사이트를 불러오는 중...</Card>;
   }
 
-  const errorMessage = analysisError || (appError ? getErrorMessage(appError, t("analysis.loadError")) : "");
+  const errorMessage = analysisError || (appError ? getErrorMessage(appError, "AI 인사이트를 불러오지 못했습니다.") : "");
 
   if (errorMessage) {
     return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{errorMessage}</Card>;
@@ -102,7 +98,7 @@ function AnalysisPage() {
   if (!analysis) {
     return (
       <Card className="app-panel-strong space-y-4 p-6 text-[color:var(--ink-soft)]">
-        <p>{t("analysis.empty")}</p>
+        <p>아직 AI 분석이 없습니다.</p>
         {user?.id ? (
           <button
             type="button"
@@ -112,7 +108,7 @@ function AnalysisPage() {
             }}
             className="app-secondary-button"
           >
-            {t("common.refresh")}
+            새로고침
           </button>
         ) : null}
       </Card>
@@ -129,20 +125,19 @@ function AnalysisPage() {
       <PageHeader
         variant="icon"
         badgeIcon={Brain}
-        title={t("analysis.title")}
-        description={t("analysis.description")}
+        title="AI 인사이트"
+        description="흐트러지는 지점과 집중되는 지점을 보고 다음 조정을 제안합니다."
       />
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.15fr,0.85fr]">
           <div className="space-y-4">
-            <p className="app-kicker">{t("analysis.spotlight")}</p>
+            <p className="app-kicker">패턴 스포트라이트</p>
             <h2 className="app-heading text-[2.35rem] leading-[1.02] text-[color:var(--ink)] sm:text-[2.95rem]">
-              {spotlight?.title ?? t("analysis.spotlightFallback")}
+              {spotlight?.title ?? "지금 바로 실행할 수 있는 핵심 신호가 있어요."}
             </h2>
             <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">
-              {spotlight?.description ??
-                t("analysis.spotlightDescFallback")}
+              {spotlight?.description ?? "최근 기록을 비교해 지금 가장 보호/수정이 필요한 패턴을 보여줍니다."}
             </p>
           </div>
 
@@ -179,8 +174,8 @@ function AnalysisPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Chart
-          title={t("analysis.behaviorDistribution")}
-          description={t("analysis.behaviorDistributionDesc")}
+          title="행동 분포"
+          description="최근 시간이 집중/중립/방해 행동으로 어떻게 나뉘는지"
           variant="donut"
           data={distribution}
           categoryKey="label"
@@ -188,7 +183,7 @@ function AnalysisPage() {
           series={[
             {
               key: "value",
-              label: t("analysis.share"),
+              label: "비율",
               stroke: "#0f766e",
               dotClassName: "bg-[#0f766e]",
             },
@@ -197,8 +192,8 @@ function AnalysisPage() {
         />
 
         <Chart
-          title={t("analysis.weeklyPattern")}
-          description={t("analysis.weeklyPatternDesc")}
+          title="주간 패턴"
+          description="시간대별 생산 리듬 보기"
           variant="radar"
           data={weeklyPattern}
           categoryKey="label"
@@ -206,7 +201,7 @@ function AnalysisPage() {
           series={[
             {
               key: "value",
-              label: t("analysis.performance"),
+              label: "퍼포먼스",
               stroke: "#0f766e",
               dotClassName: "bg-[#0f766e]",
             },
@@ -218,7 +213,7 @@ function AnalysisPage() {
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-[color:var(--ink)]">
             <TrendingUp size={18} className="text-[#0f766e]" />
-            <h2 className="app-heading text-[2rem]">{t("analysis.recommendedActions")}</h2>
+            <h2 className="app-heading text-[2rem]">추천 액션</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -233,7 +228,7 @@ function AnalysisPage() {
                       <h3 className="text-[1.08rem] font-semibold text-[color:var(--ink)]">{item.title}</h3>
                       <span
                         className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                          item.impact === "High"
+                          item.impact === "높음"
                             ? "bg-[#def2ee] text-[#0f766e]"
                             : "bg-[#f8ecd7] text-[#b67f20]"
                         }`}

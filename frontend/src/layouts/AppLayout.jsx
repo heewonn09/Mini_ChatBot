@@ -3,13 +3,11 @@ import { getErrorMessage, getStoredToken } from "../api/api";
 import Navbar from "../components/navigation/Navbar";
 import CommandMenu from "../components/navigation/CommandMenu";
 import Card from "../components/ui/Card";
-import { useAppSettings } from "../context/AppSettingsContext";
 import useAppData from "../hooks/useAppData";
 
 function AppLayout() {
-  const { t } = useAppSettings();
   const appData = useAppData();
-  const appErrorMessage = getErrorMessage(appData.error, "We couldn't load your Mindflow data.");
+  const appErrorMessage = getErrorMessage(appData.error, "Mindflow 데이터를 불러오지 못했습니다.");
   const hasToken = Boolean(getStoredToken());
 
   if (!hasToken) return <Navigate to="/auth" replace />;
@@ -29,7 +27,7 @@ function AppLayout() {
       <main className="relative pb-32 pt-28 md:pb-16 md:pt-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {appData.loading ? (
-            <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">{t.common.loading}</Card>
+            <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">Mindflow 데이터를 불러오는 중...</Card>
           ) : appData.error ? (
             <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">{appErrorMessage}</Card>
           ) : (

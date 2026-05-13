@@ -21,17 +21,17 @@ function linkClassName(isActive) {
   }`;
 }
 
-function Navbar() {
-  const { t, language, setLanguage, theme, setTheme } = useAppSettings();
-  const navigate = useNavigate();
+const navItems = [
+  { name: "대시보드", path: "/dashboard", icon: LayoutDashboard },
+  { name: "기록", path: "/log", icon: CirclePlus },
+  { name: "분석", path: "/analysis", icon: LineChart },
+  { name: "채팅", path: "/chat", icon: MessageSquare },
+  { name: "프로필", path: "/profile", icon: User },
+];
 
-  const navItems = [
-    { name: t("nav.dashboard"), path: "/dashboard", icon: LayoutDashboard },
-    { name: t("nav.log"), path: "/log", icon: CirclePlus },
-    { name: t("nav.analysis"), path: "/analysis", icon: LineChart },
-    { name: t("nav.chat"), path: "/chat", icon: MessageSquare },
-    { name: t("nav.profile"), path: "/profile", icon: User },
-  ];
+function Navbar() {
+  const { theme, setTheme } = useAppSettings();
+  const navigate = useNavigate();
 
   return (
     <>
@@ -43,7 +43,7 @@ function Navbar() {
             </span>
             <div>
               <div className="app-heading text-[1.8rem] leading-none text-[color:var(--ink)]">Mindflow</div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-soft)]">{t("nav.studio")}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ink-soft)]">행동 스튜디오</p>
             </div>
           </NavLink>
 
@@ -60,7 +60,6 @@ function Navbar() {
           </nav>
 
           <div className="hidden items-center gap-2 lg:flex">
-            <button type="button" className="app-secondary-button px-3 py-2" onClick={() => setLanguage(language === "en" ? "ko" : "en")}>{t("nav.languageToggle")}</button>
             <button type="button" className="app-secondary-button px-3 py-2" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>{theme === "light" ? <Moon size={16} /> : <Sun size={16} />}</button>
             <button
               type="button"
@@ -70,11 +69,11 @@ function Navbar() {
                 navigate("/auth", { replace: true });
               }}
             >
-              <LogOut size={16} /> <span>{t("nav.logout")}</span>
+              <LogOut size={16} /> <span>로그아웃</span>
             </button>
             <div className="items-center gap-3 rounded-full border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] px-4 py-2 xl:flex hidden">
               <span className="h-2.5 w-2.5 rounded-full bg-[#0f766e]" />
-              <span className="text-sm font-semibold text-[color:var(--ink)]">{t("nav.slogan")}</span>
+              <span className="text-sm font-semibold text-[color:var(--ink)]">기록하고, 돌아보고, 조정하세요.</span>
             </div>
           </div>
         </div>

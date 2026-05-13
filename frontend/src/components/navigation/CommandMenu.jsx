@@ -1,29 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppSettings } from "../../context/AppSettingsContext";
 import useAppData from "../../hooks/useAppData";
-import { normalizeCategory } from "../../i18n/normalize";
+import { normalizeCategory, CATEGORY_KO } from "../../utils/normalize";
 
 function CommandMenu() {
-  const { t } = useAppSettings();
   const navigate = useNavigate();
   const { overview } = useAppData();
   const [open, setOpen] = useState(false);
 
   const recentCommands = (overview?.recent_activity ?? []).slice(0, 3).map((item) => ({
-    label: `${t("command.recent")}: ${t(`categories.${normalizeCategory(item.tag)}`)} · ${item.text.slice(0, 28)}`,
+    label: `최근 활동: ${CATEGORY_KO[normalizeCategory(item.tag)] ?? item.tag} · ${item.text.slice(0, 28)}`,
     action: () => navigate("/log"),
   }));
 
   const commands = useMemo(
     () => [
-      { label: t("command.log"), action: () => navigate("/log") },
-      { label: t("command.dashboard"), action: () => navigate("/") },
-      { label: t("command.analysis"), action: () => navigate("/analysis") },
-      { label: t("command.profile"), action: () => navigate("/profile") },
+      { label: "기록하기", action: () => navigate("/log") },
+      { label: "대시보드로 이동", action: () => navigate("/") },
+      { label: "분석 열기", action: () => navigate("/analysis") },
+      { label: "프로필 열기", action: () => navigate("/profile") },
       ...recentCommands,
     ],
-    [navigate, recentCommands, t]
+    [navigate, recentCommands]
   );
 
   useEffect(() => {
@@ -43,7 +41,7 @@ function CommandMenu() {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 pt-24" onClick={() => setOpen(false)}>
       <div className="w-full max-w-xl rounded-2xl border border-white/30 bg-white/80 p-3 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
-        <p className="px-3 py-2 text-sm text-[color:var(--ink-soft)]">{t("command.hint")}</p>
+        <p className="px-3 py-2 text-sm text-[color:var(--ink-soft)]">이동할 메뉴를 선택하세요...</p>
         {commands.map((command) => (
           <button
             key={command.label}

@@ -21,3 +21,23 @@ export function normalizeMood(value = '') {
   if (['distracted', '산만'].includes(v)) return 'distracted';
   return 'neutral';
 }
+
+export const CATEGORY_KO = {
+  study: '공부',
+  exercise: '운동',
+  rest: '휴식',
+  youtube: '유튜브',
+  social_media: '소셜 미디어',
+  other: '기타',
+};
+
+export const MOOD_KO = {
+  happy: '행복',
+  focused: '집중',
+  stressed: '스트레스',
+  neutral: '보통',
+  motivated: '동기부여',
+  anxious: '불안',
+  sad: '슬픔',
+  distracted: '산만',
+};
