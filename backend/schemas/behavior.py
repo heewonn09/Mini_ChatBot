@@ -37,10 +37,20 @@ class UserLogin(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str  # 추가
+
     token_type: str = "bearer"
     user: UserResponse
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
+
+class RefreshResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    
 # ============= BehaviorLog Schemas =============
 class BehaviorLogBase(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
