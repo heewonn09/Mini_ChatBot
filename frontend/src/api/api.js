@@ -203,6 +203,13 @@ export async function fetchHeatmap(userId) {
   return data;
 }
 
+export async function fetchWeeklyReport(userId) {
+  const { data } = await withErrorLogging("fetchWeeklyReport", () =>
+    api.get(`/ui/${userId}/weekly-report`)
+  );
+  return data;
+}
+
 export async function fetchChatBootstrap(userId) {
   const { data } = await withErrorLogging("fetchChatBootstrap", () => api.get(`/ui/${userId}/chat/bootstrap`));
   return data;

@@ -5,8 +5,9 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import { fetchWeeklyReport } from "../api/api";
 import Chart from "../components/Chart";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
@@ -42,14 +43,20 @@ function toCode(value = "") {
 }
 
 function DashboardPage() {
-  const { overview } = useOutletContext();
+  const { user, overview } = useOutletContext();
   const statsByTitle = Object.fromEntries((overview.stat_cards ?? []).map((card) => [card.title, card]));
   const welcomeName = overview.welcome_name?.split(" ")[0] ?? "거기";
   const leadInsight = overview.insights?.[0];
   const focusInsight = overview.insights?.[1];
   const recentActivity = overview.recent_activity ?? [];
   const [activityView, setActivityView] = useState("daily");
+  const [weeklyReport, setWeeklyReport] = useState(null);
   const groupedDaily = useMemo(() => recentActivity.reduce((acc, item) => { const d = new Date(item.created_at); const key=d.toDateString(); (acc[key] ||= []).push(item); return acc; }, {}), [recentActivity]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchWeeklyReport(user.id).then(setWeeklyReport).catch(() => {});
+  }, [user]);
 
   const bestFocusCard = statsByTitle["최고 집중 시간"] ?? statsByTitle["Best Focus Time"];
   const worstHabitCard = statsByTitle["최악의 습관 시간"] ?? statsByTitle["Worst Habit Time"];
@@ -62,6 +69,18 @@ function DashboardPage() {
         title={`다시 오신 것을 환영해요, ${welcomeName}.`}
         description="집중 시간과 방해 요소, 작은 성장을 한눈에 보는 공간입니다."
       />
+
+      {weeklyReport?.report ? (
+        <Card className="app-panel-strong p-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="app-kicker">AI 주간 리포트</p>
+              <span className="app-chip text-sm">{weeklyReport.week_label}</span>
+            </div>
+            <p className="text-[1rem] leading-8 text-[color:var(--ink-soft)]">{weeklyReport.report}</p>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr,0.95fr]">
         <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">

@@ -108,6 +108,25 @@ class AIFeedbackService:
             logger.error("Gemini chat failed: %s", e)
             return "일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요."
 
+    def generate_weekly_report(self, username: str, behavior_summary: str) -> str:
+        if not self.api_key:
+            return f"{username}님의 주간 리포트를 생성하려면 API 키가 필요합니다."
+
+        prompt = (
+            "항상 한국어로 답변하세요.\n\n"
+            f"행동 분석 어시스턴트로서, {username}님의 지난 7일 행동 패턴을 분석하여 "
+            "한국어로 200자 내외의 주간 요약 리포트를 작성해주세요. "
+            "구체적인 수치보다 패턴의 의미와 다음 주 개선 방향에 집중하세요.\n\n"
+            f"분석 데이터:\n{behavior_summary}\n\n"
+            "친근하고 격려하는 톤으로 작성하세요. 200자 내외로 간결하게 마무리하세요."
+        )
+
+        try:
+            return _call_gemini(self.api_key, prompt, temperature=0.7)
+        except Exception as e:
+            logger.error("Gemini weekly report failed: %s", e)
+            return "주간 리포트를 일시적으로 생성할 수 없습니다. 잠시 후 다시 시도해주세요."
+
     def _fallback_feedback(self, analysis: PatternAnalysisResult) -> str:
         total_logs = analysis.total_logs
         response = f"Pattern Analysis Summary ({analysis.analysis_period_days} days, {total_logs} logs):\n\n"

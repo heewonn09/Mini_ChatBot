@@ -23,6 +23,7 @@ from backend.schemas.ui import (
     HeatmapDayItem,
     HeatmapResponse,
     InsightItem,
+    WeeklyReportResponse,
     OverviewResponse,
     ProfileMetricItem,
     ProfileResponse,
@@ -141,6 +142,35 @@ def get_overview(
             for log in sorted(logs, key=lambda item: item.created_at, reverse=True)[:6]
         ],
     )
+
+
+@router.get("/{user_id}/weekly-report", response_model=WeeklyReportResponse)
+def get_weekly_report(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    user = _get_user(user_id, db)
+    now = datetime.now(timezone.utc)
+    year, week, weekday = now.isocalendar()
+    cache_key = f"weekly_report:{user_id}:{year}:{week}"
+    week_label = f"{year}년 {week}주차"
+
+    cached_report = redis_store.get_json(cache_key)
+    if cached_report:
+        return WeeklyReportResponse(report=cached_report, week_label=week_label, cached=True)
+
+    if weekday != 1:
+        return WeeklyReportResponse(report="", week_label=week_label, cached=False)
+
+    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
+    behavior_summary = ai_service.generate_feedback(analysis)
+    report = ai_service.generate_weekly_report(
+        username=_format_display_name(user.username),
+        behavior_summary=behavior_summary,
+    )
+    redis_store.set_json(cache_key, report, ex_seconds=7 * 24 * 3600)
+    return WeeklyReportResponse(report=report, week_label=week_label, cached=False)
 
 
 @router.get("/{user_id}/heatmap", response_model=HeatmapResponse)

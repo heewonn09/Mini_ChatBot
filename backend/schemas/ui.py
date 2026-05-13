@@ -116,6 +116,12 @@ class ProfileResponse(BaseModel):
     achievements: List[AchievementItem]
 
 
+class WeeklyReportResponse(BaseModel):
+    report: str
+    week_label: str
+    cached: bool
+
+
 class HeatmapDayItem(BaseModel):
     date: str
     count: int
