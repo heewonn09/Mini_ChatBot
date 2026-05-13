@@ -175,43 +175,9 @@ export async function bootstrapDemoUser() {
     return null;
   }
 }
-
 export async function ensureSeedLogs(userId) {
-  if (!userId) return false;
-
-  const { data } = await withErrorLogging("ensureSeedLogs.list", () =>
-    api.get(`/behaviors/${userId}`, { params: { limit: 1 } })
-  );
-  if (data?.length) return false;
-
-  const seed = [
-    { text: "Morning study sprint", emotion: "focused", tag: "Study", intensity: 8, daysAgo: 2, hour: 9 },
-    { text: "YouTube browsing", emotion: "stressed", tag: "YouTube", intensity: 6, daysAgo: 1, hour: 22 },
-    { text: "Workout", emotion: "happy", tag: "Exercise", intensity: 7, daysAgo: 1, hour: 7 },
-    { text: "Study session", emotion: "focused", tag: "Study", intensity: 9, daysAgo: 0, hour: 10 },
-  ];
-
-  await Promise.all(
-    seed.map((item) => {
-      const createdAt = new Date();
-      createdAt.setHours(item.hour, 0, 0, 0);
-      createdAt.setDate(createdAt.getDate() - item.daysAgo);
-
-      return withErrorLogging("ensureSeedLogs.create", () =>
-        api.post(`/behaviors/${userId}`, {
-          text: item.text,
-          emotion: item.emotion,
-          tag: item.tag,
-          intensity: item.intensity,
-          created_at: createdAt.toISOString(),
-        })
-      );
-    })
-  );
-
-  return true;
+  return false;
 }
-
 export async function fetchOverview(userId) {
   const { data } = await withErrorLogging("fetchOverview", () => api.get(`/ui/${userId}/overview`));
   return data;

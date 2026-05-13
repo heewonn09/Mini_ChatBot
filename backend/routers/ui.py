@@ -166,7 +166,7 @@ def get_profile_view(
 ):
     user = _get_user(user_id, db)
     all_logs = _get_logs(user_id, db, days=30, ascending=True)
-    recent_logs = [log for log in all_logs if log.created_at >= datetime.now(timezone.utc) - timedelta(days=7)]
+    recent_logs = [log for log in all_logs if log.created_at >= datetime.now() - timedelta(days=7)]
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
     days_active = len({log.created_at.date() for log in all_logs})
     current_streak = _current_streak(all_logs)
