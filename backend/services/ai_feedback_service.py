@@ -8,7 +8,7 @@ from backend.schemas.behavior import PatternAnalysisResult
 
 logger = logging.getLogger(__name__)
 
-_GEMINI_MODEL = "gemini-2.0-flash"
+_GEMINI_MODEL = "gemini-1.5-flash"  # 이걸로 고정
 _GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     f"{_GEMINI_MODEL}:generateContent"
