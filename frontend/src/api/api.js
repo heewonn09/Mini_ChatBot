@@ -198,6 +198,11 @@ export async function fetchProfileView(userId) {
   return data;
 }
 
+export async function fetchHeatmap(userId) {
+  const { data } = await withErrorLogging("fetchHeatmap", () => api.get(`/ui/${userId}/heatmap`));
+  return data;
+}
+
 export async function fetchChatBootstrap(userId) {
   const { data } = await withErrorLogging("fetchChatBootstrap", () => api.get(`/ui/${userId}/chat/bootstrap`));
   return data;

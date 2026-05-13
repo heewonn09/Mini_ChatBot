@@ -107,12 +107,23 @@ class ProfileResponse(BaseModel):
     member_since: str
     summary_title: str
     summary_description: str
+    logged_today: bool
     stats: List[ProfileMetricItem]
     top_habits: List[HabitFrequencyItem]
     recent_activity: List[RecentActivityItem]
     weekly_activity: List[WeeklyActivityItem]
     goals: List[GoalItem]
     achievements: List[AchievementItem]
+
+
+class HeatmapDayItem(BaseModel):
+    date: str
+    count: int
+    dominant_emotion: str
+
+
+class HeatmapResponse(BaseModel):
+    days: List[HeatmapDayItem]
 
 
 class ChatRequest(BaseModel):

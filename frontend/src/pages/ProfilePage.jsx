@@ -13,8 +13,8 @@ import {
   TrendingUp,
   User,
 } from "lucide-react";
-import { useOutletContext } from "react-router-dom";
-import { fetchProfileView, getErrorMessage } from "../api/api";
+import { Link, useOutletContext } from "react-router-dom";
+import { fetchHeatmap, fetchProfileView, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 import { normalizeCategory, normalizeMood, CATEGORY_KO, MOOD_KO } from "../utils/normalize";
@@ -23,6 +23,7 @@ const metricUiMap = {
   check: { Icon: CheckCircle2, iconClassName: "bg-[#f8ecd7] text-[#b67f20]" },
   calendar: { Icon: CalendarDays, iconClassName: "bg-[#def2ee] text-[#0f766e]" },
   flame: { Icon: Flame, iconClassName: "bg-[#f8e2d9] text-[#dd7a5f]" },
+  trophy: { Icon: Trophy, iconClassName: "bg-[#f8ecd7] text-[#b67f20]" },
   trend: { Icon: TrendingUp, iconClassName: "bg-[#e7eee3] text-[#597b61]" },
 };
 
@@ -58,6 +59,7 @@ function progressToneClass(tone) {
 function ProfilePage() {
   const { user, error: appError, refreshOverview } = useOutletContext();
   const [profile, setProfile] = useState(null);
+  const [heatmap, setHeatmap] = useState(null);
   const [profileError, setProfileError] = useState("");
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
@@ -72,9 +74,13 @@ function ProfilePage() {
       setProfileError("");
 
       try {
-        const data = await fetchProfileView(user.id);
+        const [profileData, heatmapData] = await Promise.all([
+          fetchProfileView(user.id),
+          fetchHeatmap(user.id),
+        ]);
         if (active) {
-          setProfile(data);
+          setProfile(profileData);
+          setHeatmap(heatmapData);
         }
       } catch (error) {
         if (active) {
@@ -135,7 +141,7 @@ function ProfilePage() {
   const maxOther = Math.max(...weeklyActivity.map((item) => item.other ?? 0), 1);
   const streakStat = stats.find((item) => item.title === "Current Streak" || item.title === "현재 연속 기록");
   const memberSinceDate = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" }).format(new Date(profile.member_since));
-  const heatmapDays = Array.from({ length: 84 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (83 - i)); const key = d.toISOString().slice(0,10); const entries = recentActivity.filter((item) => item.created_at?.startsWith(key)); const byMood = entries.reduce((acc, item) => { const moodKey = normalizeMood(item.emotion); acc[moodKey] = (acc[moodKey] || 0) + 1; return acc; }, {}); return { key, count: entries.length, byMood }; });
+  const heatmapDays = heatmap?.days ?? [];
 
   return (
     <section className="space-y-8">
@@ -146,6 +152,18 @@ function ProfilePage() {
         description={profile.summary_description}
         meta={`가입일 ${memberSinceDate}`}
       />
+
+      {!profile.logged_today ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-[1.4rem] border border-[#dd7a5f]/20 bg-[#f8e2d9] px-5 py-3.5">
+          <Flame size={16} className="shrink-0 text-[#c05740]" />
+          <span className="text-sm font-semibold text-[#c05740]">
+            오늘 아직 기록이 없어요! 스트릭이 끊기기 전에 기록해보세요.
+          </span>
+          <Link to="/log" className="ml-auto text-sm font-bold text-[#c05740] underline underline-offset-2">
+            기록하기 →
+          </Link>
+        </div>
+      ) : null}
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
         <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
@@ -182,7 +200,7 @@ function ProfilePage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {stats.map((item) => {
           const ui = metricUiMap[item.icon] ?? metricUiMap.trend;
           const Icon = ui.Icon;
@@ -299,20 +317,55 @@ function ProfilePage() {
       </Card>
 
       <Card className="p-6">
-        <div className="space-y-4">
-          <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">비주얼 모멘텀</h2>
-          <div className="relative grid grid-cols-12 gap-1">
+        <div className="space-y-5">
+          <div className="space-y-1">
+            <p className="app-kicker">30일 감정 기록</p>
+            <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">감정 히트맵</h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 text-sm text-[color:var(--ink-soft)]">
+            <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-[#0f766e]" /><span>집중</span></div>
+            <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-[#dd7a5f]" /><span>스트레스</span></div>
+            <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-[#d9a85a]" /><span>중립</span></div>
+            <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-[#e9f1ef]" /><span>없음</span></div>
+          </div>
+
+          <div className="relative grid grid-cols-10 gap-1.5">
             {hoveredDay ? (
-              <div className="absolute -top-16 left-1/2 z-10 w-64 -translate-x-1/2 rounded-lg border border-white/30 bg-white/95 p-2 text-xs shadow-lg">
-                <p className="font-semibold">{hoveredDay.key} · {hoveredDay.count}개</p>
-                <p className="text-[color:var(--ink-soft)]">{Object.entries(hoveredDay.byMood).map(([k,v]) => `${MOOD_KO[k] ?? k} ${v}`).join(", ") || "데이터가 없습니다."}</p>
+              <div className="absolute -top-14 left-1/2 z-10 w-56 -translate-x-1/2 rounded-xl border border-[rgba(24,50,53,0.08)] bg-white/95 p-2.5 text-xs shadow-lg">
+                <p className="font-semibold text-[color:var(--ink)]">{hoveredDay.date}</p>
+                <p className="mt-0.5 text-[color:var(--ink-soft)]">
+                  {hoveredDay.count > 0 ? `${hoveredDay.count}개 기록 · ${hoveredDay.emotionLabel}` : "기록 없음"}
+                </p>
               </div>
             ) : null}
-            {heatmapDays.map((day) => (
-              <button type="button" onMouseEnter={() => setHoveredDay(day)} onMouseLeave={() => setHoveredDay(null)}
-               key={day.key} className={`h-3.5 rounded-sm ${day.count > 2 ? "bg-[#0f766e]" : day.count > 1 ? "bg-[#58a79d]" : day.count > 0 ? "bg-[#b7dcd6]" : "bg-[#e9f1ef]"}`} />
-            ))}
+            {heatmapDays.map((day) => {
+              const colorClass =
+                day.dominant_emotion === "focused" ? "bg-[#0f766e]" :
+                day.dominant_emotion === "stressed" ? "bg-[#dd7a5f]" :
+                day.dominant_emotion === "neutral" ? "bg-[#d9a85a]" :
+                "bg-[#e9f1ef]";
+              const emotionLabel =
+                day.dominant_emotion === "focused" ? "집중" :
+                day.dominant_emotion === "stressed" ? "스트레스" :
+                day.dominant_emotion === "neutral" ? "중립" : "없음";
+              return (
+                <button
+                  type="button"
+                  key={day.date}
+                  onMouseEnter={() => setHoveredDay({ ...day, emotionLabel })}
+                  onMouseLeave={() => setHoveredDay(null)}
+                  className={`h-7 rounded-md ${colorClass} transition-opacity hover:opacity-70`}
+                />
+              );
+            })}
           </div>
+
+          {heatmapDays.length > 0 ? (
+            <p className="text-xs text-[color:var(--ink-soft)]">
+              {heatmapDays[0].date.replace(/-/g, ".")} – {heatmapDays[heatmapDays.length - 1].date.replace(/-/g, ".")}
+            </p>
+          ) : null}
         </div>
       </Card>
 

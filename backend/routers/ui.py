@@ -20,6 +20,8 @@ from backend.schemas.ui import (
     EmotionTrendPoint,
     GoalItem,
     HabitFrequencyItem,
+    HeatmapDayItem,
+    HeatmapResponse,
     InsightItem,
     OverviewResponse,
     ProfileMetricItem,
@@ -42,6 +44,7 @@ ai_service = AIFeedbackService()
 
 NEGATIVE_EMOTIONS = {"sad", "angry", "anxious", "stressed", "depressed"}
 POSITIVE_EMOTIONS = {"happy", "focused", "calm", "motivated", "neutral"}
+_PRODUCTIVE = POSITIVE_EMOTIONS - {"neutral"}
 CHAT_SUGGESTIONS = [
     "왜 나는 생산적이지 않을까요?",
     "내 습관을 분석해줘",
@@ -140,6 +143,31 @@ def get_overview(
     )
 
 
+@router.get("/{user_id}/heatmap", response_model=HeatmapResponse)
+def get_heatmap(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    logs = _get_logs(user_id, db, days=30, ascending=True)
+    grouped: dict[str, list[BehaviorLog]] = defaultdict(list)
+    for log in logs:
+        grouped[log.created_at.date().isoformat()].append(log)
+
+    today = datetime.now(timezone.utc).date()
+    return HeatmapResponse(
+        days=[
+            HeatmapDayItem(
+                date=(d := today - timedelta(days=i)).isoformat(),
+                count=len(grouped.get(d.isoformat(), [])),
+                dominant_emotion=_dominant_emotion_label(grouped.get(d.isoformat(), [])),
+            )
+            for i in range(29, -1, -1)
+        ]
+    )
+
+
 @router.get("/{user_id}/analysis", response_model=AnalysisResponse)
 def get_analysis_view(
     user_id: int,
@@ -165,12 +193,15 @@ def get_profile_view(
     db: Session = Depends(get_db),
 ):
     user = _get_user(user_id, db)
-    all_logs = _get_logs(user_id, db, days=30, ascending=True)
+    all_logs = _get_logs(user_id, db, days=365, ascending=True)
     recent_logs = [log for log in all_logs if log.created_at >= datetime.now() - timedelta(days=7)]
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
     days_active = len({log.created_at.date() for log in all_logs})
     current_streak = _current_streak(all_logs)
-    recent_tag_counter = Counter(log.tag or "Other" for log in recent_logs)
+    longest_streak = _longest_streak(all_logs)
+    today = datetime.now(timezone.utc).date()
+    logged_today = any(log.created_at.date() == today for log in all_logs)
+    recent_tag_counter = Counter(log.tag or "기타" for log in recent_logs)
     morning_positive = len(
         [log for log in recent_logs if 6 <= log.created_at.hour < 12 and _is_positive(log)]
     )
@@ -186,10 +217,12 @@ def get_profile_view(
             recent_tag_counter=recent_tag_counter,
             best_hour=best_hour,
         ),
+        logged_today=logged_today,
         stats=[
             ProfileMetricItem(title="총 행동 수", value=str(len(all_logs)), icon="check"),
             ProfileMetricItem(title="활동 일수", value=str(days_active), icon="calendar"),
             ProfileMetricItem(title="현재 연속 기록", value=f"{current_streak}일", icon="flame"),
+            ProfileMetricItem(title="최장 기록", value=f"{longest_streak}일", icon="trophy"),
             ProfileMetricItem(
                 title="생성된 인사이트",
                 value=str(len(_build_analysis_insights(recent_logs, analysis))),
@@ -319,6 +352,17 @@ def _is_negative(log: BehaviorLog) -> int:
 
 def _is_positive(log: BehaviorLog) -> int:
     return int(log.emotion.lower() in POSITIVE_EMOTIONS)
+
+
+def _dominant_emotion_label(logs: list[BehaviorLog]) -> str:
+    if not logs:
+        return ""
+    top = Counter(log.emotion.lower() for log in logs).most_common(1)[0][0]
+    if top in NEGATIVE_EMOTIONS:
+        return "stressed"
+    if top in _PRODUCTIVE:
+        return "focused"
+    return "neutral"
 
 
 def _group_logs_by_hour(logs: list[BehaviorLog]) -> dict[int, list[BehaviorLog]]:
@@ -641,6 +685,25 @@ def _current_streak(logs: list[BehaviorLog]) -> int:
             break
 
     return streak
+
+
+def _longest_streak(logs: list[BehaviorLog]) -> int:
+    if not logs:
+        return 0
+
+    active_days = sorted({log.created_at.date() for log in logs})
+    longest = 1
+    current = 1
+
+    for i in range(1, len(active_days)):
+        if (active_days[i] - active_days[i - 1]).days == 1:
+            current += 1
+            if current > longest:
+                longest = current
+        else:
+            current = 1
+
+    return longest
 
 
 def _build_profile_summary_title(current_streak: int, days_active: int, total_logs: int) -> str:
