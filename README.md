@@ -1,38 +1,137 @@
 # Mindflow (Mini_ChatBot)
 
-> **행동 로그 × 감정 패턴 분석 × AI 피드백 코치**  
-> FastAPI + React 기반으로 개인 행동 데이터를 기록하고, 패턴을 시각화하고, AI 코칭까지 연결한 풀스택 프로젝트
-
-![FastAPI](https://img.shields.io/badge/FastAPI-0.104-009688?style=flat-square&logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white)
-![SQLite/MySQL](https://img.shields.io/badge/DB-SQLite%20%7C%20MySQL-4479A1?style=flat-square&logo=mysql&logoColor=white)
+행동 로그를 기록하고, 감정/습관 패턴을 분석하며, AI 코치와 대화까지 이어지는 **FastAPI + React 풀스택 프로젝트**입니다.  
+단순 CRUD 앱이 아니라, 백엔드 분석 엔진과 UI ViewModel API를 분리해 실제 서비스 형태에 가깝게 설계되어 있습니다.
 
 ---
 
-## 한눈에 보기
+## 1) 프로젝트 핵심 요약
 
-| 항목 | 내용 |
-| --- | --- |
-| **프로젝트 성격** | 행동/감정 기록 기반 개인 생산성 분석 서비스 |
-| **핵심 사용자 경험** | 기록 → 대시보드/분석 → AI 채팅 코치 → 프로필/목표 추적 |
-| **핵심 기술** | FastAPI, SQLAlchemy, JWT 인증, Gemini 연동(옵션), React 19, Recharts |
-| **중점 구현** | 라우트 권한 보호, 패턴 분석 엔진, UI 전용 API 계층, 다국어/테마 지원 |
-| **운영 모드** | Gemini 키가 없어도 fallback 분석 텍스트로 전체 흐름 동작 |
+- **문제 정의**: 사용자의 일상 행동/감정 데이터를 정리하고, 패턴 기반 인사이트를 제공.
+- **핵심 가치**: 기록 → 분석 → 코칭의 선순환.
+- **기술 특징**:
+  - FastAPI + SQLAlchemy 기반 API 서버
+  - JWT 인증 + 사용자 경로 권한 검증
+  - 패턴 분석 서비스와 AI 피드백 서비스 분리
+  - React(Vite) 기반 대시보드/분석/채팅/프로필 UI
+  - Redis 캐시 및 채팅 rate-limit으로 운영 안정성 보강
 
 ---
 
-## ⚡ Quick Start
+## 2) 아키텍처 (심층)
 
-### 1) 저장소 클론
-
-```bash
-git clone <your-repo-url>
-cd Mini_ChatBot
+```mermaid
+flowchart LR
+  U[User] --> FE[React Frontend]
+  FE --> API[FastAPI Backend]
+  API --> DB[(SQLite/MySQL)]
+  API --> REDIS[(Redis)]
+  API --> GEMINI[Gemini REST API Optional]
 ```
 
-### 2) 백엔드 실행
+### 백엔드 레이어 구조
+
+1. **Router Layer (`backend/routers`)**  
+   요청/응답, 인증 의존성, HTTP 예외 처리.
+2. **Service Layer (`backend/services`)**  
+   - `PatternAnalysisService`: 로그 기반 통계/추세/리스크 계산
+   - `AIFeedbackService`: Gemini 호출 및 fallback 생성
+3. **Model/Schema Layer**  
+   SQLAlchemy ORM + Pydantic 응답 모델 분리.
+4. **Infra Layer**  
+   DB 엔진 fallback, Redis 캐시, 런타임 스키마 보정.
+
+### 프론트엔드 구조
+
+- `pages/`: 화면 단위 조합 (Dashboard, Analysis, Chat, Profile, Auth)
+- `components/`: 재사용 UI/차트
+- `api/api.js`: 토큰 주입 포함 API 호출 계층
+- `hooks/useAppData.js`: 앱 초기 데이터 로딩 및 동기화
+- `context/`: 테마/메시지/앱 설정 상태
+
+---
+
+## 3) 주요 백엔드 동작 분석
+
+### 3-1. 앱 시작과 수명주기
+
+`backend/main.py`의 lifespan에서 테이블 생성 및 활성 테이블 로깅을 수행합니다. 또한 CORS를 로컬 개발 포트(5173/5174) 기준으로 열어두고, `auth/users/behaviors/analysis/ui` 라우터를 등록합니다.
+
+### 3-2. DB 연결 전략
+
+`backend/database.py`는 `DATABASE_URL`의 1차 연결 실패 시(SQLite가 아닐 때) SQLite로 fallback하는 방식을 사용합니다.  
+즉, MySQL 같은 외부 DB가 불안정해도 개발/데모 환경에서는 앱이 바로 죽지 않고 동작을 유지합니다.
+
+추가로 startup 시 `run_schema_migrations()`에서 `users.password_hash` 컬럼 부재를 감지하면 `ALTER TABLE`을 시도합니다.
+
+### 3-3. 인증/인가 모델
+
+- 회원가입/로그인 시 access + refresh 토큰 발급
+- `/api/auth/refresh`로 재발급
+- 보호된 라우트에서 `require_same_user`로 URL `user_id`와 토큰 주체 일치 여부를 강제
+
+이 구조 덕분에 "내 토큰으로 다른 사용자 경로 접근"을 백엔드 단에서 차단합니다.
+
+### 3-4. 패턴 분석 엔진
+
+`PatternAnalysisService`는 지정 기간 로그를 시간순으로 조회해 다음을 계산합니다.
+
+1. **Behavior Patterns**: 감정별 빈도, 비율(%), 평균 강도
+2. **Emotional Trends**: 감정별 강도 추세(increasing/decreasing/stable)
+3. **Risky Patterns**:
+   - 고비율/고강도 부정 감정
+   - 연속 로그 간 강도 급변
+   - 위험 태그(`self_harm`, `substance_abuse`, `suicidal_thoughts`) 포함 여부
+
+분석 결과는 `/api/analysis/{user_id}` 뿐 아니라 UI 화면 데이터 구성에도 재사용됩니다.
+
+### 3-5. AI 피드백 전략
+
+`AIFeedbackService`는 Gemini를 **REST 직접 호출**합니다(SDK 의존성 회피 목적).  
+`GOOGLE_API_KEY`가 없거나 호출 실패 시에도 fallback 문장을 생성하므로 서비스는 계속 동작합니다.
+
+### 3-6. UI 전용 API 계층의 의미
+
+`/api/ui/{user_id}/...`는 화면에서 필요한 데이터를 미리 조합해 반환합니다.
+
+- `/overview`: 통계 카드 + 타임라인 + 감정 추세 + 최근 활동
+- `/analysis`: 인사이트 + 분포 + 주간 패턴 + 추천
+- `/profile`: 활동 지표 + 목표 + 성취 배지
+- `/chat/bootstrap`, `/chat`: 초기 안내 + 대화 처리
+
+즉, 프론트에서 다수 API를 합성하는 복잡도를 줄이고 화면 안정성을 높입니다.
+
+---
+
+## 4) API 요약
+
+### Auth
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `GET /api/auth/me`
+
+### Behavior
+- `POST /api/behaviors/{user_id}`
+- `GET /api/behaviors/{user_id}`
+- `PUT /api/behaviors/{user_id}/{log_id}`
+- `DELETE /api/behaviors/{user_id}/{log_id}`
+
+### Analysis
+- `POST /api/analysis/{user_id}` (Redis 캐시 300초)
+
+### UI ViewModel
+- `GET /api/ui/{user_id}/overview`
+- `GET /api/ui/{user_id}/analysis`
+- `GET /api/ui/{user_id}/profile`
+- `GET /api/ui/{user_id}/chat/bootstrap`
+- `POST /api/ui/{user_id}/chat`
+
+---
+
+## 5) 로컬 실행
+
+### 백엔드
 
 ```bash
 python -m venv .venv
@@ -41,7 +140,7 @@ pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload --port 8000
 ```
 
-### 3) 프론트엔드 실행
+### 프론트엔드
 
 ```bash
 cd frontend
@@ -49,209 +148,53 @@ npm install
 npm run dev
 ```
 
-### 4) 접속
-
+접속:
 - Frontend: `http://127.0.0.1:5173`
-- Backend API: `http://127.0.0.1:8000`
+- Backend: `http://127.0.0.1:8000`
 - Swagger: `http://127.0.0.1:8000/docs`
 
 ---
 
-## 📂 프로젝트 구조
+## 6) 환경 변수
 
-```text
-Mini_ChatBot/
-├─ backend/
-│  ├─ routers/              # auth, behaviors, analysis, ui, users
-│  ├─ services/             # 분석 엔진, AI 피드백 생성
-│  ├─ models/               # SQLAlchemy ORM 모델
-│  ├─ schemas/              # 요청/응답 Pydantic 스키마
-│  ├─ main.py               # FastAPI 엔트리
-│  ├─ config.py             # 환경 변수 및 설정
-│  └─ database.py           # DB 연결/세션 설정
-├─ frontend/
-│  ├─ src/pages/            # 화면 단위 컴포넌트
-│  ├─ src/components/       # 재사용 UI/차트
-│  ├─ src/api/api.js        # Axios 클라이언트
-│  ├─ src/hooks/            # 앱 부트스트랩/라우트 관련 훅
-│  └─ src/context/          # 언어/테마/메시지 컨텍스트
-└─ README.md
-```
+`.env`(프로젝트 루트 기준) 예시:
 
----
-
-## 핵심 사용자 흐름
-
-```mermaid
-flowchart LR
-  U[User Browser] --> F[React Frontend]
-  F --> B[FastAPI Backend]
-  B --> DB[(SQLite/MySQL)]
-  B --> R[(Redis Cache/RateLimit)]
-  B --> AI[Gemini API Optional]
-```
-
----
-
-## 🏗️ 아키텍처 요약
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-- Backend: `http://127.0.0.1:8000`
-- Frontend: `http://127.0.0.1:5173`
-
-### 왜 `/api/ui` 계층이 중요한가?
-
-도메인 API만으로 화면을 구성하면 프론트에서 여러 응답을 조합하는 비용이 커집니다. 이 프로젝트는 `/api/ui`를 통해 화면 목적에 맞는 ViewModel을 제공해서:
-
-1. 프론트 데이터 조립 코드를 줄이고,
-2. 페이지 렌더링 안정성을 올리고,
-3. 백엔드에서 데이터 형식을 통제하기 쉽게 만들었습니다.
-
----
-
-## 🔐 인증/권한 모델
-
-- JWT(`HS256`) 기반 인증
-- 로그인/회원가입 시 토큰 발급 후 프론트 localStorage에 저장
-- 요청 인터셉터에서 `Authorization: Bearer <token>` 자동 주입
-- `require_same_user` 검증으로 path `user_id`와 토큰 주체 불일치 시 차단(403)
-
----
-
-## 🧠 분석 엔진 디테일
-
-`PatternAnalysisService`는 행동 로그를 기반으로 아래 정보를 계산합니다.
-
-1. **BehaviorPattern**
-   - 감정별 빈도
-   - 전체 대비 비율
-   - 평균 강도
-2. **EmotionalTrend**
-   - 감정 강도의 증가/감소/안정 추세
-3. **RiskyPattern**
-   - 부정 감정 고빈도 + 고강도 조합
-   - 짧은 간격 내 강도 급변
-   - 특정 위험 태그 감지(`self_harm` 등)
-
-분석 결과는 대시보드/분석 페이지와 AI 채팅의 컨텍스트로 재활용됩니다.
-
----
-
-## 🤖 AI 피드백 전략
-
-- `GOOGLE_API_KEY`가 설정된 경우 Gemini 모델 호출
-- 키가 없거나 API 실패 시 fallback 피드백 자동 생성
-- 즉, **AI 연동 없이도 서비스의 핵심 UX(기록→분석→피드백)가 동작**
-
-운영 관점에서 이는 데모/개발/네트워크 장애 상황에서 강력한 안정장치입니다.
-
-### Analysis
-- `POST /api/analysis/{user_id}`
-  - Redis 캐시 적용
-
-## 🌐 API 요약
-
-| 영역 | Method | Endpoint | 설명 |
-| --- | --- | --- | --- |
-| Auth | POST | `/api/auth/signup` | 회원가입 + 토큰 발급 |
-| Auth | POST | `/api/auth/login` | 로그인 + 토큰 발급 |
-| Auth | GET | `/api/auth/me` | 현재 사용자 조회 |
-| Behaviors | POST | `/api/behaviors/{user_id}` | 로그 생성 |
-| Behaviors | GET | `/api/behaviors/{user_id}` | 로그 목록 조회 |
-| Behaviors | PUT | `/api/behaviors/{user_id}/{log_id}` | 로그 수정 |
-| Behaviors | DELETE | `/api/behaviors/{user_id}/{log_id}` | 로그 삭제 |
-| Analysis | POST | `/api/analysis/{user_id}` | N일 분석 + AI 피드백 |
-| UI | GET | `/api/ui/{user_id}/overview` | 대시보드 데이터 |
-| UI | GET | `/api/ui/{user_id}/analysis` | 분석 페이지 데이터 |
-| UI | GET | `/api/ui/{user_id}/profile` | 프로필 데이터 |
-| UI | GET | `/api/ui/{user_id}/chat/bootstrap` | 채팅 초기 데이터 |
-| UI | POST | `/api/ui/{user_id}/chat` | 채팅 질의 응답 |
-
----
-
-## ⚙️ 환경 변수
-
-백엔드 실행 전 아래 변수들을 설정할 수 있습니다.
-
-```bash
-# 필수 권장
-SECRET_KEY=your-secret-key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-# DB (미설정 시 SQLite 사용)
+```env
 DATABASE_URL=sqlite:///./mini_chatbot.db
-
-# AI 연동 (선택)
-GOOGLE_API_KEY=your-google-api-key
-GEMINI_MODEL=gemini-1.5-flash
+DATABASE_ECHO=false
+JWT_SECRET_KEY=change-this-in-production
+GOOGLE_API_KEY=
+APP_NAME=Behavior Pattern Analysis Chatbot
+APP_ENV=development
+LOG_LEVEL=INFO
 ```
 
-> `DATABASE_URL`이 MySQL로 설정되어도 연결 실패 시 SQLite fallback으로 동작하도록 설계되어 있습니다.
+> 참고: `backend/config.py`에는 `Settings` 클래스가 중복 선언되어 있으므로, 향후 유지보수 시 단일 선언으로 정리하는 것이 좋습니다.
 
 ---
 
-## 🐳 Docker 실행 (선택)
+## 7) 테스트
+
+백엔드 테스트 실행:
 
 ```bash
-docker compose up --build
+pytest backend/tests -q
 ```
 
-- 환경에 따라 백엔드/프론트 포트 매핑은 `docker-compose.yml`을 확인해 주세요.
+(필요 시 Redis/DB 상태에 따라 일부 테스트 환경 셋업이 선행되어야 할 수 있습니다.)
 
 ---
 
-## 🧩 트러블슈팅
+## 8) 현재 코드 기준 개선 포인트
 
-### 1) `401 Unauthorized`
+1. **설정 클래스 중복 제거**: `backend/config.py` 정리
+2. **타임존 일관성 강화**: naive/aware datetime 혼용 최소화
+3. **분석 파라미터 유연화**: 위험 임계치(40%, 강도 6+) 설정값 외부화
+4. **프론트 테스트 보강**: 컴포넌트/라우팅/E2E 자동화
+5. **마이그레이션 체계화**: 런타임 ALTER 대신 Alembic 도입
 
-- 토큰 만료/누락 가능성이 큽니다.
-- 브라우저 localStorage의 토큰을 제거하고 다시 로그인해 보세요.
+---
 
-### 2) `403 Forbidden`
+## 9) 라이선스
 
-- 요청의 `user_id`와 토큰 사용자 불일치일 가능성이 큽니다.
-- URL 파라미터와 로그인 계정을 함께 확인해 주세요.
-
-### 3) AI 응답이 일반 텍스트로만 보임
-
-- `GOOGLE_API_KEY` 미설정 또는 Gemini 호출 실패 상황일 수 있습니다.
-- fallback 모드는 정상 동작이며, 키 설정 시 고급 응답을 받을 수 있습니다.
-
-
-### 5) DB 스키마 불일치(예: `users.password_hash` 없음)
-
-개발 중 기존 MySQL/SQLite 스키마가 꼬였을 때는 아래 절차로 초기화할 수 있습니다.
-
-```bash
-python backend/reset_db.py
-```
-
-또는 수동으로 `users`, `behavior_logs`, `chat_history` 테이블을 DROP 후 서버를 재실행하면 `create_all()`로 재생성됩니다.
-
-서버 시작 시 `users.password_hash` 컬럼이 없는 경우 런타임 마이그레이션(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)`)이 자동으로 시도됩니다.
-
-### 4) CORS 오류
-
-- 프론트(`5173`)와 백엔드(`8000`) 주소가 다를 때 발생할 수 있습니다.
-- 백엔드 CORS 설정 및 실제 접속 URL을 일치시켜 주세요.
-
-
-## 🚀 향후 개선 아이디어
-
-- 행동 로그 검색/필터(기간, 감정, 태그)
-- 분석 리포트 PDF 내보내기
-- 팀/코치 공유 링크 모드
-- 실시간 알림(일일 리마인더, 주간 리포트)
-- 테스트 자동화(backend pytest + frontend vitest/e2e)
-
-## 배포 전 체크리스트
-
-## 📄 License
-
-MIT (원하시는 라이선스로 변경 가능)
+MIT
