@@ -45,3 +45,23 @@ SMOKE_USERNAME_OR_EMAIL=demo@mindflow.app SMOKE_PASSWORD=Passw0rd! npm run smoke
 ```
 
 로그인 + `/api/auth/me` 보호 API까지 확인합니다.
+
+
+## 설치 오류(ERESOLVE) 해결
+
+`react-native-screens` 버전 충돌이 나면 `package.json` 버전 고정 후 재설치하세요.
+
+```bash
+cd mobile
+rm -rf node_modules package-lock.json
+npm install
+```
+
+Windows CMD:
+
+```cmd
+cd mobile
+rmdir /s /q node_modules
+del package-lock.json
+npm install
+```
