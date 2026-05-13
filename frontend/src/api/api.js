@@ -175,7 +175,7 @@ export async function bootstrapDemoUser() {
     return null;
   }
 }
-export async function ensureSeedLogs(userId) {
+export async function ensureSeedLogs(_userId) {
   return false;
 }
 export async function fetchOverview(userId) {
