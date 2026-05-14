@@ -30,4 +30,4 @@ jobs:
         run: python -m compileall backend
 
       - name: Run backend unit tests
-        run: python -m unittest discover -s backend/tests -p 'test_*.py'
+        run: PYTHONPATH=. python -m unittest discover -s backend/tests -p 'test_*.py'
