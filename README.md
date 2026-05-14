@@ -155,6 +155,17 @@ npm run dev
 
 ---
 
+
+### 모바일 앱(Expo)
+
+```bash
+cd mobile
+npm install
+npm run start
+```
+
+`EXPO_PUBLIC_API_BASE_URL`로 API 주소를 지정할 수 있습니다.
+
 ## 6) 환경 변수
 
 `.env`(프로젝트 루트 기준) 예시:
