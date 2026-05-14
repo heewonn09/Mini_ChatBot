@@ -23,6 +23,7 @@ import {
 } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
+import RangeSlider from "../components/ui/RangeSlider";
 import ToastContainer from "../components/ui/Toast";
 import { useToast } from "../hooks/useToast";
 
@@ -393,29 +394,15 @@ function LogPage() {
             </fieldset>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label htmlFor="intensity-slider" className="block text-[1.02rem] font-bold text-[color:var(--ink)]">
-                  강도
-                </label>
-                <span className="text-sm font-bold text-[color:var(--ink)]">
-                  {intensity} / 10
-                </span>
-              </div>
-              <input
+              <RangeSlider
                 id="intensity-slider"
-                type="range"
-                min={1}
-                max={10}
-                step={1}
                 value={intensity}
-                onChange={(e) => setIntensity(Number(e.target.value))}
-                className="w-full cursor-pointer accent-[#0f766e]"
+                onChange={setIntensity}
+                label="강도"
+                lowLabel="낮음"
+                midLabel="보통"
+                highLabel="높음"
               />
-              <div className="flex justify-between text-xs text-[color:var(--ink-soft)]">
-                <span>낮음</span>
-                <span>보통</span>
-                <span>높음</span>
-              </div>
             </div>
 
             <button type="submit" disabled={!canSubmit || submitting} className="app-primary-button w-full text-lg">

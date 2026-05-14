@@ -168,6 +168,10 @@ class CreateSessionResponse(BaseModel):
     created_at: datetime
 
 
+class RenameSessionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     session_id: Optional[int] = None
@@ -191,3 +195,15 @@ class ChatHistoryItem(BaseModel):
 
 class ChatHistoryResponse(BaseModel):
     items: List[ChatHistoryItem]
+
+
+class UserPreferencesResponse(BaseModel):
+    language: str
+    theme: str
+    notifications_enabled: bool
+
+
+class UpdatePreferencesRequest(BaseModel):
+    language: Optional[str] = Field(default=None, pattern="^(ko|en)$")
+    theme: Optional[str] = Field(default=None, pattern="^(light|dark)$")
+    notifications_enabled: Optional[bool] = None

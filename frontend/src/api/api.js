@@ -188,8 +188,10 @@ export async function fetchAnalysis(userId, days = 7) {
   return data;
 }
 
-export async function fetchAnalysisView(userId) {
-  const { data } = await withErrorLogging("fetchAnalysisView", () => api.get(`/ui/${userId}/analysis`));
+export async function fetchAnalysisView(userId, days = 7) {
+  const { data } = await withErrorLogging("fetchAnalysisView", () =>
+    api.get(`/ui/${userId}/analysis`, { params: { days } })
+  );
   return data;
 }
 
@@ -286,6 +288,27 @@ export async function deleteChatSession(userId, sessionId) {
   await withErrorLogging("deleteChatSession", () =>
     api.delete(`/ui/${userId}/chat/sessions/${sessionId}`)
   );
+}
+
+export async function renameChatSession(userId, sessionId, title) {
+  const { data } = await withErrorLogging("renameChatSession", () =>
+    api.patch(`/ui/${userId}/chat/sessions/${sessionId}`, { title })
+  );
+  return data;
+}
+
+export async function fetchPreferences(userId) {
+  const { data } = await withErrorLogging("fetchPreferences", () =>
+    api.get(`/ui/${userId}/preferences`)
+  );
+  return data;
+}
+
+export async function updatePreferences(userId, payload) {
+  const { data } = await withErrorLogging("updatePreferences", () =>
+    api.patch(`/ui/${userId}/preferences`, payload)
+  );
+  return data;
 }
 
 export async function fetchChatHistoryBySession(userId, sessionId, limit = 50, offset = 0) {

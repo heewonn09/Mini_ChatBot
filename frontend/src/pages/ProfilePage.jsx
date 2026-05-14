@@ -15,8 +15,9 @@ import {
   User,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
-import { fetchHeatmap, fetchProfileView, getErrorMessage } from "../api/api";
+import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences } from "../api/api";
 import Card from "../components/ui/Card";
+import Modal from "../components/ui/Modal";
 import PageHeader from "../components/ui/PageHeader";
 import { normalizeCategory, normalizeMood, CATEGORY_KO, MOOD_KO } from "../utils/normalize";
 
@@ -60,6 +61,9 @@ function progressToneClass(tone) {
 function ProfilePage() {
   const { user, error: appError, refreshOverview } = useOutletContext();
   const [hoveredDay, setHoveredDay] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [prefForm, setPrefForm] = useState({ language: "ko", theme: "light" });
+  const [saving, setSaving] = useState(false);
 
   const {
     data: profile,
@@ -78,7 +82,32 @@ function ProfilePage() {
     enabled: !!user?.id,
   });
 
+  const { data: prefsData } = useQuery({
+    queryKey: ["preferences", user?.id],
+    queryFn: () => fetchPreferences(user.id),
+    enabled: !!user?.id,
+  });
+
   const heatmap = heatmapData ?? null;
+
+  function openEdit() {
+    setPrefForm({
+      language: prefsData?.language ?? "ko",
+      theme: prefsData?.theme ?? "light",
+    });
+    setEditOpen(true);
+  }
+
+  async function handleSavePrefs() {
+    if (!user) return;
+    setSaving(true);
+    try {
+      await updatePreferences(user.id, prefForm);
+    } finally {
+      setSaving(false);
+      setEditOpen(false);
+    }
+  }
 
   if (loading) {
     return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">프로필을 불러오는 중...</Card>;
@@ -126,13 +155,69 @@ function ProfilePage() {
 
   return (
     <section className="space-y-8">
-      <PageHeader
-        variant="profile"
-        profileIcon={User}
-        title={profile.display_name}
-        description={profile.summary_description}
-        meta={`가입일 ${memberSinceDate}`}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader
+          variant="profile"
+          profileIcon={User}
+          title={profile.display_name}
+          description={profile.summary_description}
+          meta={`가입일 ${memberSinceDate}`}
+        />
+        <button
+          type="button"
+          onClick={openEdit}
+          className="app-secondary-button shrink-0 text-sm"
+        >
+          편집
+        </button>
+      </div>
+
+      <Modal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="프로필 편집"
+        onConfirm={handleSavePrefs}
+        confirmLabel={saving ? "저장 중..." : "저장"}
+      >
+        <div className="space-y-4">
+          <div>
+            <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">사용자명</p>
+            <p className="rounded-[0.6rem] bg-black/5 px-3 py-2 text-sm text-[color:var(--ink-soft)]">
+              {user?.username}
+            </p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">언어</p>
+            <select
+              value={prefForm.language}
+              onChange={(e) => setPrefForm((f) => ({ ...f, language: e.target.value }))}
+              className="w-full rounded-[0.6rem] border border-[rgba(24,50,53,0.15)] bg-white px-3 py-2 text-sm"
+            >
+              <option value="ko">한국어</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">테마</p>
+            <div className="flex gap-2">
+              {["light", "dark"].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setPrefForm((f) => ({ ...f, theme: t }))}
+                  className={`flex-1 rounded-[0.6rem] py-2 text-sm font-medium transition ${
+                    prefForm.theme === t
+                      ? "bg-[#0f766e] text-white"
+                      : "bg-black/5 text-[color:var(--ink-soft)]"
+                  }`}
+                >
+                  {t === "light" ? "라이트" : "다크"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {!profile.logged_today ? (
         <div className="flex flex-wrap items-center gap-3 rounded-[1.4rem] border border-[#dd7a5f]/20 bg-[#f8e2d9] px-5 py-3.5">

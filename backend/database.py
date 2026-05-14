@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session
 from backend.config import get_settings
+from backend.models.base import Base  # noqa: F401  — re-exported for legacy callers
 
 settings = get_settings()
 
@@ -40,15 +41,12 @@ engine = _create_engine_with_fallback()
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for models
-Base = declarative_base()
-
 # ==================== 가장 중요한 부분 ====================
 # 모든 모델을 여기서 import (테이블 생성을 위해)
-from backend.models.behavior import User, BehaviorLog
-from backend.models.chat import ChatHistory, ChatSession
-# 다른 모델이 있으면 아래에 계속 추가
-# from backend.models.behavior import XXX
+from backend.models.behavior import User, BehaviorLog  # noqa: F401
+from backend.models.chat import ChatHistory, ChatSession  # noqa: F401
+from backend.models.preferences import UserPreferences  # noqa: F401
+from backend.models.audit import AuditLog  # noqa: F401
 # =========================================================
 
 def get_db() -> Session:
@@ -86,4 +84,29 @@ def run_schema_migrations():
         if "session_id" not in chat_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE chat_history ADD COLUMN session_id INTEGER REFERENCES chat_sessions(id)"))
+
+    # chat_sessions new columns
+    if "chat_sessions" in tables:
+        cs_cols = {col["name"] for col in inspector.get_columns("chat_sessions")}
+        with engine.begin() as conn:
+            if "message_count" not in cs_cols:
+                conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN message_count INTEGER DEFAULT 0"))
+            if "archived" not in cs_cols:
+                conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN archived BOOLEAN DEFAULT FALSE"))
+
+    # composite indexes (SQLite supports IF NOT EXISTS in CREATE INDEX)
+    with engine.begin() as conn:
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_behavior_logs_user_created "
+            "ON behavior_logs(user_id, created_at)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_chat_history_session_created "
+            "ON chat_history(session_id, created_at)"
+        ))
+        if "audit_logs" in tables:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created "
+                "ON audit_logs(user_id, created_at)"
+            ))
 

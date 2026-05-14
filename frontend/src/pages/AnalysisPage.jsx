@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -16,8 +16,11 @@ import AIInsightCard from "../components/ui/AIInsightCard";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 
+const DAY_OPTIONS = [7, 14, 30];
+
 function AnalysisPage() {
   const { user, overview, error: appError, refreshOverview } = useOutletContext();
+  const [days, setDays] = useState(7);
 
   const {
     data: analysis,
@@ -25,8 +28,8 @@ function AnalysisPage() {
     isLoading: loading,
     refetch: refetchAnalysis,
   } = useQuery({
-    queryKey: ["analysis", user?.id],
-    queryFn: () => fetchAnalysisView(user.id),
+    queryKey: ["analysis", user?.id, days],
+    queryFn: () => fetchAnalysisView(user.id, days),
     enabled: !!user?.id,
   });
 
@@ -109,12 +112,30 @@ function AnalysisPage() {
 
   return (
     <section className="space-y-8">
-      <PageHeader
-        variant="icon"
-        badgeIcon={Brain}
-        title="AI 인사이트"
-        description="흐트러지는 지점과 집중되는 지점을 보고 다음 조정을 제안합니다."
-      />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader
+          variant="icon"
+          badgeIcon={Brain}
+          title="AI 인사이트"
+          description="흐트러지는 지점과 집중되는 지점을 보고 다음 조정을 제안합니다."
+        />
+        <div className="flex gap-1.5">
+          {DAY_OPTIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDays(d)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                days === d
+                  ? "bg-[#0f766e] text-white"
+                  : "bg-[rgba(24,50,53,0.07)] text-[color:var(--ink-soft)] hover:bg-[rgba(24,50,53,0.12)]"
+              }`}
+            >
+              {d}일
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.15fr,0.85fr]">

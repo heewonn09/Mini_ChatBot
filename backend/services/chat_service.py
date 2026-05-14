@@ -15,8 +15,11 @@ from backend.schemas.ui import (
     ChatSessionListResponse,
     CreateSessionResponse,
 )
+from backend.models.behavior import BehaviorLog
 from backend.services.ai_feedback_service import AIFeedbackService
+from backend.services.dashboard_service import DashboardService
 from backend.services.pattern_analysis_service import PatternAnalysisService
+from backend.utils.analysis_utils import format_display_name as _format_display_name
 
 CHAT_RATE_LIMIT = 30
 CHAT_RATE_WINDOW = 60
@@ -27,10 +30,6 @@ CHAT_SUGGESTIONS = [
     "어떻게 하면 더 집중할 수 있나요?",
     "공부하기 가장 좋은 시간대가 언제인가요?",
 ]
-
-
-def _format_display_name(username: str) -> str:
-    return username.replace("_", " ").title()
 
 
 class ChatService:
@@ -154,12 +153,26 @@ class ChatService:
             f"{item.role}: {item.message}" for item in reversed(recent_messages)
         )
 
+        logs = (
+            self.db.query(BehaviorLog)
+            .filter(BehaviorLog.user_id == user.id)
+            .order_by(BehaviorLog.created_at.desc())
+            .limit(200)
+            .all()
+        )
+        user_context = {
+            "top_emotion": analysis.behavior_patterns[0].emotion if analysis.behavior_patterns else None,
+            "streak_days": DashboardService.current_streak(logs),
+            "total_logs": analysis.total_logs,
+        }
+
         try:
             answer = self.ai.generate_chat_response(
                 user_message=message,
                 username=_format_display_name(user.username),
                 behavior_summary=behavior_summary,
                 conversation_memory=memory,
+                user_context=user_context,
             )
         except Exception:
             answer = "지금은 답변하지 못했어요. 잠시 후 다시 시도해주세요."
@@ -187,6 +200,24 @@ class ChatService:
         )
         self.db.commit()
         return ChatResponse(answer=answer, session_id=session_id)
+
+    def rename_session(self, user_id: int, session_id: int, title: str) -> ChatSessionItem:
+        session = (
+            self.db.query(ChatSession)
+            .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+            .first()
+        )
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        session.title = title[:100]
+        self.db.commit()
+        self.db.refresh(session)
+        return ChatSessionItem(
+            id=session.id,
+            title=session.title,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+        )
 
     def get_history(
         self,
