@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\heewon\\\\Desktop\\\\Mini_ChatBot\\\\backend\" -Recurse -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\heewon\\\\Desktop\\\\Mini_ChatBot\\\\frontend\" -Recurse -File)",
+      "Bash(Sort-Object)",
+      "Bash(grep -E \"\\\\.\\(css|scss\\)$|\\\\.json$\")"
+    ]
+  }
+}

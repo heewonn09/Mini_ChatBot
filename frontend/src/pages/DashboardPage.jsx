@@ -5,8 +5,9 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import { fetchFocusPrediction, fetchWeeklyReport } from "../api/api";
 import Chart from "../components/Chart";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
@@ -42,14 +43,31 @@ function toCode(value = "") {
 }
 
 function DashboardPage() {
-  const { overview } = useOutletContext();
+  const { user, overview } = useOutletContext();
   const statsByTitle = Object.fromEntries((overview.stat_cards ?? []).map((card) => [card.title, card]));
   const welcomeName = overview.welcome_name?.split(" ")[0] ?? "거기";
   const leadInsight = overview.insights?.[0];
   const focusInsight = overview.insights?.[1];
   const recentActivity = overview.recent_activity ?? [];
   const [activityView, setActivityView] = useState("daily");
+  const [weeklyReport, setWeeklyReport] = useState(null);
+  const [focusPrediction, setFocusPrediction] = useState(null);
   const groupedDaily = useMemo(() => recentActivity.reduce((acc, item) => { const d = new Date(item.created_at); const key=d.toDateString(); (acc[key] ||= []).push(item); return acc; }, {}), [recentActivity]);
+  const groupedWeekly = useMemo(() => recentActivity.reduce((acc, item) => {
+    const d = new Date(item.created_at);
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1));
+    monday.setHours(0, 0, 0, 0);
+    const key = monday.toDateString();
+    (acc[key] ||= []).push(item);
+    return acc;
+  }, {}), [recentActivity]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchWeeklyReport(user.id).then(setWeeklyReport).catch(() => {});
+    fetchFocusPrediction(user.id).then(setFocusPrediction).catch(() => {});
+  }, [user]);
 
   const bestFocusCard = statsByTitle["최고 집중 시간"] ?? statsByTitle["Best Focus Time"];
   const worstHabitCard = statsByTitle["최악의 습관 시간"] ?? statsByTitle["Worst Habit Time"];
@@ -62,6 +80,36 @@ function DashboardPage() {
         title={`다시 오신 것을 환영해요, ${welcomeName}.`}
         description="집중 시간과 방해 요소, 작은 성장을 한눈에 보는 공간입니다."
       />
+
+      {focusPrediction ? (
+        <div className="flex flex-wrap items-center gap-4 rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-[color:var(--surface)] px-5 py-3.5">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${
+            focusPrediction.score >= 70 ? "bg-[#0f766e]" :
+            focusPrediction.score >= 40 ? "bg-[#d9a85a]" : "bg-[#dd7a5f]"
+          }`}>
+            {focusPrediction.score}
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[color:var(--ink)]">{focusPrediction.label}</p>
+            <p className="text-xs text-[color:var(--ink-soft)]">{focusPrediction.hour_range} 기준</p>
+          </div>
+          {focusPrediction.confidence === "low" ? (
+            <span className="ml-auto rounded-full bg-[rgba(24,50,53,0.07)] px-3 py-1 text-xs text-[color:var(--ink-soft)]">데이터 부족</span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {weeklyReport?.report ? (
+        <Card className="app-panel-strong p-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="app-kicker">AI 주간 리포트</p>
+              <span className="app-chip text-sm">{weeklyReport.week_label}</span>
+            </div>
+            <p className="text-[1rem] leading-8 text-[color:var(--ink-soft)]">{weeklyReport.report}</p>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr,0.95fr]">
         <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
@@ -133,25 +181,65 @@ function DashboardPage() {
               <button type="button" onClick={() => setActivityView("weekly")} className={`app-chip text-sm ${activityView === "weekly" ? "bg-[color:var(--primary)] text-[color:var(--primary-contrast)]" : ""}`}>주별</button>
             </div>
             <div className="space-y-3">
-              {Object.entries(groupedDaily).slice(0,3).map(([day, items]) => (
-                <div key={day} className="space-y-2">
-                  <p className="text-sm font-semibold text-[color:var(--text-muted)]">{day}</p>
-                  {items.map((item) => (
-                    <div key={item.id} className="rounded-[1.45rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] ${activityToneClass(normalizeMood(item.emotion))}`}>{MOOD_KO[normalizeMood(item.emotion)] ?? item.emotion}</span>
-                            <span className="text-sm text-[color:var(--text-muted)]">{CATEGORY_KO[normalizeCategory(item.tag)] ?? item.tag}</span>
+              {activityView === "daily" ? (
+                Object.entries(groupedDaily).slice(0, 5).map(([day, items]) => (
+                  <div key={day} className="space-y-2">
+                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">{day}</p>
+                    {items.map((item) => (
+                      <div key={item.id} className="rounded-[1.45rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] ${activityToneClass(normalizeMood(item.emotion))}`}>{MOOD_KO[normalizeMood(item.emotion)] ?? item.emotion}</span>
+                              <span className="text-sm text-[color:var(--text-muted)]">{CATEGORY_KO[normalizeCategory(item.tag)] ?? item.tag}</span>
+                            </div>
+                            <p className="text-[1rem] font-semibold text-[color:var(--text)]">{item.text}</p>
                           </div>
-                          <p className="text-[1rem] font-semibold text-[color:var(--text)]">{item.text}</p>
+                          <span className="text-sm text-[color:var(--text-muted)]">{new Date(item.created_at).toLocaleDateString("ko-KR")}</span>
                         </div>
-                        <span className="text-sm text-[color:var(--text-muted)]">{new Date(item.created_at).toLocaleDateString("ko-KR")}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              ) : (
+                Object.entries(groupedWeekly).slice(0, 4).map(([weekStart, items]) => {
+                  const d = new Date(weekStart);
+                  const weekLabel = `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} 주`;
+                  const tagCounts = items.reduce((acc, item) => {
+                    const cat = normalizeCategory(item.tag);
+                    acc[cat] = (acc[cat] || 0) + 1;
+                    return acc;
+                  }, {});
+                  const topTags = Object.entries(tagCounts).sort(([, a], [, b]) => b - a).slice(0, 3);
+                  return (
+                    <div key={weekStart} className="rounded-[1.45rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-semibold text-[color:var(--text-muted)]">{weekLabel}</p>
+                        <span className="text-xs text-[color:var(--text-muted)]">{items.length}개 기록</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {topTags.map(([cat, count]) => (
+                          <span key={cat} className="app-chip text-xs">
+                            {CATEGORY_KO[cat] ?? cat}
+                            <span className="font-bold ml-1">{count}회</span>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="space-y-1">
+                        {items.slice(0, 2).map((item) => (
+                          <p key={item.id} className="text-sm text-[color:var(--text-muted)] truncate">{item.text}</p>
+                        ))}
+                        {items.length > 2 && (
+                          <p className="text-xs text-[color:var(--text-muted)]">+{items.length - 2}개 더</p>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ))}
+                  );
+                })
+              )}
+              {recentActivity.length === 0 && (
+                <p className="text-sm text-[color:var(--text-muted)]">아직 기록이 없습니다.</p>
+              )}
             </div>
           </div>
         </Card>

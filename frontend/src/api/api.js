@@ -188,8 +188,10 @@ export async function fetchAnalysis(userId, days = 7) {
   return data;
 }
 
-export async function fetchAnalysisView(userId) {
-  const { data } = await withErrorLogging("fetchAnalysisView", () => api.get(`/ui/${userId}/analysis`));
+export async function fetchAnalysisView(userId, days = 7) {
+  const { data } = await withErrorLogging("fetchAnalysisView", () =>
+    api.get(`/ui/${userId}/analysis`, { params: { days } })
+  );
   return data;
 }
 
@@ -198,19 +200,60 @@ export async function fetchProfileView(userId) {
   return data;
 }
 
+export async function fetchHeatmap(userId) {
+  const { data } = await withErrorLogging("fetchHeatmap", () => api.get(`/ui/${userId}/heatmap`));
+  return data;
+}
+
+export async function fetchHabitCorrelations(userId) {
+  const { data } = await withErrorLogging("fetchHabitCorrelations", () =>
+    api.get(`/ui/${userId}/habit-correlations`)
+  );
+  return data;
+}
+
+export async function fetchFocusPrediction(userId) {
+  const { data } = await withErrorLogging("fetchFocusPrediction", () =>
+    api.get(`/ui/${userId}/focus-prediction`)
+  );
+  return data;
+}
+
+export async function fetchWeeklyReport(userId) {
+  const { data } = await withErrorLogging("fetchWeeklyReport", () =>
+    api.get(`/ui/${userId}/weekly-report`)
+  );
+  return data;
+}
+
 export async function fetchChatBootstrap(userId) {
   const { data } = await withErrorLogging("fetchChatBootstrap", () => api.get(`/ui/${userId}/chat/bootstrap`));
   return data;
 }
 
-export async function fetchChatHistory(userId) {
-  const { data } = await withErrorLogging("fetchChatHistory", () => api.get(`/ui/${userId}/chat/history`));
+export async function fetchChatHistory(userId, offset = 0) {
+  const { data } = await withErrorLogging("fetchChatHistory", () =>
+    api.get(`/ui/${userId}/chat/history`, { params: { offset } })
+  );
   return data;
 }
 
 export async function createBehavior(userId, payload) {
   const { data } = await withErrorLogging("createBehavior", () => api.post(`/behaviors/${userId}`, payload));
   return data;
+}
+
+export async function updateBehavior(userId, logId, payload) {
+  const { data } = await withErrorLogging("updateBehavior", () =>
+    api.put(`/behaviors/${userId}/${logId}`, payload)
+  );
+  return data;
+}
+
+export async function deleteBehavior(userId, logId) {
+  await withErrorLogging("deleteBehavior", () =>
+    api.delete(`/behaviors/${userId}/${logId}`)
+  );
 }
 
 export async function fetchBehaviors(userId, limit = 20) {
@@ -220,9 +263,57 @@ export async function fetchBehaviors(userId, limit = 20) {
   return data;
 }
 
-export async function askAssistant(userId, message) {
+export async function askAssistant(userId, message, sessionId = null) {
   const { data } = await withErrorLogging("askAssistant", () =>
-    api.post(`/ui/${userId}/chat`, { message })
+    api.post(`/ui/${userId}/chat`, { message, session_id: sessionId })
+  );
+  return data;
+}
+
+export async function fetchChatSessions(userId) {
+  const { data } = await withErrorLogging("fetchChatSessions", () =>
+    api.get(`/ui/${userId}/chat/sessions`)
+  );
+  return data;
+}
+
+export async function createChatSession(userId) {
+  const { data } = await withErrorLogging("createChatSession", () =>
+    api.post(`/ui/${userId}/chat/sessions`)
+  );
+  return data;
+}
+
+export async function deleteChatSession(userId, sessionId) {
+  await withErrorLogging("deleteChatSession", () =>
+    api.delete(`/ui/${userId}/chat/sessions/${sessionId}`)
+  );
+}
+
+export async function renameChatSession(userId, sessionId, title) {
+  const { data } = await withErrorLogging("renameChatSession", () =>
+    api.patch(`/ui/${userId}/chat/sessions/${sessionId}`, { title })
+  );
+  return data;
+}
+
+export async function fetchPreferences(userId) {
+  const { data } = await withErrorLogging("fetchPreferences", () =>
+    api.get(`/ui/${userId}/preferences`)
+  );
+  return data;
+}
+
+export async function updatePreferences(userId, payload) {
+  const { data } = await withErrorLogging("updatePreferences", () =>
+    api.patch(`/ui/${userId}/preferences`, payload)
+  );
+  return data;
+}
+
+export async function fetchChatHistoryBySession(userId, sessionId, limit = 50, offset = 0) {
+  const { data } = await withErrorLogging("fetchChatHistoryBySession", () =>
+    api.get(`/ui/${userId}/chat/history`, { params: { session_id: sessionId, limit, offset } })
   );
   return data;
 }

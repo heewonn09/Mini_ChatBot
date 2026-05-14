@@ -13,6 +13,7 @@ export function normalizeMood(value = '') {
   const v = String(value).trim().toLowerCase();
   if (['happy', '행복'].includes(v)) return 'happy';
   if (['focused', '집중'].includes(v)) return 'focused';
+  if (['calm', '차분'].includes(v)) return 'calm';
   if (['stressed', '스트레스'].includes(v)) return 'stressed';
   if (['neutral', '보통'].includes(v)) return 'neutral';
   if (['motivated', '동기부여'].includes(v)) return 'motivated';
@@ -34,9 +35,10 @@ export const CATEGORY_KO = {
 export const MOOD_KO = {
   happy: '행복',
   focused: '집중',
-  stressed: '스트레스',
+  calm: '차분',
+  motivated: '의욕',
   neutral: '보통',
-  motivated: '동기부여',
+  stressed: '스트레스',
   anxious: '불안',
   sad: '슬픔',
   distracted: '산만',
