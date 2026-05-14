@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class StatCard(BaseModel):
@@ -132,12 +132,31 @@ class HeatmapResponse(BaseModel):
     days: List[HeatmapDayItem]
 
 
+class ChatSessionItem(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChatSessionListResponse(BaseModel):
+    sessions: List[ChatSessionItem]
+
+
+class CreateSessionResponse(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+
+
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
+    session_id: Optional[int] = None
 
 
 class ChatResponse(BaseModel):
     answer: str
+    session_id: int
 
 
 class ChatBootstrapResponse(BaseModel):

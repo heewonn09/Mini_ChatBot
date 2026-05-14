@@ -46,7 +46,7 @@ Base = declarative_base()
 # ==================== 가장 중요한 부분 ====================
 # 모든 모델을 여기서 import (테이블 생성을 위해)
 from backend.models.behavior import User, BehaviorLog
-from backend.models.chat import ChatHistory
+from backend.models.chat import ChatHistory, ChatSession
 # 다른 모델이 있으면 아래에 계속 추가
 # from backend.models.behavior import XXX
 # =========================================================
@@ -78,4 +78,12 @@ def run_schema_migrations():
             conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
             if "password" in columns:
                 conn.execute(text("UPDATE users SET password_hash = password WHERE password_hash IS NULL"))
+
+    # chat_history.session_id migration
+    tables = inspector.get_table_names()
+    if "chat_history" in tables:
+        chat_cols = {col["name"] for col in inspector.get_columns("chat_history")}
+        if "session_id" not in chat_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE chat_history ADD COLUMN session_id INTEGER REFERENCES chat_sessions(id)"))
 

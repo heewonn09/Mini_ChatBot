@@ -16,6 +16,10 @@ import { useOutletContext } from "react-router-dom";
 import { createBehavior, fetchBehaviors, getErrorMessage } from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
+import ToastContainer from "../components/ui/Toast";
+import { useToast } from "../hooks/useToast";
+
+const MAX_TEXT = 300;
 import { normalizeCategory, CATEGORY_KO, MOOD_KO } from "../utils/normalize";
 
 const defaultQuickActions = [
@@ -80,8 +84,10 @@ function activityToneClass(emotion) {
 
 function LogPage() {
   const { user, overview, refreshOverview } = useOutletContext();
+  const { toasts, showToast, dismiss } = useToast();
   const [text, setText] = useState("");
   const [emotion, setEmotion] = useState("neutral");
+  const [intensity, setIntensity] = useState(6);
   const [tag, setTag] = useState("Study");
   const [customTime, setCustomTime] = useState(false);
   const [timeValue, setTimeValue] = useState("");
@@ -112,7 +118,7 @@ function LogPage() {
     loadLogs();
   }, [user]);
 
-  const canSubmit = useMemo(() => text.trim().length > 0, [text]);
+  const canSubmit = useMemo(() => text.trim().length > 0 && text.length <= MAX_TEXT, [text]);
 
   const quickActions = useMemo(() => {
     const presets = new Map(defaultQuickActions.map((item) => [item.tag.toLowerCase(), item]));
@@ -165,13 +171,14 @@ function LogPage() {
         text,
         emotion,
         tag,
-        intensity: 6,
+        intensity,
         created_at: customTime && timeValue ? new Date(timeValue).toISOString() : undefined,
       });
 
       setText("");
       setTag("Study");
       setEmotion("neutral");
+      setIntensity(6);
       setCustomTime(false);
       setTimeValue("");
 
@@ -179,6 +186,7 @@ function LogPage() {
       setList(data);
       setRelativeBaseTime(Date.now());
       await refreshOverview();
+      showToast("기록이 저장됐어요!", "success");
     } catch (error) {
       setLogsError(getErrorMessage(error, "저장하지 못했습니다. 다시 시도해주세요."));
     } finally {
@@ -198,6 +206,8 @@ function LogPage() {
   const topTag = overview?.habit_frequency?.length ? overview.habit_frequency[0].tag : null;
 
   return (
+    <>
+    <ToastContainer toasts={toasts} onDismiss={dismiss} />
     <section className="space-y-8">
       <PageHeader
         variant="standard"
@@ -219,15 +229,21 @@ function LogPage() {
             }}
           >
             <div className="space-y-3">
-              <label htmlFor="behavior-text" className="block text-[1.02rem] font-bold text-[color:var(--ink)]">
-                무슨 일이 있었나요?
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="behavior-text" className="block text-[1.02rem] font-bold text-[color:var(--ink)]">
+                  무슨 일이 있었나요?
+                </label>
+                <span className={`text-xs font-medium tabular-nums ${text.length > MAX_TEXT ? "text-[#c86f56]" : "text-[color:var(--ink-soft)]"}`}>
+                  {text.length}/{MAX_TEXT}
+                </span>
+              </div>
               <textarea
                 id="behavior-text"
                 className="app-textarea"
                 placeholder="예: 한 시간 공부했고, 자기 전에는 쇼츠를 오래 봤고, 잠깐 러닝을 했어요..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
+                maxLength={MAX_TEXT + 20}
               />
             </div>
 
@@ -315,6 +331,32 @@ function LogPage() {
                 })}
               </div>
             </fieldset>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label htmlFor="intensity-slider" className="block text-[1.02rem] font-bold text-[color:var(--ink)]">
+                  강도
+                </label>
+                <span className="text-sm font-bold text-[color:var(--ink)]">
+                  {intensity} / 10
+                </span>
+              </div>
+              <input
+                id="intensity-slider"
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={intensity}
+                onChange={(e) => setIntensity(Number(e.target.value))}
+                className="w-full cursor-pointer accent-[#0f766e]"
+              />
+              <div className="flex justify-between text-xs text-[color:var(--ink-soft)]">
+                <span>낮음</span>
+                <span>보통</span>
+                <span>높음</span>
+              </div>
+            </div>
 
             <button type="submit" disabled={!canSubmit || submitting} className="app-primary-button w-full text-lg">
               <Plus size={20} />
@@ -411,6 +453,7 @@ function LogPage() {
         </div>
       </div>
     </section>
+    </>
   );
 }
 

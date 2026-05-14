@@ -232,9 +232,36 @@ export async function fetchBehaviors(userId, limit = 20) {
   return data;
 }
 
-export async function askAssistant(userId, message) {
+export async function askAssistant(userId, message, sessionId = null) {
   const { data } = await withErrorLogging("askAssistant", () =>
-    api.post(`/ui/${userId}/chat`, { message })
+    api.post(`/ui/${userId}/chat`, { message, session_id: sessionId })
+  );
+  return data;
+}
+
+export async function fetchChatSessions(userId) {
+  const { data } = await withErrorLogging("fetchChatSessions", () =>
+    api.get(`/ui/${userId}/chat/sessions`)
+  );
+  return data;
+}
+
+export async function createChatSession(userId) {
+  const { data } = await withErrorLogging("createChatSession", () =>
+    api.post(`/ui/${userId}/chat/sessions`)
+  );
+  return data;
+}
+
+export async function deleteChatSession(userId, sessionId) {
+  await withErrorLogging("deleteChatSession", () =>
+    api.delete(`/ui/${userId}/chat/sessions/${sessionId}`)
+  );
+}
+
+export async function fetchChatHistoryBySession(userId, sessionId, limit = 50, offset = 0) {
+  const { data } = await withErrorLogging("fetchChatHistoryBySession", () =>
+    api.get(`/ui/${userId}/chat/history`, { params: { session_id: sessionId, limit, offset } })
   );
   return data;
 }

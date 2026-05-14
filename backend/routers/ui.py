@@ -6,17 +6,17 @@ from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models.chat import ChatHistory
 from backend.models.behavior import BehaviorLog, User
 from backend.schemas.ui import (
     AchievementItem,
     AnalysisResponse,
     BehaviorDistributionItem,
     ChatBootstrapResponse,
-    ChatHistoryItem,
     ChatHistoryResponse,
     ChatRequest,
     ChatResponse,
+    ChatSessionListResponse,
+    CreateSessionResponse,
     EmotionTrendPoint,
     GoalItem,
     HabitFrequencyItem,
@@ -35,23 +35,16 @@ from backend.schemas.ui import (
     WeeklyActivityItem,
 )
 from backend.services.ai_feedback_service import AIFeedbackService
+from backend.services.chat_service import ChatService
 from backend.services.pattern_analysis_service import PatternAnalysisService
 from backend.redis_client import redis_store
 
 router = APIRouter(prefix="/api/ui", tags=["UI"])
-CHAT_RATE_LIMIT = 30
-CHAT_RATE_WINDOW = 60
 ai_service = AIFeedbackService()
 
 NEGATIVE_EMOTIONS = {"sad", "angry", "anxious", "stressed", "depressed"}
 POSITIVE_EMOTIONS = {"happy", "focused", "calm", "motivated", "neutral"}
 _PRODUCTIVE = POSITIVE_EMOTIONS - {"neutral"}
-CHAT_SUGGESTIONS = [
-    "왜 나는 생산적이지 않을까요?",
-    "내 습관을 분석해줘",
-    "어떻게 하면 더 집중할 수 있나요?",
-    "공부하기 가장 좋은 시간대가 언제인가요?",
-]
 
 
 @router.get("/{user_id}/overview", response_model=OverviewResponse)
@@ -282,6 +275,37 @@ def get_profile_view(
     )
 
 
+@router.get("/{user_id}/chat/sessions", response_model=ChatSessionListResponse)
+def list_chat_sessions(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    return ChatService(db, ai_service).list_sessions(user_id)
+
+
+@router.post("/{user_id}/chat/sessions", response_model=CreateSessionResponse, status_code=201)
+def create_chat_session(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    return ChatService(db, ai_service).create_session(user_id)
+
+
+@router.delete("/{user_id}/chat/sessions/{session_id}", status_code=204)
+def delete_chat_session(
+    user_id: int,
+    session_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    ChatService(db, ai_service).delete_session(user_id, session_id)
+
+
 @router.get("/{user_id}/chat/bootstrap", response_model=ChatBootstrapResponse)
 def get_chat_bootstrap(
     user_id: int,
@@ -289,18 +313,7 @@ def get_chat_bootstrap(
     db: Session = Depends(get_db),
 ):
     user = _get_user(user_id, db)
-    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
-    top_emotion = analysis.behavior_patterns[0].emotion if analysis.behavior_patterns else "습관"
-    intro = (
-        f"안녕하세요, {_format_display_name(user.username)}님! 저는 행동 분석 어시스턴트입니다. 최근 패턴을 분석했으며 "
-        f"습관을 더 잘 이해할 수 있도록 도울 준비가 됐어요. 지금 가장 강한 신호는 '{top_emotion}'입니다."
-    )
-
-    history = db.query(ChatHistory).filter(ChatHistory.user_id == user_id).order_by(ChatHistory.created_at.desc()).limit(6).all()
-    if history:
-        intro += " 최근 대화 내용도 기억하고 있어요."
-
-    return ChatBootstrapResponse(intro=intro, suggested_prompts=CHAT_SUGGESTIONS)
+    return ChatService(db, ai_service).get_bootstrap(user)
 
 
 @router.post("/{user_id}/chat", response_model=ChatResponse)
@@ -310,50 +323,21 @@ def chat_with_assistant(
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
-    _check_chat_rate_limit(user_id)
     user = _get_user(user_id, db)
-    analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=14, db=db)
-    behavior_summary = ai_service.generate_feedback(analysis)
-
-    recent_messages = (
-        db.query(ChatHistory)
-        .filter(ChatHistory.user_id == user_id)
-        .order_by(ChatHistory.created_at.desc())
-        .limit(8)
-        .all()
-    )
-    memory = "\n".join(f"{item.role}: {item.message}" for item in reversed(recent_messages))
-
-    answer = ai_service.generate_chat_response(
-        user_message=payload.message,
-        username=_format_display_name(user.username),
-        behavior_summary=behavior_summary,
-        conversation_memory=memory,
-    )
-
-    db.add(ChatHistory(user_id=user_id, role="user", message=payload.message))
-    db.add(ChatHistory(user_id=user_id, role="assistant", message=answer))
-    db.commit()
-    return ChatResponse(answer=answer)
+    return ChatService(db, ai_service).send_message(user, payload.message, payload.session_id)
 
 
 @router.get("/{user_id}/chat/history", response_model=ChatHistoryResponse)
 def get_chat_history(
     user_id: int,
+    session_id: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     _get_user(user_id, db)
-    rows = (
-        db.query(ChatHistory)
-        .filter(ChatHistory.user_id == user_id)
-        .order_by(ChatHistory.created_at.asc())
-        .limit(50)
-        .all()
-    )
-    return ChatHistoryResponse(
-        items=[ChatHistoryItem(role=row.role, message=row.message, created_at=row.created_at) for row in rows]
-    )
+    return ChatService(db, ai_service).get_history(user_id, session_id, limit, offset)
 
 
 def _get_user(user_id: int, db: Session) -> User:
@@ -764,8 +748,3 @@ def _build_profile_summary_description(
     )
 
 
-def _check_chat_rate_limit(user_id: int):
-    key = f"rate:chat:{user_id}"
-    count = redis_store.incr_with_ttl(key, CHAT_RATE_WINDOW)
-    if count > CHAT_RATE_LIMIT:
-        raise HTTPException(status_code=429, detail="채팅 요청이 너무 많아요. 잠시 후 다시 시도해주세요.")
