@@ -20,6 +20,9 @@ from backend.schemas.ui import (
     EmotionTrendPoint,
     GoalItem,
     HabitFrequencyItem,
+    FocusPredictionResponse,
+    HabitCorrelationItem,
+    HabitCorrelationResponse,
     HeatmapDayItem,
     HeatmapResponse,
     InsightItem,
@@ -45,6 +48,12 @@ ai_service = AIFeedbackService()
 NEGATIVE_EMOTIONS = {"sad", "angry", "anxious", "stressed", "depressed"}
 POSITIVE_EMOTIONS = {"happy", "focused", "calm", "motivated", "neutral"}
 _PRODUCTIVE = POSITIVE_EMOTIONS - {"neutral"}
+CHAT_SUGGESTIONS = [
+    "왜 나는 생산적이지 않을까요?",
+    "내 습관을 분석해줘",
+    "어떻게 하면 더 집중할 수 있나요?",
+    "공부하기 가장 좋은 시간대가 언제인가요?",
+]
 
 
 @router.get("/{user_id}/overview", response_model=OverviewResponse)
@@ -53,11 +62,16 @@ def get_overview(
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
+    _cache_key = f"ui:overview:{user_id}"
+    _cached = redis_store.get_json(_cache_key)
+    if _cached:
+        return OverviewResponse(**_cached)
+
     user = _get_user(user_id, db)
     logs = _get_logs(user_id, db, days=7, ascending=True)
 
     if not logs:
-        return OverviewResponse(
+        _resp = OverviewResponse(
             welcome_name=_format_display_name(user.username),
             stat_cards=[
                 StatCard(
@@ -82,6 +96,8 @@ def get_overview(
             ],
             recent_activity=[],
         )
+        redis_store.set_json(_cache_key, _resp.model_dump(mode="json"))
+        return _resp
 
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
     tag_counter = Counter(log.tag or "기타" for log in logs)
@@ -92,7 +108,7 @@ def get_overview(
     progress_value = _weekly_progress(logs)
     progress_prefix = "+" if progress_value >= 0 else ""
 
-    return OverviewResponse(
+    _resp = OverviewResponse(
         welcome_name=_format_display_name(user.username),
         stat_cards=[
             StatCard(
@@ -134,6 +150,113 @@ def get_overview(
             )
             for log in sorted(logs, key=lambda item: item.created_at, reverse=True)[:6]
         ],
+    )
+    redis_store.set_json(_cache_key, _resp.model_dump(mode="json"))
+    return _resp
+
+
+@router.get("/{user_id}/habit-correlations", response_model=HabitCorrelationResponse)
+def get_habit_correlations(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    logs = _get_logs(user_id, db, days=30, ascending=True)
+
+    if not logs:
+        return HabitCorrelationResponse(correlations=[])
+
+    by_date: dict = defaultdict(list)
+    for log in logs:
+        by_date[log.created_at.date()].append(log)
+
+    tags = list({log.tag for log in logs if log.tag})
+    if len(tags) < 2:
+        return HabitCorrelationResponse(correlations=[])
+
+    all_dates = set(by_date.keys())
+    found: list[HabitCorrelationItem] = []
+
+    for tag_a in tags:
+        active_dates = {d for d, day_logs in by_date.items() if any(l.tag == tag_a for l in day_logs)}
+        if len(active_dates) < _CORR_MIN_DAYS:
+            continue
+        baseline_dates = all_dates - active_dates
+
+        for tag_b in tags:
+            if tag_b == tag_a:
+                continue
+            b_active = [l for d in active_dates for l in by_date[d] if l.tag == tag_b]
+            if len(b_active) < 2:
+                continue
+            b_baseline = [l for d in baseline_dates for l in by_date[d] if l.tag == tag_b]
+            active_ratio = _ratio(b_active, _is_positive)
+            baseline_ratio = _ratio(b_baseline, _is_positive) if b_baseline else 0.5
+            diff = round((active_ratio - baseline_ratio) * 100)
+            if abs(diff) < _CORR_MIN_DIFF:
+                continue
+            direction = "positive" if diff > 0 else "negative"
+            description = (
+                f"{tag_a}한 날은 {tag_b} 집중도가 {diff}% 높아요"
+                if diff > 0
+                else f"{tag_a}한 날은 {tag_b} 집중도가 {-diff}% 낮아요"
+            )
+            found.append(HabitCorrelationItem(
+                tag_a=tag_a, tag_b=tag_b,
+                direction=direction, diff_pct=abs(diff),
+                description=description,
+            ))
+
+    found.sort(key=lambda x: x.diff_pct, reverse=True)
+    return HabitCorrelationResponse(correlations=found[:4])
+
+
+@router.get("/{user_id}/focus-prediction", response_model=FocusPredictionResponse)
+def get_focus_prediction(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    logs = _get_logs(user_id, db, days=30, ascending=True)
+
+    now = datetime.now(timezone.utc)
+    current_bin = _get_hour_bin(now.hour)
+    current_weekday = now.weekday()
+
+    slot_logs = [
+        log for log in logs
+        if log.created_at.weekday() == current_weekday
+        and _get_hour_bin(log.created_at.hour) == current_bin
+    ]
+
+    hour_range = _hour_range(current_bin)
+
+    if len(slot_logs) < 3:
+        return FocusPredictionResponse(
+            score=50,
+            label="이 시간대 데이터가 아직 부족해요. 계속 기록해보세요!",
+            hour_range=hour_range,
+            confidence="low",
+        )
+
+    score = round(_ratio(slot_logs, _is_positive) * 100)
+
+    if score >= 75:
+        label = "지금 집중하기 최고예요!"
+    elif score >= 55:
+        label = "집중하기 좋은 시간이에요."
+    elif score >= 35:
+        label = "보통 수준의 집중력이 예상돼요."
+    else:
+        label = "이 시간대는 방해 요소가 많은 편이에요."
+
+    return FocusPredictionResponse(
+        score=score,
+        label=label,
+        hour_range=hour_range,
+        confidence="high",
     )
 
 
@@ -330,14 +453,20 @@ def chat_with_assistant(
 @router.get("/{user_id}/chat/history", response_model=ChatHistoryResponse)
 def get_chat_history(
     user_id: int,
-    session_id: int | None = None,
-    limit: int = 50,
-    offset: int = 0,
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
     _get_user(user_id, db)
-    return ChatService(db, ai_service).get_history(user_id, session_id, limit, offset)
+    rows = (
+        db.query(ChatHistory)
+        .filter(ChatHistory.user_id == user_id)
+        .order_by(ChatHistory.created_at.asc())
+        .limit(50)
+        .all()
+    )
+    return ChatHistoryResponse(
+        items=[ChatHistoryItem(role=row.role, message=row.message, created_at=row.created_at) for row in rows]
+    )
 
 
 def _get_user(user_id: int, db: Session) -> User:
@@ -366,6 +495,13 @@ def _is_negative(log: BehaviorLog) -> int:
 
 def _is_positive(log: BehaviorLog) -> int:
     return int(log.emotion.lower() in POSITIVE_EMOTIONS)
+
+
+def _get_hour_bin(hour: int) -> int:
+    for b in reversed([6, 9, 12, 15, 18, 21]):
+        if hour >= b:
+            return b
+    return 0
 
 
 def _dominant_emotion_label(logs: list[BehaviorLog]) -> str:

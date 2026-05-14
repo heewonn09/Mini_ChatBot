@@ -23,6 +23,7 @@ const FALLBACK_SUGGESTIONS = [
   "공부하기 가장 좋은 시간대가 언제인가요?",
 ];
 
+<<<<<<< HEAD
 const TYPING_SPEED_MS = 12;
 
 async function streamText(fullText, onUpdate) {
@@ -32,6 +33,18 @@ async function streamText(fullText, onUpdate) {
     onUpdate(displayed);
     await new Promise((r) => setTimeout(r, TYPING_SPEED_MS));
   }
+=======
+const PAGE_SIZE = 20;
+const TYPING_CHUNK = 3;
+const TYPING_INTERVAL_MS = 16;
+
+let _msgId = 0;
+function nextId() {
+  return ++_msgId;
+}
+function toMsg(item) {
+  return { id: nextId(), role: item.role, text: item.message };
+>>>>>>> 26771d48c66de8d847f1f16365b23e49602b46de
 }
 
 function ChatPage() {
@@ -44,10 +57,22 @@ function ChatPage() {
   const [suggestions, setSuggestions] = useState(FALLBACK_SUGGESTIONS);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+<<<<<<< HEAD
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const bottomRef = useRef(null);
   const abortRef = useRef(false);
+=======
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  const bottomRef = useRef(null);
+  const topSentinelRef = useRef(null);
+  const scrollBoxRef = useRef(null);
+  const offsetRef = useRef(0);
+  const hasMoreRef = useRef(false);
+  const loadingMoreRef = useRef(false);
+  const typingTimerRef = useRef(null);
+>>>>>>> 26771d48c66de8d847f1f16365b23e49602b46de
 
   // 세션 목록 로드
   useEffect(() => {
@@ -56,6 +81,7 @@ function ChatPage() {
       .then((data) => setSessions(data.sessions ?? []))
       .catch(() => {});
 
+<<<<<<< HEAD
     fetchChatBootstrap(user.id)
       .then((data) => {
         if (data.suggested_prompts?.length) setSuggestions(data.suggested_prompts);
@@ -85,9 +111,94 @@ function ChatPage() {
     [user]
   );
 
+=======
+    const load = async () => {
+      try {
+        const [bootstrap, history] = await Promise.all([
+          fetchChatBootstrap(user.id),
+          fetchChatHistory(user.id, 0),
+        ]);
+        if (!active) return;
+        const items = history.items || [];
+        const normalized = items.map(toMsg);
+        const msgs = normalized.length
+          ? normalized
+          : [{ id: nextId(), role: "assistant", text: bootstrap.intro }];
+        setMessages(msgs);
+        hasMoreRef.current = items.length === PAGE_SIZE;
+        offsetRef.current = items.length;
+        setSuggestions(
+          bootstrap.suggested_prompts?.length ? bootstrap.suggested_prompts : FALLBACK_SUGGESTIONS
+        );
+      } catch {
+        if (!active) return;
+        setMessages([
+          { id: nextId(), role: "assistant", text: "채팅 기록을 불러오지 못했습니다. 새로고침해주세요." },
+        ]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  // Scroll to bottom when message count changes or sending state changes
+>>>>>>> 26771d48c66de8d847f1f16365b23e49602b46de
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
+    if (!loadingMore) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages.length, sending, loadingMore]);
+
+  // IntersectionObserver: load older messages when user scrolls to top
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    if (!sentinel || !user || loading) return;
+
+    const observer = new IntersectionObserver(
+      async ([entry]) => {
+        if (!entry.isIntersecting || loadingMoreRef.current || !hasMoreRef.current) return;
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+
+        const box = scrollBoxRef.current;
+        const prevScrollHeight = box?.scrollHeight ?? 0;
+
+        try {
+          const history = await fetchChatHistory(user.id, offsetRef.current);
+          const items = history.items || [];
+          const older = items.map(toMsg);
+          setMessages((prev) => [...older, ...prev]);
+          hasMoreRef.current = items.length === PAGE_SIZE;
+          offsetRef.current += items.length;
+
+          requestAnimationFrame(() => {
+            if (box) box.scrollTop = box.scrollHeight - prevScrollHeight;
+          });
+        } catch {
+          // silently ignore — user can scroll up again
+        } finally {
+          loadingMoreRef.current = false;
+          setLoadingMore(false);
+        }
+      },
+      { root: scrollBoxRef.current, threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [user, loading]);
+
+  // Cleanup typing timer on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+    };
+  }, []);
 
   const handleNewSession = async () => {
     if (!user) return;
@@ -121,9 +232,15 @@ function ChatPage() {
   };
 
   const send = async (value) => {
+<<<<<<< HEAD
     const text = value.trim();
     if (!text || sending) return;
 
+=======
+    if (!value.trim() || sending) return;
+    const userMsg = { id: nextId(), role: "user", text: value };
+    setMessages((prev) => [...prev, userMsg]);
+>>>>>>> 26771d48c66de8d847f1f16365b23e49602b46de
     setInput("");
     setSending(true);
 
@@ -132,6 +249,7 @@ function ChatPage() {
     setMessages((prev) => [...prev, userMsg, placeholder]);
 
     try {
+<<<<<<< HEAD
       const data = await askAssistant(user.id, text, currentSessionId);
       const answer = data.answer;
       const returnedSessionId = data.session_id;
@@ -164,16 +282,63 @@ function ChatPage() {
         return next;
       });
     } finally {
+=======
+      const data = await askAssistant(user.id, value);
+      const answerId = nextId();
+      const fullText = data.answer;
+
+      setMessages((prev) => [...prev, { id: answerId, role: "assistant", text: "" }]);
+      setSending(false);
+
+      let i = 0;
+      typingTimerRef.current = setInterval(() => {
+        i += TYPING_CHUNK;
+        const chunk = fullText.slice(0, i);
+        setMessages((prev) => prev.map((m) => (m.id === answerId ? { ...m, text: chunk } : m)));
+        if (i >= fullText.length) {
+          clearInterval(typingTimerRef.current);
+          setMessages((prev) =>
+            prev.map((m) => (m.id === answerId ? { ...m, text: fullText } : m))
+          );
+        }
+      }, TYPING_INTERVAL_MS);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          role: "assistant",
+          text: getErrorMessage(error, "지금은 답변하지 못했어요. 잠시 후 다시 시도해주세요."),
+        },
+      ]);
+>>>>>>> 26771d48c66de8d847f1f16365b23e49602b46de
       setSending(false);
     }
   };
 
+<<<<<<< HEAD
   const handleRegenerate = async () => {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUser) return;
     setMessages((prev) => prev.slice(0, -1));
     await send(lastUser.text);
   };
+=======
+  const copyText = (id, text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    });
+  };
+
+  if (loading) {
+    return (
+      <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">
+        채팅 어시스턴트를 불러오는 중...
+      </Card>
+    );
+  }
+>>>>>>> 26771d48c66de8d847f1f16365b23e49602b46de
 
   return (
     // 레이아웃 컨테이너에서 벗어나 전체 폭·높이 점유
@@ -257,6 +422,7 @@ function ChatPage() {
                 )
               )}
 
+<<<<<<< HEAD
               {sending && messages[messages.length - 1]?.role !== "assistant" && (
                 <div className="mb-6 flex gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] bg-[#def2ee] text-[#0f766e]">
@@ -265,6 +431,63 @@ function ChatPage() {
                   <div className="rounded-[1.4rem] rounded-tl-[0.4rem] border border-[rgba(24,50,53,0.08)] bg-white/78 px-5 py-4 text-sm text-[color:var(--ink-soft)] shadow-[var(--shadow-sm)]">
                     {t("thinking")}
                   </div>
+=======
+            <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] p-5">
+              <p className="app-kicker">활용 팁</p>
+              <p className="mt-3 text-[1rem] leading-7 text-[color:var(--ink-soft)]">
+                짧고 직접적인 질문이 좋아요. 예: "지금 가장 먼저 고칠 패턴이 뭐야?"
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="flex min-h-[38rem] flex-col p-4 sm:p-5">
+          <div ref={scrollBoxRef} className="flex-1 space-y-4 overflow-y-auto pr-1">
+            <div ref={topSentinelRef} className="h-1" />
+
+            {loadingMore ? (
+              <p className="text-center text-sm text-[color:var(--ink-soft)]">
+                이전 대화 불러오는 중...
+              </p>
+            ) : null}
+
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex gap-4 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {message.role === "assistant" ? (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1.2rem] bg-[#def2ee] text-[#0f766e]">
+                    <Sparkles size={18} strokeWidth={2.2} />
+                  </div>
+                ) : null}
+
+                <div className="group relative max-w-[80%]">
+                  <div
+                    className={`rounded-[1.6rem] px-5 py-4 text-[1rem] leading-8 shadow-[var(--shadow-sm)] ${
+                      message.role === "assistant"
+                        ? "border border-[rgba(24,50,53,0.08)] bg-white/78 text-[color:var(--ink)]"
+                        : "bg-[linear-gradient(135deg,#0f766e_0%,#1b8d84_100%)] text-white"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{message.text}</p>
+                  </div>
+
+                  {message.role === "assistant" && message.text ? (
+                    <button
+                      type="button"
+                      onClick={() => copyText(message.id, message.text)}
+                      className="absolute -bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+                      title="복사"
+                    >
+                      {copiedId === message.id ? (
+                        <Check size={13} className="text-[#0f766e]" strokeWidth={2.5} />
+                      ) : (
+                        <Copy size={13} className="text-[color:var(--ink-soft)]" strokeWidth={2} />
+                      )}
+                    </button>
+                  ) : null}
+>>>>>>> 26771d48c66de8d847f1f16365b23e49602b46de
                 </div>
               )}
               <div ref={bottomRef} />

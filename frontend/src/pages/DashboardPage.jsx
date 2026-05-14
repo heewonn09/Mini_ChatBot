@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { fetchWeeklyReport } from "../api/api";
+import { fetchFocusPrediction, fetchWeeklyReport } from "../api/api";
 import Chart from "../components/Chart";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
@@ -51,6 +51,7 @@ function DashboardPage() {
   const recentActivity = overview.recent_activity ?? [];
   const [activityView, setActivityView] = useState("daily");
   const [weeklyReport, setWeeklyReport] = useState(null);
+  const [focusPrediction, setFocusPrediction] = useState(null);
   const groupedDaily = useMemo(() => recentActivity.reduce((acc, item) => { const d = new Date(item.created_at); const key=d.toDateString(); (acc[key] ||= []).push(item); return acc; }, {}), [recentActivity]);
   const groupedWeekly = useMemo(() => recentActivity.reduce((acc, item) => {
     const d = new Date(item.created_at);
@@ -65,6 +66,7 @@ function DashboardPage() {
   useEffect(() => {
     if (!user?.id) return;
     fetchWeeklyReport(user.id).then(setWeeklyReport).catch(() => {});
+    fetchFocusPrediction(user.id).then(setFocusPrediction).catch(() => {});
   }, [user]);
 
   const bestFocusCard = statsByTitle["최고 집중 시간"] ?? statsByTitle["Best Focus Time"];
@@ -78,6 +80,24 @@ function DashboardPage() {
         title={`다시 오신 것을 환영해요, ${welcomeName}.`}
         description="집중 시간과 방해 요소, 작은 성장을 한눈에 보는 공간입니다."
       />
+
+      {focusPrediction ? (
+        <div className="flex flex-wrap items-center gap-4 rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-[color:var(--surface)] px-5 py-3.5">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${
+            focusPrediction.score >= 70 ? "bg-[#0f766e]" :
+            focusPrediction.score >= 40 ? "bg-[#d9a85a]" : "bg-[#dd7a5f]"
+          }`}>
+            {focusPrediction.score}
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[color:var(--ink)]">{focusPrediction.label}</p>
+            <p className="text-xs text-[color:var(--ink-soft)]">{focusPrediction.hour_range} 기준</p>
+          </div>
+          {focusPrediction.confidence === "low" ? (
+            <span className="ml-auto rounded-full bg-[rgba(24,50,53,0.07)] px-3 py-1 text-xs text-[color:var(--ink-soft)]">데이터 부족</span>
+          ) : null}
+        </div>
+      ) : null}
 
       {weeklyReport?.report ? (
         <Card className="app-panel-strong p-6">

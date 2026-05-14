@@ -116,6 +116,25 @@ class ProfileResponse(BaseModel):
     achievements: List[AchievementItem]
 
 
+class HabitCorrelationItem(BaseModel):
+    tag_a: str
+    tag_b: str
+    direction: str
+    diff_pct: int
+    description: str
+
+
+class HabitCorrelationResponse(BaseModel):
+    correlations: list[HabitCorrelationItem]
+
+
+class FocusPredictionResponse(BaseModel):
+    score: int
+    label: str
+    hour_range: str
+    confidence: str
+
+
 class WeeklyReportResponse(BaseModel):
     report: str
     week_label: str

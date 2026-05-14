@@ -3,6 +3,7 @@ from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.behavior import BehaviorLog, User
+from backend.redis_client import redis_store
 from backend.schemas.behavior import (
     BehaviorLogCreate,
     BehaviorLogResponse,
@@ -35,6 +36,7 @@ def create_behavior_log(
     db.add(db_behavior)
     db.commit()
     db.refresh(db_behavior)
+    redis_store.delete(f"ui:overview:{user_id}")
     return db_behavior
 
 
@@ -102,6 +104,7 @@ def update_behavior_log(
     db.add(db_behavior)
     db.commit()
     db.refresh(db_behavior)
+    redis_store.delete(f"ui:overview:{user_id}")
     return db_behavior
 
 
@@ -122,4 +125,5 @@ def delete_behavior_log(
     
     db.delete(behavior)
     db.commit()
+    redis_store.delete(f"ui:overview:{user_id}")
     return None
