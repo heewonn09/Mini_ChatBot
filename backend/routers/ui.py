@@ -312,10 +312,8 @@ def get_profile_view(
 ):
     user = _get_user(user_id, db)
     all_logs = _get_logs(user_id, db, days=365, ascending=True)
-    recent_logs = [
-        log for log in all_logs
-        if log.created_at >= datetime.now(timezone.utc) - timedelta(days=7)
-    ]
+    _cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+    recent_logs = [log for log in all_logs if log.created_at >= _cutoff]
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
     days_active = len({log.created_at.date() for log in all_logs})
     current_streak = DashboardService.current_streak(all_logs)
@@ -459,7 +457,7 @@ def get_preferences(
     _get_user(user_id, db)
     prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
     if not prefs:
-        prefs = UserPreferences(user_id=user_id)
+        prefs = UserPreferences(user_id=user_id, language="ko", theme="light", notifications_enabled=True)
         db.add(prefs)
         db.commit()
         db.refresh(prefs)
@@ -480,7 +478,7 @@ def update_preferences(
     _get_user(user_id, db)
     prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
     if not prefs:
-        prefs = UserPreferences(user_id=user_id)
+        prefs = UserPreferences(user_id=user_id, language="ko", theme="light", notifications_enabled=True)
         db.add(prefs)
     if payload.language is not None:
         prefs.language = payload.language
