@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Brain,
   CalendarDays,
@@ -58,54 +59,34 @@ function progressToneClass(tone) {
 
 function ProfilePage() {
   const { user, error: appError, refreshOverview } = useOutletContext();
-  const [profile, setProfile] = useState(null);
-  const [heatmap, setHeatmap] = useState(null);
-  const [profileError, setProfileError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [reloadKey, setReloadKey] = useState(0);
   const [hoveredDay, setHoveredDay] = useState(null);
 
-  useEffect(() => {
-    if (!user) return;
-    let active = true;
+  const {
+    data: profile,
+    error: profileQueryError,
+    isLoading: loading,
+    refetch: refetchProfile,
+  } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: () => fetchProfileView(user.id),
+    enabled: !!user?.id,
+  });
 
-    const load = async () => {
-      setLoading(true);
-      setProfileError("");
+  const { data: heatmapData } = useQuery({
+    queryKey: ["heatmap", user?.id],
+    queryFn: () => fetchHeatmap(user.id),
+    enabled: !!user?.id,
+  });
 
-      try {
-        const [profileData, heatmapData] = await Promise.all([
-          fetchProfileView(user.id),
-          fetchHeatmap(user.id),
-        ]);
-        if (active) {
-          setProfile(profileData);
-          setHeatmap(heatmapData);
-        }
-      } catch (error) {
-        if (active) {
-          setProfile(null);
-          setProfileError(getErrorMessage(error, "프로필을 불러오지 못했습니다."));
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    load();
-
-    return () => {
-      active = false;
-    };
-  }, [user, reloadKey]);
+  const heatmap = heatmapData ?? null;
 
   if (loading) {
     return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">프로필을 불러오는 중...</Card>;
   }
 
-  const errorMessage = profileError || (appError ? getErrorMessage(appError, "프로필을 불러오지 못했습니다.") : "");
+  const errorMessage =
+    (profileQueryError ? getErrorMessage(profileQueryError, "프로필을 불러오지 못했습니다.") : "") ||
+    (appError ? getErrorMessage(appError, "프로필을 불러오지 못했습니다.") : "");
 
   if (errorMessage) {
     return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{errorMessage}</Card>;
@@ -120,7 +101,7 @@ function ProfilePage() {
             type="button"
             onClick={async () => {
               await refreshOverview?.(user.id);
-              setReloadKey((value) => value + 1);
+              refetchProfile();
             }}
             className="app-secondary-button"
           >

@@ -203,6 +203,20 @@ export async function fetchHeatmap(userId) {
   return data;
 }
 
+export async function fetchHabitCorrelations(userId) {
+  const { data } = await withErrorLogging("fetchHabitCorrelations", () =>
+    api.get(`/ui/${userId}/habit-correlations`)
+  );
+  return data;
+}
+
+export async function fetchFocusPrediction(userId) {
+  const { data } = await withErrorLogging("fetchFocusPrediction", () =>
+    api.get(`/ui/${userId}/focus-prediction`)
+  );
+  return data;
+}
+
 export async function fetchWeeklyReport(userId) {
   const { data } = await withErrorLogging("fetchWeeklyReport", () =>
     api.get(`/ui/${userId}/weekly-report`)
@@ -215,14 +229,29 @@ export async function fetchChatBootstrap(userId) {
   return data;
 }
 
-export async function fetchChatHistory(userId) {
-  const { data } = await withErrorLogging("fetchChatHistory", () => api.get(`/ui/${userId}/chat/history`));
+export async function fetchChatHistory(userId, offset = 0) {
+  const { data } = await withErrorLogging("fetchChatHistory", () =>
+    api.get(`/ui/${userId}/chat/history`, { params: { offset } })
+  );
   return data;
 }
 
 export async function createBehavior(userId, payload) {
   const { data } = await withErrorLogging("createBehavior", () => api.post(`/behaviors/${userId}`, payload));
   return data;
+}
+
+export async function updateBehavior(userId, logId, payload) {
+  const { data } = await withErrorLogging("updateBehavior", () =>
+    api.put(`/behaviors/${userId}/${logId}`, payload)
+  );
+  return data;
+}
+
+export async function deleteBehavior(userId, logId) {
+  await withErrorLogging("deleteBehavior", () =>
+    api.delete(`/behaviors/${userId}/${logId}`)
+  );
 }
 
 export async function fetchBehaviors(userId, limit = 20) {

@@ -1,81 +1,81 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
+  Check,
   Clock3,
   Coffee,
   Dumbbell,
-  Frown,
-  Meh,
+  Pencil,
   Play,
   Plus,
-  Smile,
   Smartphone,
   Tag,
+  Trash2,
+  X,
 } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
-import { createBehavior, fetchBehaviors, getErrorMessage } from "../api/api";
+import {
+  createBehavior,
+  deleteBehavior,
+  fetchBehaviors,
+  getErrorMessage,
+  updateBehavior,
+} from "../api/api";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 import { normalizeCategory, CATEGORY_KO, MOOD_KO } from "../utils/normalize";
 
 const defaultQuickActions = [
-  {
-    label: "유튜브",
-    text: "YouTube browsing",
-    tag: "YouTube",
-    Icon: Play,
-    className: "bg-[#f8e2d9] text-[#dd7a5f]",
-  },
-  {
-    label: "공부",
-    text: "Study session",
-    tag: "Study",
-    Icon: BookOpen,
-    className: "bg-[#def2ee] text-[#0f766e]",
-  },
-  {
-    label: "운동",
-    text: "Workout",
-    tag: "Exercise",
-    Icon: Dumbbell,
-    className: "bg-[#e7eee3] text-[#597b61]",
-  },
-  {
-    label: "커피 브레이크",
-    text: "Coffee break",
-    tag: "Break",
-    Icon: Coffee,
-    className: "bg-[#f8ecd7] text-[#b67f20]",
-  },
-  {
-    label: "소셜 미디어",
-    text: "Social media scrolling",
-    tag: "Social Media",
-    Icon: Smartphone,
-    className: "bg-[#f5dfd3] text-[#c86f56]",
-  },
+  { label: "유튜브", text: "YouTube browsing", tag: "YouTube", Icon: Play, className: "bg-[#f8e2d9] text-[#dd7a5f]" },
+  { label: "공부", text: "Study session", tag: "Study", Icon: BookOpen, className: "bg-[#def2ee] text-[#0f766e]" },
+  { label: "운동", text: "Workout", tag: "Exercise", Icon: Dumbbell, className: "bg-[#e7eee3] text-[#597b61]" },
+  { label: "커피 브레이크", text: "Coffee break", tag: "Break", Icon: Coffee, className: "bg-[#f8ecd7] text-[#b67f20]" },
+  { label: "소셜 미디어", text: "Social media scrolling", tag: "Social Media", Icon: Smartphone, className: "bg-[#f5dfd3] text-[#c86f56]" },
 ];
 
-const MOOD_TEXT = {
-  happy: { label: "행복", description: "가볍고 의욕이 있으며 리듬이 좋은 상태예요." },
-  neutral: { label: "보통", description: "안정적이고 강도가 낮은 상태예요." },
-  stressed: { label: "스트레스", description: "지치고 산만하거나 과부하된 상태예요." },
-};
-
 const moods = [
-  { key: "happy", value: "happy", Icon: Smile, className: "bg-[#def2ee] text-[#0f766e]" },
-  { key: "neutral", value: "neutral", Icon: Meh, className: "bg-[#f8ecd7] text-[#b67f20]" },
-  { key: "stressed", value: "stressed", Icon: Frown, className: "bg-[#f8e2d9] text-[#dd7a5f]" },
+  { key: "focused", value: "focused", emoji: "🎯", label: "집중" },
+  { key: "happy", value: "happy", emoji: "😄", label: "행복" },
+  { key: "calm", value: "calm", emoji: "😌", label: "차분" },
+  { key: "motivated", value: "motivated", emoji: "💪", label: "의욕" },
+  { key: "neutral", value: "neutral", emoji: "😐", label: "보통" },
+  { key: "stressed", value: "stressed", emoji: "😰", label: "스트레스" },
+  { key: "anxious", value: "anxious", emoji: "😟", label: "불안" },
+  { key: "sad", value: "sad", emoji: "😢", label: "슬픔" },
 ];
 
 function activityToneClass(emotion) {
-  if (emotion === "happy" || emotion === "focused" || emotion === "motivated") {
+  if (["happy", "focused", "calm", "motivated"].includes(emotion)) {
     return "bg-[#def2ee] text-[#0f766e]";
   }
-  if (emotion === "stressed" || emotion === "anxious" || emotion === "sad") {
+  if (["stressed", "anxious", "sad"].includes(emotion)) {
     return "bg-[#f8e2d9] text-[#dd7a5f]";
   }
   return "bg-[#f8ecd7] text-[#b67f20]";
+}
+
+function EmojiMoodPicker({ value, onChange, compact = false }) {
+  return (
+    <div className={`grid grid-cols-4 ${compact ? "gap-1.5" : "gap-2"}`}>
+      {moods.map((mood) => (
+        <button
+          key={mood.key}
+          type="button"
+          onClick={() => onChange(mood.value)}
+          className={`flex flex-col items-center gap-1 rounded-[1.1rem] px-2 py-2 transition ${
+            value === mood.value
+              ? "bg-white shadow-[var(--shadow-sm)] scale-105"
+              : "bg-white/40 hover:bg-white/70"
+          }`}
+        >
+          <span className={compact ? "text-lg leading-none" : "text-2xl leading-none"}>{mood.emoji}</span>
+          <span className={`font-semibold text-[color:var(--ink)] ${compact ? "text-[0.65rem]" : "text-xs"}`}>
+            {mood.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function LogPage() {
@@ -83,6 +83,7 @@ function LogPage() {
   const [text, setText] = useState("");
   const [emotion, setEmotion] = useState("neutral");
   const [tag, setTag] = useState("Study");
+  const [tagFocused, setTagFocused] = useState(false);
   const [customTime, setCustomTime] = useState(false);
   const [timeValue, setTimeValue] = useState("");
   const [list, setList] = useState([]);
@@ -90,6 +91,11 @@ function LogPage() {
   const [logsLoading, setLogsLoading] = useState(true);
   const [logsError, setLogsError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ text: "", emotion: "neutral", tag: "" });
+  const [editError, setEditError] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingIds, setDeletingIds] = useState(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -97,7 +103,6 @@ function LogPage() {
     const loadLogs = async () => {
       setLogsLoading(true);
       setLogsError("");
-
       try {
         const data = await fetchBehaviors(user.id, 8);
         setList(data);
@@ -114,6 +119,31 @@ function LogPage() {
 
   const canSubmit = useMemo(() => text.trim().length > 0, [text]);
 
+  const knownTags = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    for (const t of [
+      ...(overview?.habit_frequency ?? []).map((i) => i.tag),
+      ...list.map((i) => i.tag),
+    ]) {
+      if (!t) continue;
+      const lower = t.trim().toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        result.push(t.trim());
+      }
+    }
+    return result;
+  }, [overview, list]);
+
+  const tagSuggestions = useMemo(() => {
+    const query = tag.trim().toLowerCase();
+    if (!query) return knownTags.slice(0, 8);
+    return knownTags
+      .filter((t) => t.toLowerCase().includes(query) && t.toLowerCase() !== query)
+      .slice(0, 6);
+  }, [knownTags, tag]);
+
   const quickActions = useMemo(() => {
     const presets = new Map(defaultQuickActions.map((item) => [item.tag.toLowerCase(), item]));
     const dynamicTags = [
@@ -121,31 +151,23 @@ function LogPage() {
       ...list.map((item) => item.tag),
     ]
       .filter(Boolean)
-      .filter((tag, index, array) => array.findIndex((value) => value.toLowerCase() === tag.toLowerCase()) === index);
+      .filter((t, index, arr) => arr.findIndex((v) => v.toLowerCase() === t.toLowerCase()) === index);
 
     const resolved = dynamicTags
-      .map((tag) => {
-        const preset = presets.get(tag.toLowerCase());
+      .map((t) => {
+        const preset = presets.get(t.toLowerCase());
         if (preset) return preset;
-
-        return {
-          label: tag,
-          text: `${tag} session`,
-          tag,
-          Icon: Tag,
-          className: "bg-[#f5efe5] text-[#7b6758]",
-        };
+        return { label: t, text: `${t} session`, tag: t, Icon: Tag, className: "bg-[#f5efe5] text-[#7b6758]" };
       })
       .slice(0, 5);
 
     if (resolved.length < 5) {
       for (const item of defaultQuickActions) {
-        if (resolved.find((entry) => entry.tag.toLowerCase() === item.tag.toLowerCase())) continue;
+        if (resolved.find((e) => e.tag.toLowerCase() === item.tag.toLowerCase())) continue;
         resolved.push(item);
         if (resolved.length === 5) break;
       }
     }
-
     return resolved;
   }, [list, overview]);
 
@@ -156,10 +178,8 @@ function LogPage() {
 
   const handleSubmit = async () => {
     if (!text.trim()) return;
-
     setSubmitting(true);
     setLogsError("");
-
     try {
       await createBehavior(user.id, {
         text,
@@ -168,13 +188,11 @@ function LogPage() {
         intensity: 6,
         created_at: customTime && timeValue ? new Date(timeValue).toISOString() : undefined,
       });
-
       setText("");
       setTag("Study");
       setEmotion("neutral");
       setCustomTime(false);
       setTimeValue("");
-
       const data = await fetchBehaviors(user.id, 8);
       setList(data);
       setRelativeBaseTime(Date.now());
@@ -186,10 +204,57 @@ function LogPage() {
     }
   };
 
+  const startEdit = (item) => {
+    setEditingId(item.id);
+    setEditForm({ text: item.text, emotion: item.emotion, tag: item.tag ?? "" });
+    setEditError("");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditError("");
+  };
+
+  const handleEdit = async (id) => {
+    if (!editForm.text.trim()) return;
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      const updated = await updateBehavior(user.id, id, {
+        text: editForm.text,
+        emotion: editForm.emotion,
+        tag: editForm.tag,
+      });
+      setList((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      setEditingId(null);
+      await refreshOverview();
+    } catch (error) {
+      setEditError(getErrorMessage(error, "수정하지 못했습니다."));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    setDeletingIds((prev) => new Set(prev).add(id));
+    try {
+      await deleteBehavior(user.id, id);
+      setList((prev) => prev.filter((item) => item.id !== id));
+      await refreshOverview();
+    } catch (error) {
+      setLogsError(getErrorMessage(error, "삭제하지 못했습니다."));
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
   const formatRelativeTime = (value) => {
     const diffMs = relativeBaseTime - new Date(value).getTime();
     const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
-
     if (diffMinutes < 60) return `${diffMinutes}분 전`;
     if (diffMinutes < 1440) return `${Math.round(diffMinutes / 60)}시간 전`;
     return `${Math.round(diffMinutes / 1440)}일 전`;
@@ -237,14 +302,37 @@ function LogPage() {
                   카테고리
                 </label>
                 <div className="relative">
-                  <Tag className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--ink-soft)]" size={16} />
+                  <Tag
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--ink-soft)]"
+                    size={16}
+                  />
                   <input
                     id="behavior-tag"
                     className="app-field pl-11"
                     value={tag}
                     onChange={(event) => setTag(event.target.value)}
                     placeholder="공부, 휴식, 소셜..."
+                    onFocus={() => setTagFocused(true)}
+                    onBlur={() => setTimeout(() => setTagFocused(false), 150)}
                   />
+                  {tagFocused && tagSuggestions.length > 0 ? (
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-[1.1rem] border border-[rgba(24,50,53,0.10)] bg-white shadow-lg">
+                      {tagSuggestions.map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setTag(t);
+                            setTagFocused(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-sm font-semibold text-[color:var(--ink)] hover:bg-[#def2ee] transition"
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -255,7 +343,7 @@ function LogPage() {
                     type="button"
                     role="switch"
                     aria-checked={customTime}
-                    onClick={() => setCustomTime((value) => !value)}
+                    onClick={() => setCustomTime((v) => !v)}
                     className={`relative h-8 w-14 rounded-full transition ${
                       customTime ? "bg-[#0f766e]" : "bg-[rgba(24,50,53,0.18)]"
                     }`}
@@ -267,7 +355,6 @@ function LogPage() {
                     />
                   </button>
                 </div>
-
                 {customTime ? (
                   <input
                     type="datetime-local"
@@ -286,34 +373,7 @@ function LogPage() {
 
             <fieldset className="space-y-3">
               <legend className="text-[1.02rem] font-bold text-[color:var(--ink)]">기분은 어땠나요?</legend>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {moods.map((mood) => {
-                  const Icon = mood.Icon;
-                  const active = emotion === mood.value;
-                  const moodText = MOOD_TEXT[mood.key];
-
-                  return (
-                    <button
-                      key={mood.value}
-                      type="button"
-                      onClick={() => setEmotion(mood.value)}
-                      className={`rounded-[1.55rem] border px-4 py-5 text-left transition ${
-                        active
-                          ? "border-transparent bg-white shadow-[var(--shadow-sm)]"
-                          : "border-[rgba(24,50,53,0.08)] bg-white/54 hover:bg-white/76"
-                      }`}
-                    >
-                      <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-[1.1rem] ${mood.className}`}>
-                        <Icon size={18} strokeWidth={2.1} />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[1rem] font-bold text-[color:var(--ink)]">{moodText.label}</p>
-                        <p className="text-sm leading-6 text-[color:var(--ink-soft)]">{moodText.description}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <EmojiMoodPicker value={emotion} onChange={setEmotion} />
             </fieldset>
 
             <button type="submit" disabled={!canSubmit || submitting} className="app-primary-button w-full text-lg">
@@ -336,7 +396,6 @@ function LogPage() {
               <div className="grid grid-cols-2 gap-3">
                 {quickActions.map((item) => {
                   const Icon = item.Icon;
-
                   return (
                     <button
                       key={item.label}
@@ -381,25 +440,94 @@ function LogPage() {
                     최근 활동을 불러오는 중...
                   </div>
                 ) : list.length ? (
-                  list.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-white/64 px-4 py-4"
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] ${activityToneClass(item.emotion)}`}>
-                              {MOOD_KO[item.emotion] ?? item.emotion}
-                            </span>
-                            <span className="text-sm text-[color:var(--ink-soft)]">{CATEGORY_KO[normalizeCategory(item.tag)] ?? item.tag}</span>
-                          </div>
-                          <p className="font-semibold text-[color:var(--ink)]">{item.text}</p>
+                  list.map((item) =>
+                    editingId === item.id ? (
+                      <div
+                        key={item.id}
+                        className="space-y-3 rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-white/90 px-4 py-4"
+                      >
+                        <textarea
+                          className="app-textarea text-sm"
+                          rows={2}
+                          value={editForm.text}
+                          onChange={(e) => setEditForm((f) => ({ ...f, text: e.target.value }))}
+                        />
+                        <EmojiMoodPicker
+                          value={editForm.emotion}
+                          onChange={(v) => setEditForm((f) => ({ ...f, emotion: v }))}
+                          compact
+                        />
+                        <input
+                          className="app-field text-sm"
+                          value={editForm.tag}
+                          onChange={(e) => setEditForm((f) => ({ ...f, tag: e.target.value }))}
+                          placeholder="카테고리"
+                        />
+                        {editError ? <p className="text-xs font-medium text-[#c86f56]">{editError}</p> : null}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(item.id)}
+                            disabled={!editForm.text.trim() || savingEdit}
+                            className="app-primary-button h-10 flex-1 text-sm"
+                          >
+                            <Check size={14} />
+                            <span>{savingEdit ? "저장 중..." : "저장"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="app-secondary-button h-10 px-4 text-sm"
+                          >
+                            <X size={14} />
+                          </button>
                         </div>
-                        <span className="text-sm text-[color:var(--ink-soft)]">{formatRelativeTime(item.created_at)}</span>
                       </div>
-                    </div>
-                  ))
+                    ) : (
+                      <div
+                        key={item.id}
+                        className="rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-white/64 px-4 py-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] ${activityToneClass(item.emotion)}`}
+                              >
+                                {MOOD_KO[item.emotion] ?? item.emotion}
+                              </span>
+                              <span className="text-sm text-[color:var(--ink-soft)]">
+                                {CATEGORY_KO[normalizeCategory(item.tag)] ?? item.tag}
+                              </span>
+                              <span className="ml-auto text-sm text-[color:var(--ink-soft)]">
+                                {formatRelativeTime(item.created_at)}
+                              </span>
+                            </div>
+                            <p className="font-semibold text-[color:var(--ink)]">{item.text}</p>
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(item)}
+                              className="flex h-8 w-8 items-center justify-center rounded-[0.75rem] bg-white/60 text-[color:var(--ink-soft)] transition hover:bg-white"
+                              title="수정"
+                            >
+                              <Pencil size={14} strokeWidth={2} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item.id)}
+                              disabled={deletingIds.has(item.id)}
+                              className="flex h-8 w-8 items-center justify-center rounded-[0.75rem] bg-white/60 text-[#dd7a5f] transition hover:bg-white disabled:opacity-40"
+                              title="삭제"
+                            >
+                              <Trash2 size={14} strokeWidth={2} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )
                 ) : (
                   <div className="rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-white/64 px-4 py-4 text-[color:var(--ink-soft)]">
                     최근 활동이 없습니다.

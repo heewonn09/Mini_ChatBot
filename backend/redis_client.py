@@ -54,6 +54,13 @@ class RedisStore:
             return
         self.client.set(key, json.dumps(value, default=str), ex=ex_seconds)
 
+    def delete(self, key: str) -> None:
+        if not self.client:
+            self._memory.pop(key, None)
+            self._memory_ttl.pop(key, None)
+            return
+        self.client.delete(key)
+
     def incr_with_ttl(self, key: str, window_seconds: int) -> int:
         if not self.client:
             current = self._mem_get(key)
