@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     app_env: str = "development"
     log_level: str = "INFO"
 
+    # Risk analysis thresholds
+    risk_negative_emotion_ratio_threshold: float = 40.0
+    risk_negative_emotion_intensity_threshold: float = 6.0
+    risk_mood_swing_threshold: float = 5.0
+    risk_high_severity_ratio_threshold: float = 60.0
+
 
 
 

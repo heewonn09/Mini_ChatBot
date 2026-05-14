@@ -1,4 +1,5 @@
 import axios from "axios";
+import { normalizeAnalysisViewPayload } from "./contracts";
 
 const TOKEN_KEY = "mindflow_token";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
@@ -192,7 +193,7 @@ export async function fetchAnalysisView(userId, days = 7) {
   const { data } = await withErrorLogging("fetchAnalysisView", () =>
     api.get(`/ui/${userId}/analysis`, { params: { days } })
   );
-  return data;
+  return normalizeAnalysisViewPayload(data);
 }
 
 export async function fetchProfileView(userId) {

@@ -69,11 +69,19 @@ class OverviewResponse(BaseModel):
     recent_activity: List[RecentActivityItem]
 
 
+class AnalysisThresholds(BaseModel):
+    negative_emotion_ratio_threshold: float
+    negative_emotion_intensity_threshold: float
+    mood_swing_threshold: float
+    high_severity_ratio_threshold: float
+
+
 class AnalysisResponse(BaseModel):
     insights: List[InsightItem]
     behavior_distribution: List[BehaviorDistributionItem]
     weekly_pattern: List[RadarMetricItem]
     recommendations: List[RecommendationItem]
+    thresholds: AnalysisThresholds
 
 
 class ProfileMetricItem(BaseModel):

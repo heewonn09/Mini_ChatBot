@@ -109,6 +109,12 @@ function AnalysisPage() {
   const weeklyPattern = analysis.weekly_pattern ?? overview?.daily_timeline ?? [];
   const recommendations = analysis.recommendations ?? [];
   const spotlight = insights[0];
+  const thresholds = analysis.thresholds ?? {
+    negative_emotion_ratio_threshold: 40,
+    negative_emotion_intensity_threshold: 6,
+    mood_swing_threshold: 5,
+    high_severity_ratio_threshold: 60,
+  };
 
   return (
     <section className="space-y-8">
@@ -164,6 +170,30 @@ function AnalysisPage() {
                 <p className="mt-4 text-3xl font-bold text-[color:var(--ink)]">{item.value}%</p>
               </div>
             ))}
+          </div>
+        </div>
+      </Card>
+
+
+      <Card className="p-6">
+        <div className="space-y-3">
+          <h2 className="app-heading text-[1.4rem] text-[color:var(--ink)]">현재 분석 기준값</h2>
+          <p className="text-sm text-[color:var(--ink-soft)]">
+            위험도 판정은 아래 임계값을 기반으로 계산됩니다.
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-xl bg-[rgba(24,50,53,0.05)] p-4 text-sm">
+              부정 감정 비율 기준: <strong>{thresholds.negative_emotion_ratio_threshold}%</strong>
+            </div>
+            <div className="rounded-xl bg-[rgba(24,50,53,0.05)] p-4 text-sm">
+              부정 감정 강도 기준: <strong>{thresholds.negative_emotion_intensity_threshold}</strong>
+            </div>
+            <div className="rounded-xl bg-[rgba(24,50,53,0.05)] p-4 text-sm">
+              감정 변동폭 기준: <strong>{thresholds.mood_swing_threshold}</strong>
+            </div>
+            <div className="rounded-xl bg-[rgba(24,50,53,0.05)] p-4 text-sm">
+              고위험 레벨 비율 기준: <strong>{thresholds.high_severity_ratio_threshold}%</strong>
+            </div>
           </div>
         </div>
       </Card>

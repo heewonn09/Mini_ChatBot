@@ -178,9 +178,26 @@ GOOGLE_API_KEY=
 APP_NAME=Behavior Pattern Analysis Chatbot
 APP_ENV=development
 LOG_LEVEL=INFO
+RISK_NEGATIVE_EMOTION_RATIO_THRESHOLD=40
+RISK_NEGATIVE_EMOTION_INTENSITY_THRESHOLD=6
+RISK_MOOD_SWING_THRESHOLD=5
+RISK_HIGH_SEVERITY_RATIO_THRESHOLD=60
 ```
 
 > 참고: `backend/config.py`에는 `Settings` 클래스가 중복 선언되어 있으므로, 향후 유지보수 시 단일 선언으로 정리하는 것이 좋습니다.
+
+---
+
+## 6-1) 개발 하네스 빠른 시작
+
+```bash
+pip install -r backend/requirements-dev.txt
+pip install pre-commit
+pre-commit install
+make check
+```
+
+- pre-commit 훅은 Python(Ruff + pytest)과 Frontend(lint + vitest)를 로컬 커밋 전에 검증합니다.
 
 ---
 

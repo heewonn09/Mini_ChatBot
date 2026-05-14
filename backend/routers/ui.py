@@ -11,6 +11,7 @@ from backend.models.behavior import BehaviorLog, User
 from backend.models.preferences import UserPreferences
 from backend.schemas.ui import (
     AnalysisResponse,
+    AnalysisThresholds,
     ChatBootstrapResponse,
     ChatHistoryResponse,
     ChatRequest,
@@ -36,6 +37,7 @@ from backend.schemas.ui import (
     StatCard,
 )
 from backend.services.ai_feedback_service import AIFeedbackService
+from backend.config import get_settings
 from backend.services.chat_service import ChatService
 from backend.services.dashboard_service import DashboardService
 from backend.services.pattern_analysis_service import PatternAnalysisService
@@ -52,6 +54,16 @@ from backend.utils.analysis_utils import (
 
 router = APIRouter(prefix="/api/ui", tags=["UI"])
 ai_service = AIFeedbackService()
+
+
+def _analysis_thresholds_snapshot() -> AnalysisThresholds:
+    settings = get_settings()
+    return AnalysisThresholds(
+        negative_emotion_ratio_threshold=settings.risk_negative_emotion_ratio_threshold,
+        negative_emotion_intensity_threshold=settings.risk_negative_emotion_intensity_threshold,
+        mood_swing_threshold=settings.risk_mood_swing_threshold,
+        high_severity_ratio_threshold=settings.risk_high_severity_ratio_threshold,
+    )
 
 _CORR_MIN_DAYS = 3   # 상관관계 계산 최소 활성 날짜 수 (focus_prediction 가드와 통일)
 _CORR_MIN_DIFF = 15  # 보고 가치 있는 최소 퍼센트포인트 차이
@@ -301,6 +313,7 @@ def get_analysis_view(
         behavior_distribution=DashboardService.build_behavior_distribution(logs),
         weekly_pattern=DashboardService.build_weekly_pattern(logs),
         recommendations=DashboardService.build_recommendations(logs, analysis),
+        thresholds=_analysis_thresholds_snapshot(),
     )
 
 

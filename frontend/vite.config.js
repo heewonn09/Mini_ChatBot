@@ -7,4 +7,16 @@ export default defineConfig({
     tailwindcss(),
     react(),
   ],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
+    coverage: {
+      provider: 'v8',
+      thresholds: {
+        lines: 70,
+        functions: 70,
+      },
+    },
+  },
 })
