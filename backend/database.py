@@ -67,7 +67,8 @@ def create_tables():
 def run_schema_migrations():
     """Lightweight runtime migration for development environments."""
     inspector = inspect(engine)
-    if "users" not in inspector.get_table_names():
+    tables = set(inspector.get_table_names())
+    if "users" not in tables:
         return
 
     columns = {col["name"] for col in inspector.get_columns("users")}
@@ -78,7 +79,6 @@ def run_schema_migrations():
                 conn.execute(text("UPDATE users SET password_hash = password WHERE password_hash IS NULL"))
 
     # chat_history.session_id migration
-    tables = inspector.get_table_names()
     if "chat_history" in tables:
         chat_cols = {col["name"] for col in inspector.get_columns("chat_history")}
         if "session_id" not in chat_cols:
@@ -94,19 +94,18 @@ def run_schema_migrations():
             if "archived" not in cs_cols:
                 conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN archived BOOLEAN DEFAULT FALSE"))
 
-    # composite indexes (SQLite supports IF NOT EXISTS in CREATE INDEX)
-    with engine.begin() as conn:
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_behavior_logs_user_created "
-            "ON behavior_logs(user_id, created_at)"
-        ))
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_chat_history_session_created "
-            "ON chat_history(session_id, created_at)"
-        ))
-        if "audit_logs" in tables:
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created "
-                "ON audit_logs(user_id, created_at)"
-            ))
-
+    # Cross-DB index creation without raw IF NOT EXISTS syntax.
+    index_specs = [
+        ("behavior_logs", "idx_behavior_logs_user_created", "user_id, created_at"),
+        ("chat_history", "idx_chat_history_session_created", "session_id, created_at"),
+        ("audit_logs", "idx_audit_logs_user_created", "user_id, created_at"),
+    ]
+    for table_name, index_name, columns_sql in index_specs:
+        if table_name not in tables:
+            continue
+        table_indexes = inspector.get_indexes(table_name)
+        index_exists = any(index.get("name") == index_name for index in table_indexes)
+        if index_exists:
+            continue
+        with engine.begin() as conn:
+            conn.execute(text(f"CREATE INDEX {index_name} ON {table_name}({columns_sql})"))
