@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import logging
+import uuid
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -38,13 +39,13 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
 
 def create_access_token(subject: str, expires_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
-    payload = {"sub": subject, "exp": expire, "type": "access"}
+    payload = {"sub": subject, "exp": expire, "type": "access", "jti": str(uuid.uuid4())}
     return jwt.encode(payload, get_settings().jwt_secret_key, algorithm=ALGORITHM)
 
 
 def create_refresh_token(subject: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    payload = {"sub": subject, "exp": expire, "type": "refresh"}
+    payload = {"sub": subject, "exp": expire, "type": "refresh", "jti": str(uuid.uuid4())}
     return jwt.encode(payload, get_settings().jwt_secret_key, algorithm=ALGORITHM)
 
 
@@ -62,8 +63,15 @@ def get_current_user(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
         subject = payload.get("sub")
         user_id = int(subject)
+        jti = payload.get("jti")
     except (JWTError, TypeError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication token")
+
+    # Check token blacklist (logout revocation)
+    if jti:
+        from backend.redis_client import redis_store
+        if redis_store.is_token_blacklisted(jti):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

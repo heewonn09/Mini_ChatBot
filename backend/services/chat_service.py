@@ -160,10 +160,22 @@ class ChatService:
             .limit(200)
             .all()
         )
+        recent_log_details = [
+            {
+                "created_at": log.created_at.isoformat() if log.created_at else "",
+                "tag": log.tag or "",
+                "emotion": log.emotion or "",
+                "intensity": log.intensity or 0,
+                "text": (log.text or "")[:80],
+                "notes": (getattr(log, "notes", None) or "")[:60],
+            }
+            for log in logs[:15]
+        ]
         user_context = {
             "top_emotion": analysis.behavior_patterns[0].emotion if analysis.behavior_patterns else None,
             "streak_days": DashboardService.current_streak(logs),
             "total_logs": analysis.total_logs,
+            "recent_logs": recent_log_details,
         }
 
         try:
@@ -197,6 +209,10 @@ class ChatService:
                 message=answer,
                 created_at=datetime.now(timezone.utc),
             )
+        )
+        self.db.commit()
+        self.db.query(ChatSession).filter(ChatSession.id == session_id).update(
+            {"message_count": ChatSession.message_count + 2}
         )
         self.db.commit()
         return ChatResponse(answer=answer, session_id=session_id)

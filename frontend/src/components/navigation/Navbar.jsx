@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
+  Bell,
   CirclePlus,
   LayoutDashboard,
   LineChart,
@@ -9,9 +11,12 @@ import {
   Sparkles,
   Sun,
   User,
+  Users,
+  Trophy,
 } from "lucide-react";
-import { clearStoredToken } from "../../api/api";
+import { getStoredUserId, logOut } from "../../api/api";
 import { useAppSettings } from "../../context/AppSettingsContext";
+import NotificationPanel from "../ui/NotificationPanel";
 
 function linkClassName(isActive) {
   return `flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -26,12 +31,17 @@ const navItems = [
   { name: "기록", path: "/log", icon: CirclePlus },
   { name: "분석", path: "/analysis", icon: LineChart },
   { name: "채팅", path: "/chat", icon: MessageSquare },
+  { name: "커뮤니티", path: "/community", icon: Users },
+  { name: "챌린지", path: "/challenges", icon: Trophy },
   { name: "프로필", path: "/profile", icon: User },
 ];
 
 function Navbar() {
   const { theme, setTheme } = useAppSettings();
+  const userId = getStoredUserId();
   const navigate = useNavigate();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   return (
     <>
@@ -61,11 +71,26 @@ function Navbar() {
 
           <div className="hidden items-center gap-2 lg:flex">
             <button type="button" className="app-secondary-button px-3 py-2" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>{theme === "light" ? <Moon size={16} /> : <Sun size={16} />}</button>
+
+            <button
+              type="button"
+              className="app-secondary-button relative px-3 py-2"
+              onClick={() => setNotifOpen((v) => !v)}
+              aria-label="알림"
+            >
+              <Bell size={16} />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#dd7a5f] text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
             <button
               type="button"
               className="app-secondary-button px-3 py-2"
-              onClick={() => {
-                clearStoredToken();
+              onClick={async () => {
+                await logOut();
                 navigate("/auth", { replace: true });
               }}
             >
@@ -79,8 +104,8 @@ function Navbar() {
         </div>
       </header>
 
-      <nav className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-md rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-lg)] backdrop-blur-xl md:hidden">
-        <div className="grid grid-cols-5 gap-1">
+      <nav className="fixed inset-x-2 bottom-3 z-40 mx-auto max-w-lg rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-lg)] backdrop-blur-xl md:hidden">
+        <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -88,7 +113,7 @@ function Navbar() {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex flex-col items-center gap-1 rounded-[1.35rem] px-2 py-2 text-[11px] font-semibold transition ${
+                  `flex-shrink-0 flex flex-col items-center gap-1 rounded-[1.35rem] px-2.5 py-2 text-[10px] font-semibold transition ${
                     isActive ? "bg-[color:var(--primary)] text-[color:var(--primary-contrast)]" : "text-[color:var(--ink-soft)]"
                   }`
                 }
@@ -100,6 +125,13 @@ function Navbar() {
           })}
         </div>
       </nav>
+
+      <NotificationPanel
+        userId={userId}
+        isOpen={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        onUnreadChange={setUnreadCount}
+      />
     </>
   );
 }

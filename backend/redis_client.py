@@ -65,7 +65,6 @@ class RedisStore:
         if not self.client:
             current = self._mem_get(key)
             new_count = int(current or 0) + 1
-            # Only reset TTL on first increment so the window is fixed
             if current is None:
                 self._mem_set(key, new_count, window_seconds)
             else:
@@ -76,6 +75,31 @@ class RedisStore:
         pipe.expire(key, window_seconds)
         count, _ = pipe.execute()
         return int(count)
+
+    # ------------------------------------------------------------------
+    # Token blacklist (for logout / token revocation)
+    # ------------------------------------------------------------------
+    def blacklist_token(self, jti: str, ttl_seconds: int) -> None:
+        key = f"blacklist:{jti}"
+        if self.client:
+            self.client.setex(key, ttl_seconds, "1")
+        else:
+            self._mem_set(key, "1", ttl_seconds)
+
+    def is_token_blacklisted(self, jti: str) -> bool:
+        key = f"blacklist:{jti}"
+        if self.client:
+            return self.client.exists(key) > 0
+        return self._mem_get(key) is not None
+
+    # ------------------------------------------------------------------
+    # Auth rate limiting
+    # ------------------------------------------------------------------
+    def check_auth_rate_limit(self, ip: str, limit: int = 10, window: int = 60) -> bool:
+        """Returns True if request is allowed, False if rate-limited."""
+        key = f"auth:rate:{ip}"
+        count = self.incr_with_ttl(key, window)
+        return count <= limit
 
 
 redis_store = RedisStore()

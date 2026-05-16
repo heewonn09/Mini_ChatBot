@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StatCard(BaseModel):
@@ -207,3 +207,19 @@ class UpdatePreferencesRequest(BaseModel):
     language: Optional[str] = Field(default=None, pattern="^(ko|en)$")
     theme: Optional[str] = Field(default=None, pattern="^(light|dark)$")
     notifications_enabled: Optional[bool] = None
+
+
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    type: str
+    title: str
+    body: Optional[str] = None
+    is_read: bool
+    created_at: datetime
+    read_at: Optional[datetime] = None
+
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationOut]
+    unread_count: int

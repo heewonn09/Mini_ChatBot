@@ -47,6 +47,9 @@ from backend.models.behavior import User, BehaviorLog  # noqa: F401
 from backend.models.chat import ChatHistory, ChatSession  # noqa: F401
 from backend.models.preferences import UserPreferences  # noqa: F401
 from backend.models.audit import AuditLog  # noqa: F401
+from backend.models.community import Post, Comment, PostLike, Challenge, ChallengeParticipant  # noqa: F401
+from backend.models.notification import Notification  # noqa: F401
+from backend.models.behavior_tag import BehaviorTag  # noqa: F401
 # =========================================================
 
 def get_db() -> Session:
@@ -93,6 +96,13 @@ def run_schema_migrations():
                 conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN message_count INTEGER DEFAULT 0"))
             if "archived" not in cs_cols:
                 conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN archived BOOLEAN DEFAULT FALSE"))
+
+    # behavior_logs.notes column
+    if "behavior_logs" in tables:
+        bl_cols = {col["name"] for col in inspector.get_columns("behavior_logs")}
+        if "notes" not in bl_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE behavior_logs ADD COLUMN notes VARCHAR(300)"))
 
     # Cross-DB index creation without raw IF NOT EXISTS syntax.
     index_specs = [

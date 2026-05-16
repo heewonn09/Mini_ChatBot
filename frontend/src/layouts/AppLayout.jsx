@@ -3,6 +3,7 @@ import { getErrorMessage, getStoredToken } from "../api/api";
 import Navbar from "../components/navigation/Navbar";
 import CommandMenu from "../components/navigation/CommandMenu";
 import Card from "../components/ui/Card";
+import { SkeletonCard, SkeletonStatCard } from "../components/ui/Skeleton";
 import useAppData from "../hooks/useAppData";
 
 function AppLayout() {
@@ -27,7 +28,12 @@ function AppLayout() {
       <main className="relative pb-32 pt-28 md:pb-16 md:pt-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {appData.loading ? (
-            <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">Mindflow 데이터를 불러오는 중...</Card>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => <SkeletonStatCard key={i} />)}
+              </div>
+              <SkeletonCard className="h-48" />
+            </div>
           ) : appData.error ? (
             <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">{appErrorMessage}</Card>
           ) : (

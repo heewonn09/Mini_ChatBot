@@ -103,6 +103,17 @@ export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+export function getStoredUserId() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.sub ? Number(payload.sub) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function setStoredToken(token) {
   if (token) localStorage.setItem(TOKEN_KEY, token);
 }
@@ -148,6 +159,15 @@ export function getErrorMessage(error, fallback = "Something went wrong.") {
 // - behaviors: GET/POST /behaviors/{userId}
 // - ui: GET /ui/{userId}/overview, /analysis, /profile, /chat/bootstrap; POST /ui/{userId}/chat
 // - analysis: POST /analysis/{userId} payload: { days: number }
+
+export async function logOut() {
+  try {
+    await withErrorLogging("logOut", () => api.post("/auth/logout"));
+  } catch {
+    // best-effort — always clear local token
+  }
+  clearStoredToken();
+}
 
 export async function signUp(payload) {
   const { data } = await withErrorLogging("signUp", () => api.post("/auth/signup", payload));
@@ -316,6 +336,140 @@ export async function fetchChatHistoryBySession(userId, sessionId, limit = 50, o
     api.get(`/ui/${userId}/chat/history`, { params: { session_id: sessionId, limit, offset } })
   );
   return data;
+}
+
+// ── Community: Posts ──────────────────────────────────────────────────────────
+export async function fetchPosts(params = {}) {
+  const { data } = await withErrorLogging("fetchPosts", () =>
+    api.get("/community/posts", { params })
+  );
+  return data;
+}
+
+export async function createPost(payload) {
+  const { data } = await withErrorLogging("createPost", () =>
+    api.post("/community/posts", payload)
+  );
+  return data;
+}
+
+export async function updatePost(postId, payload) {
+  const { data } = await withErrorLogging("updatePost", () =>
+    api.patch(`/community/posts/${postId}`, payload)
+  );
+  return data;
+}
+
+export async function deletePost(postId) {
+  await withErrorLogging("deletePost", () => api.delete(`/community/posts/${postId}`));
+}
+
+export async function toggleLike(postId) {
+  const { data } = await withErrorLogging("toggleLike", () =>
+    api.post(`/community/posts/${postId}/like`)
+  );
+  return data;
+}
+
+export async function fetchComments(postId) {
+  const { data } = await withErrorLogging("fetchComments", () =>
+    api.get(`/community/posts/${postId}/comments`)
+  );
+  return data;
+}
+
+export async function createComment(postId, content) {
+  const { data } = await withErrorLogging("createComment", () =>
+    api.post(`/community/posts/${postId}/comments`, { content })
+  );
+  return data;
+}
+
+export async function deleteComment(postId, commentId) {
+  await withErrorLogging("deleteComment", () =>
+    api.delete(`/community/posts/${postId}/comments/${commentId}`)
+  );
+}
+
+// ── Community: Challenges ─────────────────────────────────────────────────────
+export async function fetchChallenges(params = {}) {
+  const { data } = await withErrorLogging("fetchChallenges", () =>
+    api.get("/community/challenges", { params })
+  );
+  return data;
+}
+
+export async function createChallenge(payload) {
+  const { data } = await withErrorLogging("createChallenge", () =>
+    api.post("/community/challenges", payload)
+  );
+  return data;
+}
+
+export async function joinChallenge(challengeId) {
+  const { data } = await withErrorLogging("joinChallenge", () =>
+    api.post(`/community/challenges/${challengeId}/join`)
+  );
+  return data;
+}
+
+export async function leaveChallenge(challengeId) {
+  await withErrorLogging("leaveChallenge", () =>
+    api.delete(`/community/challenges/${challengeId}/join`)
+  );
+}
+
+export async function checkinChallenge(challengeId) {
+  const { data } = await withErrorLogging("checkinChallenge", () =>
+    api.post(`/community/challenges/${challengeId}/checkin`)
+  );
+  return data;
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+export async function fetchNotifications(userId) {
+  const { data } = await withErrorLogging("fetchNotifications", () =>
+    api.get(`/ui/${userId}/notifications`)
+  );
+  return data;
+}
+
+export async function markNotificationRead(userId, notifId) {
+  const { data } = await withErrorLogging("markNotificationRead", () =>
+    api.patch(`/ui/${userId}/notifications/${notifId}`)
+  );
+  return data;
+}
+
+export async function markAllNotificationsRead(userId) {
+  await withErrorLogging("markAllNotificationsRead", () =>
+    api.post(`/ui/${userId}/notifications/read-all`)
+  );
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+export async function exportBehaviors(userId, format = "csv") {
+  const response = await withErrorLogging("exportBehaviors", () =>
+    api.get(`/ui/${userId}/export`, { params: { format }, responseType: "blob" })
+  );
+  const url = URL.createObjectURL(response.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `behaviors.${format}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function exportChatSession(userId, sessionId) {
+  const response = await withErrorLogging("exportChatSession", () =>
+    api.get(`/ui/${userId}/chat/sessions/${sessionId}/export`, { responseType: "blob" })
+  );
+  const url = URL.createObjectURL(response.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `chat_${sessionId}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default api;

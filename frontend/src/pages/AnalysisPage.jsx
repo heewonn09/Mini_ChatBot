@@ -9,18 +9,20 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
-import { useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { fetchAnalysisView, fetchHabitCorrelations, getErrorMessage } from "../api/api";
 import Chart from "../components/Chart";
 import AIInsightCard from "../components/ui/AIInsightCard";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
+import { SkeletonCard, SkeletonRow } from "../components/ui/Skeleton";
 
-const DAY_OPTIONS = [7, 14, 30];
+const DAY_OPTIONS = [7, 14, 30, 90];
 
 function AnalysisPage() {
   const { user, overview, error: appError, refreshOverview } = useOutletContext();
   const [days, setDays] = useState(7);
+  const navigate = useNavigate();
 
   const {
     data: analysis,
@@ -74,7 +76,15 @@ function AnalysisPage() {
   };
 
   if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">AI 인사이트를 불러오는 중...</Card>;
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}
+        </div>
+        <SkeletonRow />
+        <SkeletonRow />
+      </div>
+    );
   }
 
   const errorMessage =
@@ -290,6 +300,15 @@ function AnalysisPage() {
           )}
         </div>
       </Card>
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={() => navigate("/log")}
+          className="app-primary-button px-6 py-2.5"
+        >
+          기록하러 가기
+        </button>
+      </div>
     </section>
   );
 }

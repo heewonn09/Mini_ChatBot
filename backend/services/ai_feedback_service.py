@@ -10,7 +10,7 @@ from backend.schemas.behavior import PatternAnalysisResult
 
 logger = logging.getLogger(__name__)
 
-_GEMINI_MODEL = "gemini-2.0-flash"
+_GEMINI_MODEL = "gemini-2.5-flash"
 _GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models/"
 
 
@@ -21,7 +21,7 @@ def _call_gemini(api_key: str, prompt: str, temperature: float = 0.7, max_retrie
         "generationConfig": {
             "temperature": temperature,
             "candidateCount": 1,
-            "maxOutputTokens": 800,
+            "maxOutputTokens": 2000,
         },
     }).encode()
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
@@ -103,20 +103,40 @@ class AIFeedbackService:
 
         context_block = ""
         if user_context:
+            top_emotion = user_context.get("top_emotion", "알 수 없음")
+            streak = user_context.get("streak_days", 0)
+            total = user_context.get("total_logs", 0)
+            recent_logs = user_context.get("recent_logs", [])
+
             context_block = (
-                f"\n사용자 컨텍스트:\n"
-                f"- 최근 주요 감정: {user_context.get('top_emotion', '알 수 없음')}\n"
-                f"- 현재 연속 기록: {user_context.get('streak_days', 0)}일\n"
-                f"- 총 기록 수: {user_context.get('total_logs', 0)}개\n"
+                f"\n[사용자 현황]\n"
+                f"- 주요 감정: {top_emotion}\n"
+                f"- 연속 기록: {streak}일\n"
+                f"- 총 기록: {total}개\n"
             )
+
+            if recent_logs:
+                context_block += "\n[최근 행동 기록 (최신순)]\n"
+                for log in recent_logs[:10]:
+                    dt = log.get("created_at", "")[:10]
+                    btype = log.get("behavior_type", "")
+                    emotion = log.get("emotion", "")
+                    intensity = log.get("intensity", "")
+                    text = log.get("text", "")
+                    notes = log.get("notes", "")
+                    line = f"- [{dt}] {btype} | 감정:{emotion} | 강도:{intensity}/10 | {text}"
+                    if notes:
+                        line += f" ({notes})"
+                    context_block += line + "\n"
 
         prompt = (
             f"{self.system_instruction}\n\n"
             f"사용자: {username}\n{context_block}\n"
-            f"최근 행동 요약:\n{behavior_summary}\n\n"
-            f"대화 내역:\n{conversation_memory or '(없음)'}\n\n"
-            f"사용자 메시지: {user_message}\n\n"
-            "직접적이고 대화체로 답변하세요. 질문이나 행동 요약을 반복하지 마세요."
+            f"[행동 패턴 분석]\n{behavior_summary}\n\n"
+            f"[대화 내역]\n{conversation_memory or '(없음)'}\n\n"
+            f"[사용자 메시지] {user_message}\n\n"
+            "위 기록 내용을 바탕으로 구체적인 행동과 감정을 언급하며 답변하세요. "
+            "대화체로 자연스럽게, 질문 반복 없이 답변하세요."
         )
 
         try:

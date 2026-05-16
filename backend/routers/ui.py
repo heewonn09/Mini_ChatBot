@@ -1,14 +1,18 @@
+import json
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.behavior import BehaviorLog, User
-from backend.models.preferences import UserPreferences
+from backend.services.export_service import ExportService
+from backend.services.notification_service import NotificationService
+from backend.services.preferences_service import PreferencesService
 from backend.schemas.ui import (
     AnalysisResponse,
     ChatBootstrapResponse,
@@ -28,6 +32,8 @@ from backend.schemas.ui import (
     RenameSessionRequest,
     UpdatePreferencesRequest,
     UserPreferencesResponse,
+    NotificationOut,
+    NotificationListResponse,
     WeeklyReportResponse,
     OverviewResponse,
     ProfileMetricItem,
@@ -455,12 +461,7 @@ def get_preferences(
     db: Session = Depends(get_db),
 ):
     _get_user(user_id, db)
-    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
-    if not prefs:
-        prefs = UserPreferences(user_id=user_id, language="ko", theme="light", notifications_enabled=True)
-        db.add(prefs)
-        db.commit()
-        db.refresh(prefs)
+    prefs = PreferencesService(db).get_or_create(user_id)
     return UserPreferencesResponse(
         language=prefs.language,
         theme=prefs.theme,
@@ -476,18 +477,12 @@ def update_preferences(
     db: Session = Depends(get_db),
 ):
     _get_user(user_id, db)
-    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
-    if not prefs:
-        prefs = UserPreferences(user_id=user_id, language="ko", theme="light", notifications_enabled=True)
-        db.add(prefs)
-    if payload.language is not None:
-        prefs.language = payload.language
-    if payload.theme is not None:
-        prefs.theme = payload.theme
-    if payload.notifications_enabled is not None:
-        prefs.notifications_enabled = payload.notifications_enabled
-    db.commit()
-    db.refresh(prefs)
+    prefs = PreferencesService(db).update(
+        user_id,
+        language=payload.language,
+        theme=payload.theme,
+        notifications_enabled=payload.notifications_enabled,
+    )
     return UserPreferencesResponse(
         language=prefs.language,
         theme=prefs.theme,
@@ -509,5 +504,74 @@ def _get_logs(user_id: int, db: Session, days: int, ascending: bool = False) -> 
     )
     order = BehaviorLog.created_at.asc() if ascending else BehaviorLog.created_at.desc()
     return query.order_by(order).all()
+
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+
+@router.get("/{user_id}/notifications", response_model=NotificationListResponse)
+def list_notifications(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    svc = NotificationService(db)
+    items = svc.list_all(user_id)
+    unread = sum(1 for n in items if not n.is_read)
+    return NotificationListResponse(items=items, unread_count=unread)
+
+
+@router.patch("/{user_id}/notifications/{notif_id}", response_model=NotificationOut)
+def mark_notification_read(
+    user_id: int,
+    notif_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    return NotificationService(db).mark_read(user_id, notif_id)
+
+
+@router.post("/{user_id}/notifications/read-all", status_code=204)
+def mark_all_notifications_read(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    NotificationService(db).mark_all_read(user_id)
+
+
+# ── Export ────────────────────────────────────────────────────────────────────
+
+@router.get("/{user_id}/export")
+def export_behaviors(
+    user_id: int,
+    format: str = Query(default="csv", pattern="^(csv|json)$"),
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    svc = ExportService(db)
+    if format == "json":
+        data = json.dumps(svc.export_behaviors_json(user_id), ensure_ascii=False, indent=2)
+        return Response(content=data, media_type="application/json",
+                        headers={"Content-Disposition": "attachment; filename=behaviors.json"})
+    csv_data = svc.export_behaviors_csv(user_id)
+    return Response(content=csv_data, media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=behaviors.csv"})
+
+
+@router.get("/{user_id}/chat/sessions/{session_id}/export")
+def export_chat_session(
+    user_id: int,
+    session_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    md = ExportService(db).export_chat_markdown(user_id, session_id)
+    return Response(content=md, media_type="text/markdown",
+                    headers={"Content-Disposition": f"attachment; filename=chat_{session_id}.md"})
 
 
