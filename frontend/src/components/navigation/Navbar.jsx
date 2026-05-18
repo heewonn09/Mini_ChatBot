@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -14,7 +14,7 @@ import {
   Users,
   Trophy,
 } from "lucide-react";
-import { getStoredUserId, logOut } from "../../api/api";
+import { fetchNotifications, getStoredUserId, logOut } from "../../api/api";
 import { useAppSettings } from "../../context/AppSettingsContext";
 import NotificationPanel from "../ui/NotificationPanel";
 
@@ -42,6 +42,19 @@ function Navbar() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!userId) return;
+    const poll = async () => {
+      try {
+        const data = await fetchNotifications(userId);
+        setUnreadCount(data.unread_count ?? 0);
+      } catch { /* ignore */ }
+    };
+    poll();
+    const id = setInterval(poll, 60000);
+    return () => clearInterval(id);
+  }, [userId]);
 
   return (
     <>
@@ -123,6 +136,20 @@ function Navbar() {
               </NavLink>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setNotifOpen((v) => !v)}
+            className="relative flex-shrink-0 flex flex-col items-center gap-1 rounded-[1.35rem] px-2.5 py-2 text-[10px] font-semibold text-[color:var(--ink-soft)] transition"
+            aria-label="알림"
+          >
+            <Bell size={17} strokeWidth={2.1} />
+            {unreadCount > 0 && (
+              <span className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#dd7a5f] text-[8px] font-bold text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+            <span>알림</span>
+          </button>
         </div>
       </nav>
 

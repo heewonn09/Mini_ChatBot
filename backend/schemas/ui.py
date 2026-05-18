@@ -100,6 +100,8 @@ class AchievementItem(BaseModel):
     description: str
     unlocked: bool
     icon: str
+    progress_current: int = 0
+    progress_total: int = 1
 
 
 class ProfileResponse(BaseModel):

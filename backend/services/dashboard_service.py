@@ -301,24 +301,32 @@ class DashboardService:
                 description="7일 연속 행동을 기록했어요",
                 unlocked=current_streak >= 7,
                 icon="🎉",
+                progress_current=min(current_streak, 7),
+                progress_total=7,
             ),
             AchievementItem(
                 title="아침형 인간",
                 description="오전 8시 이전에 5일 시작했어요",
                 unlocked=morning_positive >= 5,
                 icon="🌅",
+                progress_current=min(morning_positive, 5),
+                progress_total=5,
             ),
             AchievementItem(
                 title="집중 마스터",
                 description="하루 집중도 90% 이상 달성했어요",
                 unlocked=best_focus.focus >= 85,
                 icon="🎯",
+                progress_current=min(int(best_focus.focus), 85),
+                progress_total=85,
             ),
             AchievementItem(
                 title="꾸준함의 왕",
                 description="30일 연속 기록 달성했어요",
                 unlocked=current_streak >= 30,
                 icon="👑",
+                progress_current=min(current_streak, 30),
+                progress_total=30,
             ),
             AchievementItem(
                 title="자기 인식",
@@ -326,12 +334,16 @@ class DashboardService:
                 unlocked=len(all_logs) >= 50
                 and len(DashboardService.build_analysis_insights(recent_logs, analysis)) >= 4,
                 icon="🧠",
+                progress_current=min(len(all_logs), 50),
+                progress_total=50,
             ),
             AchievementItem(
                 title="습관 파괴자",
                 description="나쁜 습관을 50% 줄였어요",
                 unlocked=distracting_ratio <= 25 and len(all_logs) >= 20,
                 icon="💪",
+                progress_current=min(len(all_logs), 20),
+                progress_total=20,
             ),
         ]
 

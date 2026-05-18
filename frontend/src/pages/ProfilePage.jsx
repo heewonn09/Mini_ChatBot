@@ -555,7 +555,22 @@ function ProfilePage() {
                         <span>달성 완료</span>
                       </div>
                     ) : (
-                      <div className="text-sm font-semibold text-[color:var(--ink-soft)]">진행 중</div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs text-[color:var(--ink-soft)]">
+                          <span>진행 중</span>
+                          <span className="font-semibold">
+                            {achievement.progress_current ?? 0} / {achievement.progress_total ?? 1}
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+                          <div
+                            className="h-full rounded-full bg-[#0f766e] transition-all duration-500"
+                            style={{
+                              width: `${Math.min(100, Math.round(((achievement.progress_current ?? 0) / Math.max(1, achievement.progress_total ?? 1)) * 100))}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
                 </Card>
