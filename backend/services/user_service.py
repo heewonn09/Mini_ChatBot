@@ -1,4 +1,3 @@
-from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -13,9 +12,7 @@ class UserService:
 
     def register(self, username: str, email: str, password: str) -> User:
         try:
-            existing = self.db.query(User).filter(
-                (User.email == email) | (User.username == username)
-            ).first()
+            existing = self.db.query(User).filter(User.email == email).first()
         except SQLAlchemyError:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -24,7 +21,7 @@ class UserService:
         if existing:
             raise HTTPException(
                 status_code=400,
-                detail="User with this email or username already exists",
+                detail="이미 사용 중인 이메일입니다.",
             )
         user = User(
             username=username,
@@ -37,10 +34,9 @@ class UserService:
         return user
 
     def get_by_credentials(self, login_id: str, password: str) -> User:
+        # username은 중복 허용 → 이메일로만 로그인
         try:
-            user = self.db.query(User).filter(
-                or_(User.email == login_id, User.username == login_id)
-            ).first()
+            user = self.db.query(User).filter(User.email == login_id).first()
         except SQLAlchemyError:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -49,6 +45,6 @@ class UserService:
         if not user or not verify_password(password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid credentials",
+                detail="이메일 또는 비밀번호가 올바르지 않습니다.",
             )
         return user

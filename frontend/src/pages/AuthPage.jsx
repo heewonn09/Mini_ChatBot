@@ -46,7 +46,7 @@ function AuthPage() {
               <input className="app-field" placeholder="이메일" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} required />
             </>
           ) : (
-            <input className="app-field" placeholder="사용자 이름 또는 이메일" value={form.username_or_email} onChange={(e) => setForm((p) => ({ ...p, username_or_email: e.target.value }))} required />
+            <input className="app-field" type="email" placeholder="이메일" value={form.username_or_email} onChange={(e) => setForm((p) => ({ ...p, username_or_email: e.target.value }))} required />
           )}
 
           <input className="app-field" type="password" placeholder="비밀번호" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} required />
