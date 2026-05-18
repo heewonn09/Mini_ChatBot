@@ -36,10 +36,10 @@ class UserLogin(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str  # 추가
-
+    refresh_token: str
     token_type: str = "bearer"
     user: UserResponse
+    is_new_user: bool = False
 
 class RefreshRequest(BaseModel):
     refresh_token: str

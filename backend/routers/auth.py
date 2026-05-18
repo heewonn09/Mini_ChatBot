@@ -28,6 +28,7 @@ def signup(payload: UserCreate, request: Request, db: Session = Depends(get_db))
         access_token=create_access_token(str(user.id)),
         refresh_token=create_refresh_token(str(user.id)),
         user=user,
+        is_new_user=True,
     )
 
 
@@ -39,6 +40,7 @@ def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
         access_token=create_access_token(str(user.id)),
         refresh_token=create_refresh_token(str(user.id)),
         user=user,
+        is_new_user=False,
     )
 
 

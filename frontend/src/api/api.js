@@ -172,13 +172,13 @@ export async function logOut() {
 export async function signUp(payload) {
   const { data } = await withErrorLogging("signUp", () => api.post("/auth/signup", payload));
   setStoredToken(data.access_token);
-  return data.user;
+  return { user: data.user, isNewUser: data.is_new_user ?? true };
 }
 
 export async function logIn(payload) {
   const { data } = await withErrorLogging("logIn", () => api.post("/auth/login", payload));
   setStoredToken(data.access_token);
-  return data.user;
+  return { user: data.user, isNewUser: data.is_new_user ?? false };
 }
 
 export async function fetchCurrentUser() {
