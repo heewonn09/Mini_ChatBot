@@ -244,7 +244,14 @@ function ChatPage() {
         }
       }, TYPING_INTERVAL_MS);
     } catch (error) {
-      const errText = getErrorMessage(error, "지금은 답변하지 못했어요. 잠시 후 다시 시도해주세요.");
+      let errText = "지금은 답변하지 못했어요. 잠시 후 다시 시도해주세요.";
+      if (error?.code === "ECONNABORTED" || error?.message?.includes("timeout")) {
+        errText = "응답 시간이 초과됐어요. AI 서버가 바쁠 수 있으니 잠시 후 다시 시도해주세요.";
+      } else if (error?.response?.status === 429) {
+        errText = "채팅 요청이 너무 많아요. 잠시 후 다시 시도해주세요.";
+      } else if (error?.response?.status >= 500) {
+        errText = "서버에 일시적인 오류가 있어요. 잠시 후 다시 시도해주세요.";
+      }
       setMessages((prev) =>
         prev.map((m) => (m.id === placeholderId ? { ...m, text: errText } : m))
       );

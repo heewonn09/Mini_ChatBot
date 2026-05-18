@@ -137,7 +137,18 @@ class ChatService:
         analysis = PatternAnalysisService.analyze_behaviors(
             user_id=user.id, days=14, db=self.db
         )
-        behavior_summary = self.ai.generate_feedback(analysis)
+        # Gemini 이중 호출 방지: generate_feedback 대신 분석 데이터로 직접 요약
+        if analysis.behavior_patterns:
+            top = analysis.behavior_patterns[0]
+            behavior_summary = (
+                f"최근 14일 행동 분석: 총 {analysis.total_logs}건 기록. "
+                f"주요 감정: {top.emotion} ({top.percentage:.0f}%, 평균 강도 {top.intensity_avg:.1f}/10). "
+            )
+            if len(analysis.behavior_patterns) > 1:
+                others = ", ".join(p.emotion for p in analysis.behavior_patterns[1:3])
+                behavior_summary += f"기타 감정: {others}."
+        else:
+            behavior_summary = "최근 행동 기록이 없습니다."
 
         recent_messages = (
             self.db.query(ChatHistory)

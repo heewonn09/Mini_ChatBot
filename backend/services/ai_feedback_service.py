@@ -10,7 +10,7 @@ from backend.schemas.behavior import PatternAnalysisResult
 
 logger = logging.getLogger(__name__)
 
-_GEMINI_MODEL = "gemini-2.5-flash"
+_GEMINI_MODEL = "gemini-2.0-flash"
 _GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models/"
 
 

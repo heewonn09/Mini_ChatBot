@@ -285,7 +285,7 @@ export async function fetchBehaviors(userId, limit = 20) {
 
 export async function askAssistant(userId, message, sessionId = null) {
   const { data } = await withErrorLogging("askAssistant", () =>
-    api.post(`/ui/${userId}/chat`, { message, session_id: sessionId })
+    api.post(`/ui/${userId}/chat`, { message, session_id: sessionId }, { timeout: 30000 })
   );
   return data;
 }
