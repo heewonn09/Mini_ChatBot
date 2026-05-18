@@ -51,9 +51,11 @@ function AuthPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg items-center px-4">
-      <section className="app-panel app-panel-strong w-full rounded-[1.8rem] border p-8 shadow-[var(--shadow-lg)]">
-        <h1 className="app-heading text-4xl text-[color:var(--ink)]">마인드플로우</h1>
+    <main className="mx-auto flex min-h-screen max-w-lg items-center px-4 py-8"
+      style={{ paddingBottom: "calc(2rem + var(--safe-bottom, 0px))" }}
+    >
+      <section className="app-panel app-panel-strong w-full rounded-[1.4rem] border p-6 shadow-[var(--shadow-lg)] sm:rounded-[1.8rem] sm:p-8">
+        <h1 className="app-heading text-3xl text-[color:var(--ink)] sm:text-4xl">마인드플로우</h1>
         <p className="mt-3 text-[color:var(--ink-soft)]">
           {mode === "signup" ? "계정을 만들고 행동 패턴 분석을 시작하세요." : "내 계정으로 안전하게 로그인하세요."}
         </p>

@@ -25,17 +25,21 @@ function AppLayout() {
 
       <CommandMenu />
 
-      <main className="relative pb-32 pt-28 md:pb-16 md:pt-32">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      {/* pb-safe: 하단 홈바 영역 + 탭바 높이 확보 */}
+      <main
+        className="relative pt-24 pb-36 md:pb-16 md:pt-32"
+        style={{ paddingBottom: "calc(9rem + var(--safe-bottom, 0px))" }}
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-5 lg:px-8">
           {appData.loading ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
                 {[1, 2, 3, 4].map((i) => <SkeletonStatCard key={i} />)}
               </div>
               <SkeletonCard className="h-48" />
             </div>
           ) : appData.error ? (
-            <Card className="app-panel-strong p-8 text-[color:var(--ink-soft)]">{appErrorMessage}</Card>
+            <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)] sm:p-8">{appErrorMessage}</Card>
           ) : (
             <Outlet context={appData} />
           )}
