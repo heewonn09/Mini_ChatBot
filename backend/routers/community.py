@@ -8,7 +8,7 @@ from backend.auth import get_current_user
 from backend.database import get_db
 from backend.models.behavior import User
 from backend.models.community import (
-    Challenge, ChallengeParticipant, Comment, Post, PostLike,
+    Challenge, ChallengeParticipant, Comment, Post, PostLike, UserFollow,
 )
 from backend.schemas.community import (
     ChallengeCreate, ChallengeOut, CheckInResponse,
@@ -370,3 +370,111 @@ def checkin_challenge(
         current_streak=p.current_streak,
         completed_days=p.completed_days,
     )
+
+
+# ─── 팔로우 / 팔로잉 ────────────────────────────────────────────────
+
+@router.post("/users/{target_id}/follow", status_code=201)
+def follow_user(
+    target_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if target_id == current_user.id:
+        raise HTTPException(status_code=400, detail="자기 자신을 팔로우할 수 없습니다.")
+    target = db.query(User).filter(User.id == target_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    exists = db.query(UserFollow).filter(
+        UserFollow.follower_id == current_user.id,
+        UserFollow.following_id == target_id,
+    ).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="이미 팔로우 중입니다.")
+    db.add(UserFollow(follower_id=current_user.id, following_id=target_id))
+    db.commit()
+    return {"following": True, "target_id": target_id}
+
+
+@router.delete("/users/{target_id}/follow", status_code=200)
+def unfollow_user(
+    target_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    follow = db.query(UserFollow).filter(
+        UserFollow.follower_id == current_user.id,
+        UserFollow.following_id == target_id,
+    ).first()
+    if not follow:
+        raise HTTPException(status_code=404, detail="팔로우 관계가 없습니다.")
+    db.delete(follow)
+    db.commit()
+    return {"following": False, "target_id": target_id}
+
+
+@router.get("/users/{target_id}/follow-status")
+def follow_status(
+    target_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    is_following = db.query(UserFollow).filter(
+        UserFollow.follower_id == current_user.id,
+        UserFollow.following_id == target_id,
+    ).first() is not None
+    followers = db.query(UserFollow).filter(UserFollow.following_id == target_id).count()
+    following = db.query(UserFollow).filter(UserFollow.follower_id == target_id).count()
+    return {"is_following": is_following, "followers": followers, "following": following}
+
+
+@router.get("/users/{target_id}/followers")
+def get_followers(
+    target_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    rows = db.query(UserFollow).filter(UserFollow.following_id == target_id).all()
+    return [
+        {"id": r.follower.id, "username": r.follower.username, "followed_at": r.created_at}
+        for r in rows
+    ]
+
+
+@router.get("/users/{target_id}/following")
+def get_following(
+    target_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    rows = db.query(UserFollow).filter(UserFollow.follower_id == target_id).all()
+    return [
+        {"id": r.following.id, "username": r.following.username, "followed_at": r.created_at}
+        for r in rows
+    ]
+
+
+@router.get("/users/{target_id}/public-profile")
+def public_profile(
+    target_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    target = db.query(User).filter(User.id == target_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    followers = db.query(UserFollow).filter(UserFollow.following_id == target_id).count()
+    following = db.query(UserFollow).filter(UserFollow.follower_id == target_id).count()
+    is_following = db.query(UserFollow).filter(
+        UserFollow.follower_id == current_user.id,
+        UserFollow.following_id == target_id,
+    ).first() is not None
+    return {
+        "id": target.id,
+        "username": target.username,
+        "member_since": target.created_at,
+        "followers": followers,
+        "following": following,
+        "is_following": is_following,
+        "is_me": target_id == current_user.id,
+    }

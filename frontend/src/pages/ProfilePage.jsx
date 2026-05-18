@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Brain,
   CalendarDays,
@@ -13,9 +13,12 @@ import {
   Trophy,
   TrendingUp,
   User,
+  Users,
+  UserPlus,
+  UserCheck,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
-import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences } from "../api/api";
+import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences, fetchFollowStatus, followUser, unfollowUser, fetchFollowers, fetchFollowing } from "../api/api";
 import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import PageHeader from "../components/ui/PageHeader";
@@ -58,12 +61,46 @@ function progressToneClass(tone) {
     : "[&::-webkit-progress-value]:bg-[#0f766e] [&::-moz-progress-bar]:bg-[#0f766e]";
 }
 
+function FollowListModal({ isOpen, onClose, title, items }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div
+        className="relative z-10 w-full max-w-sm rounded-t-[1.6rem] bg-white p-6 shadow-xl sm:rounded-[1.6rem]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-[color:var(--ink)]">{title}</h3>
+          <button type="button" onClick={onClose} className="text-[color:var(--ink-soft)] hover:text-[color:var(--ink)]">✕</button>
+        </div>
+        {items.length === 0 ? (
+          <p className="py-4 text-center text-sm text-[color:var(--ink-soft)]">아직 없어요</p>
+        ) : (
+          <ul className="max-h-72 space-y-3 overflow-y-auto">
+            {items.map((u) => (
+              <li key={u.id} className="flex items-center gap-3 rounded-xl bg-black/5 px-3 py-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#def2ee] text-[#0f766e]">
+                  <User size={14} />
+                </div>
+                <span className="font-semibold text-[color:var(--ink)]">{u.username}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProfilePage() {
   const { user, error: appError, refreshOverview } = useOutletContext();
+  const queryClient = useQueryClient();
   const [hoveredDay, setHoveredDay] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [prefForm, setPrefForm] = useState({ language: "ko", theme: "light" });
   const [saving, setSaving] = useState(false);
+  const [followModal, setFollowModal] = useState(null); // 'followers' | 'following' | null
 
   const {
     data: profile,
@@ -86,6 +123,24 @@ function ProfilePage() {
     queryKey: ["preferences", user?.id],
     queryFn: () => fetchPreferences(user.id),
     enabled: !!user?.id,
+  });
+
+  const { data: followStatus } = useQuery({
+    queryKey: ["followStatus", user?.id],
+    queryFn: () => fetchFollowStatus(user.id),
+    enabled: !!user?.id,
+  });
+
+  const { data: followersList = [] } = useQuery({
+    queryKey: ["followers", user?.id],
+    queryFn: () => fetchFollowers(user.id),
+    enabled: followModal === "followers" && !!user?.id,
+  });
+
+  const { data: followingList = [] } = useQuery({
+    queryKey: ["following", user?.id],
+    queryFn: () => fetchFollowing(user.id),
+    enabled: followModal === "following" && !!user?.id,
   });
 
   const heatmap = heatmapData ?? null;
@@ -153,8 +208,24 @@ function ProfilePage() {
   const memberSinceDate = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long" }).format(new Date(profile.member_since));
   const heatmapDays = heatmap?.days ?? [];
 
+  const followers = followStatus?.followers ?? 0;
+  const following = followStatus?.following ?? 0;
+
   return (
     <section className="space-y-8">
+      <FollowListModal
+        isOpen={followModal === "followers"}
+        onClose={() => setFollowModal(null)}
+        title={`팔로워 ${followers}명`}
+        items={followersList}
+      />
+      <FollowListModal
+        isOpen={followModal === "following"}
+        onClose={() => setFollowModal(null)}
+        title={`팔로잉 ${following}명`}
+        items={followingList}
+      />
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
           variant="profile"
@@ -163,13 +234,34 @@ function ProfilePage() {
           description={profile.summary_description}
           meta={`가입일 ${memberSinceDate}`}
         />
-        <button
-          type="button"
-          onClick={openEdit}
-          className="app-secondary-button shrink-0 text-sm"
-        >
-          편집
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 팔로워/팔로잉 카운트 */}
+          <button
+            type="button"
+            onClick={() => setFollowModal("followers")}
+            className="flex items-center gap-1.5 rounded-xl border border-[rgba(24,50,53,0.1)] bg-white/70 px-3 py-2 text-sm hover:bg-white/90 transition"
+          >
+            <Users size={14} className="text-[#0f766e]" />
+            <span className="font-bold text-[color:var(--ink)]">{followers}</span>
+            <span className="text-[color:var(--ink-soft)]">팔로워</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFollowModal("following")}
+            className="flex items-center gap-1.5 rounded-xl border border-[rgba(24,50,53,0.1)] bg-white/70 px-3 py-2 text-sm hover:bg-white/90 transition"
+          >
+            <UserCheck size={14} className="text-[#0f766e]" />
+            <span className="font-bold text-[color:var(--ink)]">{following}</span>
+            <span className="text-[color:var(--ink-soft)]">팔로잉</span>
+          </button>
+          <button
+            type="button"
+            onClick={openEdit}
+            className="app-secondary-button shrink-0 text-sm"
+          >
+            편집
+          </button>
+        </div>
       </div>
 
       <Modal

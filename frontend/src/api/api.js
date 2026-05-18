@@ -447,6 +447,49 @@ export async function markAllNotificationsRead(userId) {
   );
 }
 
+// ── Follow / Following ────────────────────────────────────────────────────────
+export async function fetchFollowStatus(targetId) {
+  const { data } = await withErrorLogging("fetchFollowStatus", () =>
+    api.get(`/community/users/${targetId}/follow-status`)
+  );
+  return data;
+}
+
+export async function followUser(targetId) {
+  const { data } = await withErrorLogging("followUser", () =>
+    api.post(`/community/users/${targetId}/follow`)
+  );
+  return data;
+}
+
+export async function unfollowUser(targetId) {
+  const { data } = await withErrorLogging("unfollowUser", () =>
+    api.delete(`/community/users/${targetId}/follow`)
+  );
+  return data;
+}
+
+export async function fetchFollowers(targetId) {
+  const { data } = await withErrorLogging("fetchFollowers", () =>
+    api.get(`/community/users/${targetId}/followers`)
+  );
+  return data;
+}
+
+export async function fetchFollowing(targetId) {
+  const { data } = await withErrorLogging("fetchFollowing", () =>
+    api.get(`/community/users/${targetId}/following`)
+  );
+  return data;
+}
+
+export async function fetchPublicProfile(targetId) {
+  const { data } = await withErrorLogging("fetchPublicProfile", () =>
+    api.get(`/community/users/${targetId}/public-profile`)
+  );
+  return data;
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 export async function exportBehaviors(userId, format = "csv") {
   const response = await withErrorLogging("exportBehaviors", () =>

@@ -85,3 +85,16 @@ class ChallengeParticipant(Base):
 
     challenge = relationship("Challenge", back_populates="participants")
     user = relationship("User", foreign_keys=[user_id])
+
+
+class UserFollow(Base):
+    __tablename__ = "user_follows"
+    __table_args__ = (UniqueConstraint("follower_id", "following_id", name="uq_follow"),)
+
+    id = Column(Integer, primary_key=True)
+    follower_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    following_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    follower = relationship("User", foreign_keys=[follower_id])
+    following = relationship("User", foreign_keys=[following_id])
