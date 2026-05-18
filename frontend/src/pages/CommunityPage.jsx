@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BookOpen, Flame, Heart, MessageCircle, Plus,
   Send, Sparkles, Target, Trophy, Users, X,
@@ -250,19 +250,38 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
+  const [hasNewPosts, setHasNewPosts] = useState(false);
+  const latestIdRef = useRef(null);
 
   const load = async (cat) => {
     setLoading(true);
+    setHasNewPosts(false);
     try {
       const params = cat !== "all" ? { category: cat } : {};
       const data = await fetchPosts(params);
       setPosts(data);
+      if (data.length > 0) latestIdRef.current = data[0].id;
     } catch (e) {
       showToast(getErrorMessage(e, "불러오지 못했습니다."), "error");
     } finally { setLoading(false); }
   };
 
+  const pollForNew = useCallback(async () => {
+    try {
+      const params = category !== "all" ? { category } : {};
+      const data = await fetchPosts(params);
+      if (data.length > 0 && latestIdRef.current !== null && data[0].id > latestIdRef.current) {
+        setHasNewPosts(true);
+      }
+    } catch { /* ignore poll errors */ }
+  }, [category]);
+
   useEffect(() => { load(category); }, [category]);
+
+  useEffect(() => {
+    const id = setInterval(pollForNew, 30000);
+    return () => clearInterval(id);
+  }, [pollForNew]);
 
   const handleDelete = async (postId) => {
     try {
@@ -325,6 +344,19 @@ export default function CommunityPage() {
           </button>
         ))}
       </div>
+
+      {/* new posts banner */}
+      {hasNewPosts && (
+        <div className="mb-2 flex items-center justify-between rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
+          <p className="text-sm font-semibold text-violet-700">새 게시글이 올라왔어요!</p>
+          <button
+            onClick={() => load(category)}
+            className="rounded-full bg-violet-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-violet-600"
+          >
+            새로고침
+          </button>
+        </div>
+      )}
 
       {/* post list */}
       {loading ? (

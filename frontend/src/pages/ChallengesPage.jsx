@@ -174,7 +174,133 @@ function CreateChallengeModal({ onClose, onCreated }) {
   );
 }
 
-function ChallengeCard({ ch, onAction }) {
+// ── Join Confirm Modal (2-step) ───────────────────────────────────────────────
+function JoinConfirmModal({ ch, onClose, onConfirmed }) {
+  const [step, setStep] = useState(1);
+  const [committed, setCommitted] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState("");
+  const style = getCatStyle(ch.category);
+
+  async function handleConfirm() {
+    setJoining(true);
+    setError("");
+    try {
+      await joinChallenge(ch.id);
+      onConfirmed();
+      onClose();
+    } catch (e) {
+      setError(e?.response?.data?.detail || "참가에 실패했어요. 다시 시도해 주세요.");
+      setJoining(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+      <div
+        className="relative w-full max-w-md rounded-[1.85rem] bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* step indicator */}
+        <div className="flex">
+          {[1, 2].map((s) => (
+            <div
+              key={s}
+              className={`h-1 flex-1 transition-all duration-300 ${s <= step ? "bg-teal-500" : "bg-slate-100"}`}
+            />
+          ))}
+        </div>
+
+        <div className="p-6 space-y-5">
+          {step === 1 ? (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className={`inline-block mb-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${style.badge}`}>
+                    {CATEGORIES.find((c) => c.key === ch.category)?.label || ch.category}
+                  </span>
+                  <h2 className="text-xl font-extrabold text-slate-800 leading-snug">{ch.title}</h2>
+                </div>
+                <button onClick={onClose} className="mt-1 p-2 rounded-full hover:bg-slate-100 transition">
+                  <X size={16} className="text-slate-400" />
+                </button>
+              </div>
+
+              {ch.description && (
+                <p className="text-sm text-slate-600 leading-relaxed">{ch.description}</p>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-center">
+                  <div className="text-2xl font-black text-teal-600">{ch.duration_days}일</div>
+                  <div className="text-xs text-slate-500 mt-0.5">도전 기간</div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-center">
+                  <div className="text-2xl font-black text-teal-600">{ch.participant_count.toLocaleString()}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">명 참여 중</div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-400 text-center">매일 체크인으로 {ch.duration_days}일 연속 달성을 목표로 합니다.</p>
+
+              <div className="flex gap-3">
+                <button onClick={onClose} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50">
+                  취소
+                </button>
+                <button
+                  onClick={() => setStep(2)}
+                  className="flex-1 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 py-3 text-sm font-bold text-white hover:from-teal-600 hover:to-emerald-600"
+                >
+                  다음 →
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center pt-2">
+                <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-full bg-teal-50">
+                  <CheckCircle2 size={28} className="text-teal-500" />
+                </div>
+                <h2 className="text-lg font-extrabold text-slate-800">참가 전 다짐</h2>
+                <p className="mt-1 text-sm text-slate-500">아래 항목에 동의하고 챌린지에 참가하세요.</p>
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:border-teal-300 transition">
+                <input
+                  type="checkbox"
+                  checked={committed}
+                  onChange={(e) => setCommitted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded accent-teal-500"
+                />
+                <span className="text-sm text-slate-700 leading-relaxed">
+                  <strong className="text-teal-700">{ch.duration_days}일</strong> 동안 매일 체크인하며 꾸준히 참여하겠습니다.
+                </span>
+              </label>
+
+              {error && <p className="text-xs text-red-500 text-center font-medium">{error}</p>}
+
+              <div className="flex gap-3">
+                <button onClick={() => setStep(1)} className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50">
+                  ← 이전
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={!committed || joining}
+                  className="flex-1 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 py-3 text-sm font-bold text-white hover:from-teal-600 hover:to-emerald-600 disabled:opacity-50"
+                >
+                  {joining ? "참가 중..." : "참가 확정하기 🎉"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChallengeCard({ ch, onAction, onJoinRequest }) {
   const [actioning, setActioning] = useState(false);
   const [toast, setToast] = useState(null);
   const style = getCatStyle(ch.category);
@@ -186,15 +312,8 @@ function ChallengeCard({ ch, onAction }) {
     setTimeout(() => setToast(null), 3000);
   }
 
-  async function handleJoin() {
-    setActioning(true);
-    try {
-      await joinChallenge(ch.id);
-      showToast("챌린지에 참가했어요! 🎉");
-      onAction();
-    } catch (e) {
-      showToast(e?.response?.data?.detail || "참가에 실패했어요.", false);
-    } finally { setActioning(false); }
+  function handleJoin() {
+    onJoinRequest(ch);
   }
 
   async function handleLeave() {
@@ -319,6 +438,7 @@ export default function ChallengesPage() {
   const [category, setCategory] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [tab, setTab] = useState("all"); // "all" | "mine"
+  const [joinTarget, setJoinTarget] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -461,7 +581,7 @@ export default function ChallengesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {displayed.map((ch) => (
-            <ChallengeCard key={ch.id} ch={ch} onAction={load} />
+            <ChallengeCard key={ch.id} ch={ch} onAction={load} onJoinRequest={setJoinTarget} />
           ))}
         </div>
       )}
@@ -492,6 +612,14 @@ export default function ChallengesPage() {
         <CreateChallengeModal
           onClose={() => setShowCreate(false)}
           onCreated={(newCh) => setChallenges((prev) => [newCh, ...prev])}
+        />
+      )}
+
+      {joinTarget && (
+        <JoinConfirmModal
+          ch={joinTarget}
+          onClose={() => setJoinTarget(null)}
+          onConfirmed={() => { setJoinTarget(null); load(); }}
         />
       )}
     </div>
