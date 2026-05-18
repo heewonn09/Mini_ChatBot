@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     app_env: str = "development"
     log_level: str = "INFO"
 
+    # SMTP (비밀번호 찾기 이메일 발송)
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+
+    # 프론트엔드 URL (비밀번호 재설정 링크 생성용)
+    frontend_url: str = "http://localhost:5173"
+
     @model_validator(mode="after")
     def validate_secrets(self) -> "Settings":
         if self.app_env == "production":

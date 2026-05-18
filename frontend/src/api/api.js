@@ -490,6 +490,21 @@ export async function fetchPublicProfile(targetId) {
   return data;
 }
 
+// ── Password Reset ────────────────────────────────────────────────────────────
+export async function requestPasswordReset(email) {
+  const { data } = await withErrorLogging("requestPasswordReset", () =>
+    api.post("/auth/forgot-password", { email })
+  );
+  return data;
+}
+
+export async function confirmPasswordReset(token, newPassword) {
+  const { data } = await withErrorLogging("confirmPasswordReset", () =>
+    api.post("/auth/reset-password", { token, new_password: newPassword })
+  );
+  return data;
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 export async function exportBehaviors(userId, format = "csv") {
   const response = await withErrorLogging("exportBehaviors", () =>

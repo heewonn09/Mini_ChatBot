@@ -101,5 +101,18 @@ class RedisStore:
         count = self.incr_with_ttl(key, window)
         return count <= limit
 
+    # ------------------------------------------------------------------
+    # Password reset tokens
+    # ------------------------------------------------------------------
+    def set_reset_token(self, token: str, email: str, ttl: int = 3600) -> None:
+        self.set_json(f"reset:{token}", {"email": email}, ex_seconds=ttl)
+
+    def get_reset_email(self, token: str) -> str | None:
+        data = self.get_json(f"reset:{token}")
+        return data["email"] if data else None
+
+    def delete_reset_token(self, token: str) -> None:
+        self.delete(f"reset:{token}")
+
 
 redis_store = RedisStore()

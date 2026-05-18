@@ -1,16 +1,29 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 
-from backend.auth import ALGORITHM, create_access_token, create_refresh_token, get_current_user
+from backend.auth import ALGORITHM, create_access_token, create_refresh_token, get_current_user, hash_password
 from backend.config import get_settings
 from backend.database import get_db
 from backend.models.behavior import User
 from backend.redis_client import redis_store
 from backend.schemas.behavior import RefreshRequest, RefreshResponse, TokenResponse, UserCreate, UserLogin
+from backend.services.email_service import send_password_reset_email
 from backend.services.user_service import UserService
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=100)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=10)
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 def _enforce_rate_limit(request: Request):
@@ -91,3 +104,41 @@ def me(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "created_at": current_user.created_at,
     }
+
+
+@router.post("/forgot-password", status_code=200)
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    settings = get_settings()
+    user = db.query(User).filter(User.email == payload.email).first()
+    # 이메일 존재 여부를 노출하지 않기 위해 항상 같은 응답 반환
+    if user:
+        token = secrets.token_urlsafe(32)
+        redis_store.set_reset_token(token, user.email, ttl=3600)
+        reset_url = f"{settings.frontend_url}/auth?token={token}"
+        send_password_reset_email(
+            to_email=user.email,
+            reset_url=reset_url,
+            smtp_host=settings.smtp_host,
+            smtp_port=settings.smtp_port,
+            smtp_user=settings.smtp_user,
+            smtp_password=settings.smtp_password,
+            smtp_from=settings.smtp_from,
+        )
+    return {"message": "입력한 이메일로 재설정 링크를 보냈습니다. 받은 편지함을 확인해주세요."}
+
+
+@router.post("/reset-password", status_code=200)
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    email = redis_store.get_reset_email(payload.token)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않거나 만료된 링크입니다. 비밀번호 찾기를 다시 시도해주세요.",
+        )
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사용자를 찾을 수 없습니다.")
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    redis_store.delete_reset_token(payload.token)
+    return {"message": "비밀번호가 변경됐습니다. 새 비밀번호로 로그인해주세요."}
