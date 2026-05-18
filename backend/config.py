@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Google Gemini API (required in production, optional in dev)
     google_api_key: str = ""
 
+    # 추가 허용 오리진 (쉼표 구분, 예: https://my-app.vercel.app)
+    allowed_origins: str = ""
+
     # App Settings
     app_name: str = "Behavior Pattern Analysis Chatbot"
     app_env: str = "development"

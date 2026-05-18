@@ -40,14 +40,18 @@ app = FastAPI(
 
 # ── Middleware (order matters: first added = outermost) ──────────────────────
 app.add_middleware(RequestLoggingMiddleware)
+_DEV_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
+_EXTRA_ORIGINS = [o.strip() for o in (settings.allowed_origins or "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=_DEV_ORIGINS + _EXTRA_ORIGINS,
+    allow_origin_regex=r"https://.*\.(vercel\.app|onrender\.com)",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

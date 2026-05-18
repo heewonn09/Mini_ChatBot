@@ -32,6 +32,18 @@ def _call_gemini(api_key: str, prompt: str, temperature: float = 0.7, max_retrie
             with urllib.request.urlopen(req, timeout=30) as resp:
                 result = json.loads(resp.read())
             return result["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except urllib.error.HTTPError as exc:
+            last_exc = exc
+            if exc.code == 429:
+                # Rate limit — wait longer before retry
+                wait = 15 * (attempt + 1)
+                logger.warning("Gemini rate limited (429), waiting %ds (attempt %d/%d)", wait, attempt + 1, max_retries)
+                time.sleep(wait)
+            elif exc.code >= 500:
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+            else:
+                raise
         except Exception as exc:
             last_exc = exc
             if attempt < max_retries - 1:
@@ -141,6 +153,12 @@ class AIFeedbackService:
 
         try:
             return _call_gemini(self.api_key, prompt, temperature=0.8)
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                logger.warning("Gemini chat rate limited: %s", e)
+                return "AI 응답 한도에 도달했습니다. 1~2분 후 다시 시도해주세요."
+            logger.error("Gemini chat HTTP error: %s %s", e.code, e)
+            return "일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요."
         except Exception as e:
             logger.error("Gemini chat failed: %s", e)
             return "일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요."

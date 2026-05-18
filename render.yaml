@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: mindflow-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./mini_chatbot.db
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: GOOGLE_API_KEY
+        sync: false          # Render 대시보드에서 직접 입력
+      - key: JWT_SECRET_KEY
+        generateValue: true  # Render가 자동 생성
+      - key: ALLOWED_ORIGINS
+        sync: false          # Vercel URL 확인 후 입력 (예: https://mindflow.vercel.app)
+      - key: REDIS_URL
+        value: ""            # 없으면 인메모리 폴백 사용
