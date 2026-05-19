@@ -107,12 +107,20 @@ def _challenge_to_out(ch: Challenge, current_user_id: int) -> ChallengeOut:
 @router.get("/posts", response_model=list[PostOut])
 def list_posts(
     category: Optional[str] = Query(None),
+    following: bool = Query(False),
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     q = db.query(Post).filter(Post.is_public == True)
+    if following:
+        followed_ids = (
+            db.query(UserFollow.following_id)
+            .filter(UserFollow.follower_id == current_user.id)
+            .subquery()
+        )
+        q = q.filter(Post.user_id.in_(followed_ids))
     if category:
         q = q.filter(Post.category == category)
     posts = q.order_by(Post.created_at.desc()).offset(offset).limit(limit).all()

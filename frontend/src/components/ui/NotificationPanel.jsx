@@ -1,12 +1,27 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, CheckCheck, Flame, Target, Trophy, X } from "lucide-react";
+import { Bell, CheckCheck, Flame, Target, Trophy, UserPlus, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "../../api/api";
+
+function _relTime(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return "방금 전";
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+  return `${Math.floor(diff / 86400)}일 전`;
+}
 
 const TYPE_ICON = {
   streak_alert: Flame,
   achievement: Trophy,
   challenge_reminder: Target,
+  follow: UserPlus,
+};
+
+const TYPE_DEST = {
+  challenge_reminder: "/challenges",
+  follow: "/community",
+  achievement: "/profile",
 };
 
 function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
@@ -50,7 +65,7 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
       setItems((prev) => prev.map((n) => n.id === notif.id ? { ...n, is_read: true } : n));
       onUnreadChange?.(Math.max(0, items.filter((n) => !n.is_read).length - 1));
     }
-    const dest = notif.type === "challenge_reminder" ? "/challenges" : "/dashboard";
+    const dest = TYPE_DEST[notif.type] ?? "/dashboard";
     onClose();
     navigate(dest);
   }
@@ -100,6 +115,7 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
           )}
           {!loading && items.map((notif) => {
             const Icon = TYPE_ICON[notif.type] ?? Bell;
+            const ago = notif.created_at ? _relTime(notif.created_at) : null;
             return (
               <button
                 key={notif.id}
@@ -117,6 +133,7 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
                   {notif.body && (
                     <p className="text-xs text-[color:var(--ink-soft)] mt-0.5 line-clamp-2">{notif.body}</p>
                   )}
+                  {ago && <p className="text-[11px] text-[color:var(--ink-soft)] mt-1 opacity-70">{ago}</p>}
                 </div>
                 {!notif.is_read && (
                   <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#0f766e]" />

@@ -263,6 +263,7 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");
+  const [feedTab, setFeedTab] = useState("all"); // "all" | "following"
   const [showCreate, setShowCreate] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
   const [followedUsers, setFollowedUsers] = useState(new Set());
@@ -293,30 +294,36 @@ export default function CommunityPage() {
     }
   }, [followedUsers, showToast]);
 
-  const load = async (cat) => {
+  const buildParams = useCallback((cat, tab) => {
+    const params = {};
+    if (cat !== "all") params.category = cat;
+    if (tab === "following") params.following = true;
+    return params;
+  }, []);
+
+  const load = useCallback(async (cat, tab) => {
     setLoading(true);
     setHasNewPosts(false);
     try {
-      const params = cat !== "all" ? { category: cat } : {};
-      const data = await fetchPosts(params);
+      const data = await fetchPosts(buildParams(cat, tab));
       setPosts(data);
       if (data.length > 0) latestIdRef.current = data[0].id;
     } catch (e) {
       showToast(getErrorMessage(e, "불러오지 못했습니다."), "error");
     } finally { setLoading(false); }
-  };
+  }, [buildParams, showToast]);
 
   const pollForNew = useCallback(async () => {
+    if (feedTab === "following") return; // polling only for all-feed
     try {
-      const params = category !== "all" ? { category } : {};
-      const data = await fetchPosts(params);
+      const data = await fetchPosts(buildParams(category, "all"));
       if (data.length > 0 && latestIdRef.current !== null && data[0].id > latestIdRef.current) {
         setHasNewPosts(true);
       }
     } catch { /* ignore poll errors */ }
-  }, [category]);
+  }, [category, feedTab, buildParams]);
 
-  useEffect(() => { load(category); }, [category]);
+  useEffect(() => { load(category, feedTab); }, [category, feedTab]);
 
   useEffect(() => {
     const id = setInterval(pollForNew, 30000);
@@ -329,6 +336,11 @@ export default function CommunityPage() {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       showToast("게시글을 삭제했어요.", "info");
     } catch (e) { showToast(getErrorMessage(e, "삭제에 실패했습니다."), "error"); }
+  };
+
+  const handleFeedTab = (tab) => {
+    setFeedTab(tab);
+    setCategory("all");
   };
 
   const handleCreated = (post) => {
@@ -370,27 +382,49 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {/* category filter */}
-      <div className="mb-6 flex gap-2 flex-wrap">
-        {CATEGORIES.map((c) => (
-          <button key={c.key} onClick={() => setCategory(c.key)}
-            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition ${
-              category === c.key
-                ? "bg-violet-500 text-white shadow"
-                : "bg-white text-slate-500 border border-slate-200 hover:border-violet-300 hover:text-violet-600"
+      {/* feed tab */}
+      <div className="mb-4 flex gap-2">
+        {[
+          { key: "all", label: "전체 피드" },
+          { key: "following", label: "팔로잉" },
+        ].map((t) => (
+          <button
+            key={t.key}
+            onClick={() => handleFeedTab(t.key)}
+            className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+              feedTab === t.key
+                ? "bg-violet-600 text-white shadow"
+                : "bg-white border border-slate-200 text-slate-600 hover:border-violet-300 hover:text-violet-600"
             }`}
           >
-            <span>{c.emoji}</span><span>{c.label}</span>
+            {t.label}
           </button>
         ))}
       </div>
+
+      {/* category filter — 팔로잉 탭에서는 숨김 */}
+      {feedTab === "all" && (
+        <div className="mb-6 flex gap-2 flex-wrap">
+          {CATEGORIES.map((c) => (
+            <button key={c.key} onClick={() => setCategory(c.key)}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition ${
+                category === c.key
+                  ? "bg-violet-500 text-white shadow"
+                  : "bg-white text-slate-500 border border-slate-200 hover:border-violet-300 hover:text-violet-600"
+              }`}
+            >
+              <span>{c.emoji}</span><span>{c.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* new posts banner */}
       {hasNewPosts && (
         <div className="mb-2 flex items-center justify-between rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
           <p className="text-sm font-semibold text-violet-700">새 게시글이 올라왔어요!</p>
           <button
-            onClick={() => load(category)}
+            onClick={() => load(category, feedTab)}
             className="rounded-full bg-violet-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-violet-600"
           >
             새로고침
@@ -406,13 +440,27 @@ export default function CommunityPage() {
       ) : posts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400">
           <Sparkles size={40} className="mb-4 text-violet-300" />
-          <p className="text-base font-bold">아직 게시글이 없어요</p>
-          <p className="text-sm mt-1">첫 번째 이야기를 시작해보세요!</p>
-          <button onClick={() => setShowCreate(true)}
-            className="mt-5 flex items-center gap-2 rounded-2xl bg-violet-500 px-5 py-3 text-sm font-bold text-white hover:bg-violet-600"
-          >
-            <Plus size={16} />글 쓰기
-          </button>
+          {feedTab === "following" ? (
+            <>
+              <p className="text-base font-bold">팔로잉한 사람의 글이 없어요</p>
+              <p className="text-sm mt-1">커뮤니티에서 관심 있는 사람을 팔로우해 보세요!</p>
+              <button onClick={() => handleFeedTab("all")}
+                className="mt-5 rounded-2xl bg-violet-100 px-5 py-3 text-sm font-bold text-violet-700 hover:bg-violet-200 transition"
+              >
+                전체 피드 보기
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-base font-bold">아직 게시글이 없어요</p>
+              <p className="text-sm mt-1">첫 번째 이야기를 시작해보세요!</p>
+              <button onClick={() => setShowCreate(true)}
+                className="mt-5 flex items-center gap-2 rounded-2xl bg-violet-500 px-5 py-3 text-sm font-bold text-white hover:bg-violet-600"
+              >
+                <Plus size={16} />글 쓰기
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
