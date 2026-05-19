@@ -19,7 +19,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
-import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences, fetchFollowStatus, followUser, unfollowUser, fetchFollowers, fetchFollowing, exportBehaviors } from "../api/api";
+import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences, updateProfile, fetchFollowStatus, followUser, unfollowUser, fetchFollowers, fetchFollowing, exportBehaviors } from "../api/api";
 import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import PageHeader from "../components/ui/PageHeader";
@@ -103,6 +103,10 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [followModal, setFollowModal] = useState(null); // 'followers' | 'following' | null
   const [exporting, setExporting] = useState(false);
+  const [usernameEdit, setUsernameEdit] = useState(false);
+  const [usernameValue, setUsernameValue] = useState("");
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState("");
 
   async function handleExport(format) {
     if (!user?.id || exporting) return;
@@ -171,6 +175,31 @@ function ProfilePage() {
     } finally {
       setSaving(false);
       setEditOpen(false);
+    }
+  }
+
+  function openUsernameEdit() {
+    setUsernameValue(user?.username ?? "");
+    setUsernameError("");
+    setUsernameEdit(true);
+  }
+
+  async function handleSaveUsername() {
+    if (!user?.id) return;
+    const trimmed = usernameValue.trim();
+    if (!trimmed) { setUsernameError("이름을 입력해주세요."); return; }
+    if (trimmed === user.username) { setUsernameEdit(false); return; }
+    setUsernameSaving(true);
+    setUsernameError("");
+    try {
+      await updateProfile(user.id, { username: trimmed });
+      queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+      user.username = trimmed; // optimistic local update
+      setUsernameEdit(false);
+    } catch (e) {
+      setUsernameError(getErrorMessage(e, "저장에 실패했습니다."));
+    } finally {
+      setUsernameSaving(false);
     }
   }
 
@@ -278,6 +307,36 @@ function ProfilePage() {
         </div>
       </div>
 
+      {/* 닉네임 편집 모달 */}
+      {usernameEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setUsernameEdit(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+          <div
+            className="relative w-full max-w-sm rounded-[1.85rem] bg-white p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-slate-800">닉네임 변경</h2>
+            <input
+              type="text"
+              value={usernameValue}
+              onChange={(e) => setUsernameValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSaveUsername(); if (e.key === "Escape") setUsernameEdit(false); }}
+              maxLength={50}
+              autoFocus
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              placeholder="새 닉네임 입력"
+            />
+            {usernameError && <p className="text-xs text-red-500">{usernameError}</p>}
+            <div className="flex gap-3">
+              <button onClick={() => setUsernameEdit(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50">취소</button>
+              <button onClick={handleSaveUsername} disabled={usernameSaving} className="flex-1 rounded-xl bg-[#0f766e] py-2.5 text-sm font-bold text-white hover:bg-[#0b5c56] disabled:opacity-60">
+                {usernameSaving ? "저장 중..." : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Modal
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
@@ -288,9 +347,18 @@ function ProfilePage() {
         <div className="space-y-4">
           <div>
             <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">사용자명</p>
-            <p className="rounded-[0.6rem] bg-black/5 px-3 py-2 text-sm text-[color:var(--ink-soft)]">
-              {user?.username}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="flex-1 rounded-[0.6rem] bg-black/5 px-3 py-2 text-sm text-[color:var(--ink-soft)]">
+                {user?.username}
+              </p>
+              <button
+                type="button"
+                onClick={() => { setEditOpen(false); openUsernameEdit(); }}
+                className="rounded-lg border border-[rgba(24,50,53,0.15)] px-3 py-1.5 text-xs font-semibold text-[#0f766e] hover:bg-[rgba(15,118,110,0.08)] transition"
+              >
+                변경
+              </button>
+            </div>
           </div>
           <div>
             <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">언어</p>

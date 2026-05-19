@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from fastapi.responses import Response
 from backend.auth import require_same_user
 from sqlalchemy.orm import Session
@@ -470,6 +471,28 @@ def get_preferences(
         theme=prefs.theme,
         notifications_enabled=prefs.notifications_enabled,
     )
+
+
+class UpdateProfileRequest(BaseModel):
+    username: Optional[str] = Field(None, min_length=1, max_length=50)
+
+
+@router.patch("/{user_id}/profile")
+def update_profile(
+    user_id: int,
+    payload: UpdateProfileRequest,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    user = _get_user(user_id, db)
+    if payload.username is not None:
+        username = payload.username.strip()
+        if not username:
+            raise HTTPException(status_code=422, detail="사용자 이름을 입력해주세요.")
+        user.username = username
+        db.commit()
+        db.refresh(user)
+    return {"id": user.id, "username": user.username, "email": user.email}
 
 
 @router.patch("/{user_id}/preferences", response_model=UserPreferencesResponse)

@@ -347,6 +347,13 @@ export async function updatePreferences(userId, payload) {
   return data;
 }
 
+export async function updateProfile(userId, payload) {
+  const { data } = await withErrorLogging("updateProfile", () =>
+    api.patch(`/ui/${userId}/profile`, payload)
+  );
+  return data;
+}
+
 export async function fetchChatHistoryBySession(userId, sessionId, limit = 50, offset = 0) {
   const { data } = await withErrorLogging("fetchChatHistoryBySession", () =>
     api.get(`/ui/${userId}/chat/history`, { params: { session_id: sessionId, limit, offset } })
