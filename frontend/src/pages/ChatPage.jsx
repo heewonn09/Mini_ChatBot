@@ -49,7 +49,7 @@ function ChatPage() {
   const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 640);
   const bottomRef = useRef(null);
   const abortRef = useRef(false);
   const topSentinelRef = useRef(null);
@@ -268,7 +268,10 @@ function ChatPage() {
   };
 
   return (
-    <div className="-mx-4 -mt-4 flex sm:-mx-6 lg:-mx-8" style={{ height: "calc(100vh - 7rem)" }}>
+    <div
+      className="-mx-4 -mt-4 flex h-[calc(100vh-10rem)] sm:-mx-6 md:h-[calc(100vh-7rem)] lg:-mx-8"
+      style={{ marginBottom: "calc(-9rem - var(--safe-bottom, 0px))" }}
+    >
       {/* 모바일 드로어 사이드바 (sm 미만) */}
       <ChatSidebarMobile
         isOpen={sidebarOpen}
@@ -396,7 +399,7 @@ function ChatPage() {
             disabled={sending}
             placeholder={t("placeholder")}
           />
-          <p className="mt-1.5 text-center text-[0.72rem] text-[color:var(--ink-soft)]">
+          <p className="mt-1.5 hidden text-center text-[0.72rem] text-[color:var(--ink-soft)] sm:block">
             Shift + Enter로 줄 바꿈 · Enter로 전송
           </p>
         </div>
