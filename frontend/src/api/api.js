@@ -181,6 +181,22 @@ export async function logIn(payload) {
   return { user: data.user, isNewUser: data.is_new_user ?? false };
 }
 
+export async function kakaoOAuthLogin(code, redirectUri) {
+  const { data } = await withErrorLogging("kakaoOAuthLogin", () =>
+    api.post("/auth/oauth/kakao", { code, redirect_uri: redirectUri })
+  );
+  setStoredToken(data.access_token);
+  return { user: data.user, isNewUser: data.is_new_user ?? false };
+}
+
+export async function googleOAuthLogin(code, redirectUri) {
+  const { data } = await withErrorLogging("googleOAuthLogin", () =>
+    api.post("/auth/oauth/google", { code, redirect_uri: redirectUri })
+  );
+  setStoredToken(data.access_token);
+  return { user: data.user, isNewUser: data.is_new_user ?? false };
+}
+
 export async function fetchCurrentUser() {
   const { data } = await withErrorLogging("fetchCurrentUser", () => api.get("/auth/me"));
   return data;

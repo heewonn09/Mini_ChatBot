@@ -1,3 +1,5 @@
+import secrets
+
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -48,3 +50,17 @@ class UserService:
                 detail="이메일 또는 비밀번호가 올바르지 않습니다.",
             )
         return user
+
+    def get_or_create_oauth_user(self, provider: str, email: str, username: str) -> tuple:
+        user = self.db.query(User).filter(User.email == email).first()
+        if user:
+            return user, False
+        user = User(
+            username=username,
+            email=email,
+            password_hash=f"oauth:{provider}:{secrets.token_urlsafe(16)}",
+        )
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user, True

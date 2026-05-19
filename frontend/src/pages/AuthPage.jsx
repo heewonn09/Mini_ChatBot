@@ -1,7 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { logIn, signUp, getErrorMessage, requestPasswordReset, confirmPasswordReset } from "../api/api";
+import { logIn, signUp, getErrorMessage, requestPasswordReset, confirmPasswordReset, kakaoOAuthLogin, googleOAuthLogin } from "../api/api";
+
+const KAKAO_CLIENT_ID = import.meta.env.VITE_KAKAO_CLIENT_ID ?? "";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
+const OAUTH_REDIRECT = typeof window !== "undefined" ? window.location.origin + "/auth" : "";
+
+function KakaoIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path fillRule="evenodd" clipRule="evenodd" d="M9 1C4.582 1 1 3.895 1 7.455c0 2.284 1.52 4.286 3.816 5.438L3.9 16.06c-.07.252.21.455.434.308L8.1 13.85c.3.022.6.033.9.033 4.418 0 8-2.895 8-6.428C17 3.895 13.418 1 9 1z" fill="#191919"/>
+    </svg>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+      <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 6.294C4.672 4.167 6.656 3.58 9 3.58z" fill="#EA4335"/>
+    </svg>
+  );
+}
 
 function PasswordField({ placeholder, value, onChange, required, minLength }) {
   const [show, setShow] = useState(false);
@@ -47,9 +70,30 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [welcome, setWelcome] = useState("");
 
+  const handleOAuthCallback = useCallback(async (provider, code) => {
+    setLoading(true);
+    setError("");
+    try {
+      const redirectUri = OAUTH_REDIRECT;
+      const result = provider === "kakao"
+        ? await kakaoOAuthLogin(code, redirectUri)
+        : await googleOAuthLogin(code, redirectUri);
+      setWelcome(result.isNewUser ? WELCOME_NEW : WELCOME_BACK);
+      setTimeout(() => { navigate("/dashboard", { replace: true }); window.location.reload(); }, 1800);
+    } catch (err) {
+      setError(getErrorMessage(err, "소셜 로그인에 실패했습니다. 다시 시도해주세요."));
+      setLoading(false);
+    }
+  }, [navigate]);
+
   useEffect(() => {
-    if (resetToken) setMode("reset");
-  }, [resetToken]);
+    if (resetToken) { setMode("reset"); return; }
+    const oauthCode = searchParams.get("code");
+    const oauthState = searchParams.get("state");
+    if (oauthCode && (oauthState === "kakao" || oauthState === "google")) {
+      handleOAuthCallback(oauthState, oauthCode);
+    }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchMode = (m) => { setMode(m); setError(""); setSuccess(""); };
 
@@ -182,6 +226,47 @@ function AuthPage() {
             </button>
           )}
         </form>
+
+        {/* ─── 소셜 로그인 (로그인/회원가입 모드에서만 표시) ─── */}
+        {(mode === "login" || mode === "signup") && (
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-[rgba(24,50,53,0.1)]" />
+              <span className="text-xs text-[color:var(--ink-soft)]">또는 소셜 계정으로</span>
+              <div className="h-px flex-1 bg-[rgba(24,50,53,0.1)]" />
+            </div>
+
+            {/* 카카오 */}
+            <button
+              type="button"
+              disabled={!KAKAO_CLIENT_ID || loading}
+              onClick={() => {
+                if (!KAKAO_CLIENT_ID) { setError("카카오 클라이언트 ID가 설정되지 않았습니다."); return; }
+                const params = new URLSearchParams({ client_id: KAKAO_CLIENT_ID, redirect_uri: OAUTH_REDIRECT, response_type: "code", state: "kakao" });
+                window.location.href = `https://kauth.kakao.com/oauth/authorize?${params}`;
+              }}
+              className="flex w-full items-center justify-center gap-3 rounded-[1rem] bg-[#FEE500] px-4 py-3 text-sm font-bold text-[#191919] transition hover:brightness-95 disabled:opacity-40"
+            >
+              <KakaoIcon />
+              카카오로 시작하기
+            </button>
+
+            {/* 구글 */}
+            <button
+              type="button"
+              disabled={!GOOGLE_CLIENT_ID || loading}
+              onClick={() => {
+                if (!GOOGLE_CLIENT_ID) { setError("구글 클라이언트 ID가 설정되지 않았습니다."); return; }
+                const params = new URLSearchParams({ client_id: GOOGLE_CLIENT_ID, redirect_uri: OAUTH_REDIRECT, response_type: "code", scope: "openid email profile", state: "google" });
+                window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+              }}
+              className="flex w-full items-center justify-center gap-3 rounded-[1rem] border border-[rgba(24,50,53,0.12)] bg-white px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-40"
+            >
+              <GoogleIcon />
+              구글로 시작하기
+            </button>
+          </div>
+        )}
       </section>
     </main>
   );

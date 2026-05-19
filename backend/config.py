@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     # 프론트엔드 URL (비밀번호 재설정 링크 생성용)
     frontend_url: str = "http://localhost:5173"
 
+    # OAuth (카카오 / 구글)
+    kakao_client_id: str = ""
+    kakao_client_secret: str = ""
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
     @model_validator(mode="after")
     def validate_secrets(self) -> "Settings":
         if self.app_env == "production":

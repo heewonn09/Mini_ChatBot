@@ -1,7 +1,10 @@
+import json
 import logging
 import secrets
+import urllib.parse
+import urllib.request
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
 logger = logging.getLogger(__name__)
 from pydantic import BaseModel, Field
@@ -135,6 +138,104 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
                 reset_url,
             )
     return {"message": "입력한 이메일로 재설정 링크를 보냈습니다. 받은 편지함을 확인해주세요."}
+
+
+def _http_post_form(url: str, data: dict) -> dict:
+    encoded = urllib.parse.urlencode(data).encode()
+    req = urllib.request.Request(url, data=encoded, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read())
+
+
+def _http_get_json(url: str, headers: dict) -> dict:
+    req = urllib.request.Request(url)
+    for k, v in headers.items():
+        req.add_header(k, v)
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read())
+
+
+@router.post("/oauth/kakao", response_model=TokenResponse)
+def kakao_oauth(
+    code: str = Body(...),
+    redirect_uri: str = Body(...),
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    if not settings.kakao_client_id:
+        raise HTTPException(status_code=501, detail="카카오 로그인이 아직 설정되지 않았습니다.")
+    try:
+        token_data = _http_post_form(
+            "https://kauth.kakao.com/oauth/token",
+            {
+                "grant_type": "authorization_code",
+                "client_id": settings.kakao_client_id,
+                "client_secret": settings.kakao_client_secret,
+                "code": code,
+                "redirect_uri": redirect_uri,
+            },
+        )
+        access_token = token_data["access_token"]
+        user_data = _http_get_json(
+            "https://kapi.kakao.com/v2/user/me",
+            {"Authorization": f"Bearer {access_token}"},
+        )
+        kakao_id = str(user_data["id"])
+        account = user_data.get("kakao_account", {})
+        email = account.get("email") or f"kakao_{kakao_id}@oauth.mindflow.app"
+        nickname = account.get("profile", {}).get("nickname") or f"유저{kakao_id[-4:]}"
+    except Exception as exc:
+        logger.error("Kakao OAuth error: %s", exc)
+        raise HTTPException(status_code=400, detail="카카오 인증에 실패했습니다.")
+
+    user, is_new = UserService(db).get_or_create_oauth_user("kakao", email, nickname)
+    return TokenResponse(
+        access_token=create_access_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id)),
+        user=user,
+        is_new_user=is_new,
+    )
+
+
+@router.post("/oauth/google", response_model=TokenResponse)
+def google_oauth(
+    code: str = Body(...),
+    redirect_uri: str = Body(...),
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    if not settings.google_client_id:
+        raise HTTPException(status_code=501, detail="구글 로그인이 아직 설정되지 않았습니다.")
+    try:
+        token_data = _http_post_form(
+            "https://oauth2.googleapis.com/token",
+            {
+                "grant_type": "authorization_code",
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "code": code,
+                "redirect_uri": redirect_uri,
+            },
+        )
+        access_token = token_data["access_token"]
+        user_data = _http_get_json(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            {"Authorization": f"Bearer {access_token}"},
+        )
+        email = user_data.get("email") or f"google_{user_data.get('sub','x')}@oauth.mindflow.app"
+        name = user_data.get("name") or user_data.get("given_name") or "구글유저"
+    except Exception as exc:
+        logger.error("Google OAuth error: %s", exc)
+        raise HTTPException(status_code=400, detail="구글 인증에 실패했습니다.")
+
+    user, is_new = UserService(db).get_or_create_oauth_user("google", email, name)
+    return TokenResponse(
+        access_token=create_access_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id)),
+        user=user,
+        is_new_user=is_new,
+    )
 
 
 @router.post("/reset-password", status_code=200)

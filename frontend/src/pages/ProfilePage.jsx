@@ -212,7 +212,7 @@ function ProfilePage() {
   const following = followStatus?.following ?? 0;
 
   return (
-    <section className="space-y-8">
+    <section className="min-w-0 space-y-6 overflow-x-hidden">
       <FollowListModal
         isOpen={followModal === "followers"}
         onClose={() => setFollowModal(null)}
@@ -226,20 +226,31 @@ function ProfilePage() {
         items={followingList}
       />
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeader
-          variant="profile"
-          profileIcon={User}
-          title={profile.display_name}
-          description={profile.summary_description}
-          meta={`가입일 ${memberSinceDate}`}
-        />
-        <div className="flex items-center gap-2">
-          {/* 팔로워/팔로잉 카운트 */}
+      {/* 프로필 헤더 — 모바일: 세로 스택 */}
+      <div className="space-y-3">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <PageHeader
+              variant="profile"
+              profileIcon={User}
+              title={profile.display_name}
+              description={profile.summary_description}
+              meta={`가입일 ${memberSinceDate}`}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={openEdit}
+            className="app-secondary-button shrink-0 self-start text-sm"
+          >
+            편집
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setFollowModal("followers")}
-            className="flex items-center gap-1.5 rounded-xl border border-[rgba(24,50,53,0.1)] bg-white/70 px-3 py-2 text-sm hover:bg-white/90 transition"
+            className="flex items-center gap-1.5 rounded-xl border border-[rgba(24,50,53,0.1)] bg-white/70 px-3 py-2 text-sm transition hover:bg-white/90"
           >
             <Users size={14} className="text-[#0f766e]" />
             <span className="font-bold text-[color:var(--ink)]">{followers}</span>
@@ -248,18 +259,11 @@ function ProfilePage() {
           <button
             type="button"
             onClick={() => setFollowModal("following")}
-            className="flex items-center gap-1.5 rounded-xl border border-[rgba(24,50,53,0.1)] bg-white/70 px-3 py-2 text-sm hover:bg-white/90 transition"
+            className="flex items-center gap-1.5 rounded-xl border border-[rgba(24,50,53,0.1)] bg-white/70 px-3 py-2 text-sm transition hover:bg-white/90"
           >
             <UserCheck size={14} className="text-[#0f766e]" />
             <span className="font-bold text-[color:var(--ink)]">{following}</span>
             <span className="text-[color:var(--ink-soft)]">팔로잉</span>
-          </button>
-          <button
-            type="button"
-            onClick={openEdit}
-            className="app-secondary-button shrink-0 text-sm"
-          >
-            편집
           </button>
         </div>
       </div>
@@ -323,14 +327,14 @@ function ProfilePage() {
         </div>
       ) : null}
 
-      <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
+      <Card className="app-panel-strong overflow-hidden p-5 sm:p-8">
         <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <p className="app-kicker">프로필 요약</p>
-            <h2 className="app-heading text-[2.3rem] leading-[1.02] text-[color:var(--ink)] sm:text-[2.9rem]">
+            <h2 className="app-heading break-keep text-[1.7rem] leading-[1.1] text-[color:var(--ink)] sm:text-[2.3rem] lg:text-[2.9rem]">
               {profile.summary_title || (streakStat?.value ? `${streakStat.value}만큼의 모멘텀이 보여요.` : "당신의 리듬이 점점 선명해지고 있어요.")}
             </h2>
-            <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">{profile.summary_description}</p>
+            <p className="max-w-xl break-keep text-[0.95rem] leading-7 text-[color:var(--ink-soft)] sm:text-[1.05rem] sm:leading-8">{profile.summary_description}</p>
 
             {topHabits.length ? (
               <div className="flex flex-wrap gap-3">
@@ -358,7 +362,7 @@ function ProfilePage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
         {stats.map((item) => {
           const ui = metricUiMap[item.icon] ?? metricUiMap.trend;
           const Icon = ui.Icon;
