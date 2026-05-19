@@ -75,7 +75,7 @@ def get_overview(
         return OverviewResponse(**_cached)
 
     user = _get_user(user_id, db)
-    logs = _get_logs(user_id, db, days=7, ascending=True)
+    logs = _get_logs(user_id, db, days=30, ascending=True)
 
     if not logs:
         _resp = OverviewResponse(
@@ -103,20 +103,23 @@ def get_overview(
             ],
             recent_activity=[],
         )
-        redis_store.set_json(_cache_key, _resp.model_dump(mode="json"))
+        redis_store.set_json(_cache_key, _resp.model_dump(mode="json"), ex_seconds=300)
         return _resp
 
+    # stat_cards / charts use 7-day subset; recent_activity uses full 30 days
+    _cutoff_7d = datetime.now() - timedelta(days=7)
+    logs_7d = [l for l in logs if (l.created_at.replace(tzinfo=None) if l.created_at.tzinfo else l.created_at) >= _cutoff_7d]
     analysis = PatternAnalysisService.analyze_behaviors(user_id=user_id, days=7, db=db)
-    tag_counter = Counter(log.tag or "기타" for log in logs)
+    tag_counter = Counter(log.tag or "기타" for log in logs_7d) or Counter(log.tag or "기타" for log in logs)
     most_tag, most_count = tag_counter.most_common(1)[0]
 
     _resp = OverviewResponse(
         welcome_name=_format_display_name(user.username),
-        stat_cards=DashboardService.build_stat_cards(logs, most_tag, most_count),
-        daily_timeline=DashboardService.build_timeline(logs),
+        stat_cards=DashboardService.build_stat_cards(logs_7d or logs, most_tag, most_count),
+        daily_timeline=DashboardService.build_timeline(logs_7d or logs),
         emotion_trends=DashboardService.build_weekday_trends(logs),
         habit_frequency=[HabitFrequencyItem(tag=tag, count=count) for tag, count in tag_counter.most_common(6)],
-        insights=DashboardService.build_analysis_insights(logs, analysis),
+        insights=DashboardService.build_analysis_insights(logs_7d or logs, analysis),
         recent_activity=[
             RecentActivityItem(
                 id=log.id,
@@ -125,10 +128,10 @@ def get_overview(
                 emotion=log.emotion,
                 created_at=log.created_at,
             )
-            for log in sorted(logs, key=lambda item: item.created_at, reverse=True)[:6]
+            for log in sorted(logs, key=lambda item: item.created_at, reverse=True)[:20]
         ],
     )
-    redis_store.set_json(_cache_key, _resp.model_dump(mode="json"))
+    redis_store.set_json(_cache_key, _resp.model_dump(mode="json"), ex_seconds=300)
     return _resp
 
 

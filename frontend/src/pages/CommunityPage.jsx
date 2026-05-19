@@ -6,7 +6,7 @@ import {
 import { useOutletContext } from "react-router-dom";
 import {
   createComment, createPost, deletePost, fetchComments,
-  fetchPosts, getErrorMessage, toggleLike,
+  fetchPosts, followUser, getErrorMessage, toggleLike, unfollowUser,
 } from "../api/api";
 import ToastContainer from "../components/ui/Toast";
 import { useToast } from "../hooks/useToast";
@@ -170,10 +170,12 @@ function CommentSection({ post, currentUserId }) {
 }
 
 // ── Post Card ─────────────────────────────────────────────────────────────────
-function PostCard({ post: initialPost, currentUserId, onDelete }) {
+function PostCard({ post: initialPost, currentUserId, onDelete, followedUsers, onFollowToggle }) {
   const [post, setPost] = useState(initialPost);
   const [showComments, setShowComments] = useState(false);
   const [liking, setLiking] = useState(false);
+  const isOwnPost = post.author.id === currentUserId;
+  const isFollowing = followedUsers?.has(post.author.id);
 
   const handleLike = async () => {
     if (liking) return;
@@ -202,7 +204,19 @@ function PostCard({ post: initialPost, currentUserId, onDelete }) {
             <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${CAT_COLOR[post.category] ?? CAT_COLOR.general}`}>
               {CAT_LABEL[post.category] ?? post.category}
             </span>
-            {post.author.id === currentUserId && (
+            {!isOwnPost && (
+              <button
+                onClick={() => onFollowToggle(post.author.id)}
+                className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+                  isFollowing
+                    ? "bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-400"
+                    : "bg-teal-50 text-teal-600 hover:bg-teal-100"
+                }`}
+              >
+                {isFollowing ? "팔로잉" : "+ 팔로우"}
+              </button>
+            )}
+            {isOwnPost && (
               <button onClick={() => onDelete(post.id)}
                 className="rounded-xl p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-400 transition"
               >
@@ -251,7 +265,33 @@ export default function CommunityPage() {
   const [category, setCategory] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
+  const [followedUsers, setFollowedUsers] = useState(new Set());
   const latestIdRef = useRef(null);
+
+  const handleFollowToggle = useCallback(async (targetUserId) => {
+    const isFollowing = followedUsers.has(targetUserId);
+    setFollowedUsers((prev) => {
+      const next = new Set(prev);
+      if (isFollowing) next.delete(targetUserId); else next.add(targetUserId);
+      return next;
+    });
+    try {
+      if (isFollowing) {
+        await unfollowUser(targetUserId);
+        showToast("팔로우를 취소했어요.", "info");
+      } else {
+        await followUser(targetUserId);
+        showToast("팔로우했어요! 🎉", "success");
+      }
+    } catch (e) {
+      setFollowedUsers((prev) => {
+        const next = new Set(prev);
+        if (isFollowing) next.add(targetUserId); else next.delete(targetUserId);
+        return next;
+      });
+      showToast(getErrorMessage(e, "팔로우에 실패했습니다."), "error");
+    }
+  }, [followedUsers, showToast]);
 
   const load = async (cat) => {
     setLoading(true);
@@ -377,7 +417,7 @@ export default function CommunityPage() {
       ) : (
         <div className="space-y-4">
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} currentUserId={user?.id} onDelete={handleDelete} />
+            <PostCard key={p.id} post={p} currentUserId={user?.id} onDelete={handleDelete} followedUsers={followedUsers} onFollowToggle={handleFollowToggle} />
           ))}
         </div>
       )}

@@ -46,6 +46,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_secrets(self) -> "Settings":
+        # Render provides `postgres://` but SQLAlchemy 1.4+ requires `postgresql://`
+        if self.database_url.startswith("postgres://"):
+            self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
         if self.app_env == "production":
             if not self.google_api_key:
                 raise ValueError("GOOGLE_API_KEY must be set in production")

@@ -1,3 +1,9 @@
+databases:
+  - name: mindflow-db
+    plan: free
+    databaseName: mindflow
+    user: mindflow
+
 services:
   - type: static
     name: Mini_ChatBot-1
@@ -17,7 +23,9 @@ services:
     plan: free
     envVars:
       - key: DATABASE_URL
-        value: sqlite:///./mini_chatbot.db
+        fromDatabase:
+          name: mindflow-db
+          property: connectionString
       - key: APP_ENV
         value: production
       - key: LOG_LEVEL
@@ -25,8 +33,28 @@ services:
       - key: GOOGLE_API_KEY
         sync: false          # Render 대시보드에서 직접 입력
       - key: JWT_SECRET_KEY
-        generateValue: true  # Render가 자동 생성
+        sync: false          # Render 대시보드에서 직접 입력 (고정 강력 비밀키)
       - key: ALLOWED_ORIGINS
-        sync: false          # Vercel URL 확인 후 입력 (예: https://mindflow.vercel.app)
+        sync: false          # 프론트엔드 URL (예: https://mindflow.onrender.com)
       - key: REDIS_URL
-        value: ""            # 없으면 인메모리 폴백 사용
+        sync: false          # Render Redis 서비스 URL (선택)
+      - key: FRONTEND_URL
+        sync: false          # 비밀번호 재설정 링크용 프론트엔드 URL
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: KAKAO_CLIENT_ID
+        sync: false
+      - key: KAKAO_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false

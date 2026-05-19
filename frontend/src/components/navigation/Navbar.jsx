@@ -83,7 +83,7 @@ function Navbar() {
           </nav>
 
           <div className="hidden items-center gap-2 lg:flex">
-            <button type="button" className="app-secondary-button px-3 py-2" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>{theme === "light" ? <Moon size={16} /> : <Sun size={16} />}</button>
+            <button type="button" className="app-secondary-button px-3 py-2" aria-label={theme === "light" ? "다크 모드로 전환" : "라이트 모드로 전환"} onClick={() => setTheme(theme === "light" ? "dark" : "light")}>{theme === "light" ? <Moon size={16} /> : <Sun size={16} />}</button>
 
             <button
               type="button"
@@ -102,6 +102,7 @@ function Navbar() {
             <button
               type="button"
               className="app-secondary-button px-3 py-2"
+              aria-label="로그아웃"
               onClick={async () => {
                 await logOut();
                 navigate("/auth", { replace: true });

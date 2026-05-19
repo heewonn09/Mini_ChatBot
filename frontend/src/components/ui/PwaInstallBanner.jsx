@@ -6,7 +6,7 @@ export default function PwaInstallBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem("pwa-banner-dismissed")) {
+    if (localStorage.getItem("pwa-banner-dismissed")) {
       setDismissed(true);
       return;
     }
@@ -26,7 +26,7 @@ export default function PwaInstallBanner() {
   }
 
   function handleDismiss() {
-    sessionStorage.setItem("pwa-banner-dismissed", "1");
+    localStorage.setItem("pwa-banner-dismissed", "1");
     setDismissed(true);
   }
 

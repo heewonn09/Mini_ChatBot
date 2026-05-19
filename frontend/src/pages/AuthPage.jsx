@@ -79,7 +79,7 @@ function AuthPage() {
         ? await kakaoOAuthLogin(code, redirectUri)
         : await googleOAuthLogin(code, redirectUri);
       setWelcome(result.isNewUser ? WELCOME_NEW : WELCOME_BACK);
-      setTimeout(() => { navigate("/dashboard", { replace: true }); window.location.reload(); }, 1800);
+      setTimeout(() => navigate("/dashboard", { replace: true }), 1800);
     } catch (err) {
       setError(getErrorMessage(err, "소셜 로그인에 실패했습니다. 다시 시도해주세요."));
       setLoading(false);
@@ -107,12 +107,12 @@ function AuthPage() {
       if (mode === "signup") {
         const result = await signUp({ username: form.username, email: form.email, password: form.password });
         setWelcome(result.isNewUser ? WELCOME_NEW : WELCOME_BACK);
-        setTimeout(() => { navigate("/dashboard", { replace: true }); window.location.reload(); }, 1800);
+        setTimeout(() => navigate("/dashboard", { replace: true }), 1800);
 
       } else if (mode === "login") {
         const result = await logIn({ username_or_email: form.username_or_email, password: form.password });
         setWelcome(result.isNewUser ? WELCOME_NEW : WELCOME_BACK);
-        setTimeout(() => { navigate("/dashboard", { replace: true }); window.location.reload(); }, 1800);
+        setTimeout(() => navigate("/dashboard", { replace: true }), 1800);
 
       } else if (mode === "forgot") {
         const res = await requestPasswordReset(form.forgotEmail);

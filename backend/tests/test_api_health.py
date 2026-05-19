@@ -44,7 +44,7 @@ def test_signup_and_login(api):
     assert r.status_code in (201, 200, 400)
 
     r2 = api.post("/api/auth/login", json={
-        "username_or_email": "pytest_user",
+        "username_or_email": "pytest@test.com",
         "password": "Test1234!",
     })
     assert r2.status_code == 200
@@ -55,7 +55,7 @@ def test_signup_and_login(api):
 
 def test_login_wrong_password(api):
     r = api.post("/api/auth/login", json={
-        "username_or_email": "pytest_user",
+        "username_or_email": "pytest@test.com",
         "password": "wrong",
     })
     assert r.status_code in (400, 401, 422)
@@ -72,7 +72,7 @@ def test_profile_without_token_rejected(api):
 
 def _get_token(api) -> tuple[str, int]:
     r = api.post("/api/auth/login", json={
-        "username_or_email": "pytest_user",
+        "username_or_email": "pytest@test.com",
         "password": "Test1234!",
     })
     body = r.json()

@@ -15,6 +15,7 @@ from backend.schemas.community import (
     CommentCreate, CommentOut,
     PostCreate, PostOut, PostUpdate,
 )
+from backend.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/api/community", tags=["community"])
 
@@ -365,8 +366,25 @@ def checkin_challenge(
     p.last_checked_in = now
     db.commit()
 
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    is_completed = challenge and p.completed_days >= challenge.duration_days
+    if is_completed:
+        try:
+            NotificationService(db).create(
+                user_id=current_user.id,
+                type="achievement",
+                title=f"🏆 챌린지 완료!",
+                body=f"'{challenge.title}' 챌린지를 {p.completed_days}일 만에 완료했어요! 대단해요!",
+            )
+        except Exception:
+            pass
+
     return CheckInResponse(
-        message=f"체크인 완료! 🎉 {p.current_streak}일 연속 달성!",
+        message=(
+            f"챌린지 완료! 🏆 '{challenge.title}'을 달성했습니다!"
+            if is_completed
+            else f"체크인 완료! 🎉 {p.current_streak}일 연속 달성!"
+        ),
         current_streak=p.current_streak,
         completed_days=p.completed_days,
     )
@@ -393,6 +411,15 @@ def follow_user(
         raise HTTPException(status_code=400, detail="이미 팔로우 중입니다.")
     db.add(UserFollow(follower_id=current_user.id, following_id=target_id))
     db.commit()
+    try:
+        NotificationService(db).create(
+            user_id=target_id,
+            type="follow",
+            title=f"{current_user.username}님이 팔로우했습니다.",
+            body=None,
+        )
+    except Exception:
+        pass
     return {"following": True, "target_id": target_id}
 
 

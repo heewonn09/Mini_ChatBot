@@ -134,9 +134,16 @@ class ChatService:
             self.db.flush()
             session_id = session.id
 
-        analysis = PatternAnalysisService.analyze_behaviors(
-            user_id=user.id, days=14, db=self.db
-        )
+        _analysis_cache_key = f"chat_analysis:{user.id}:14"
+        _cached = redis_store.get_json(_analysis_cache_key)
+        if _cached:
+            from backend.schemas.behavior import PatternAnalysisResult
+            analysis = PatternAnalysisResult(**_cached)
+        else:
+            analysis = PatternAnalysisService.analyze_behaviors(
+                user_id=user.id, days=14, db=self.db
+            )
+            redis_store.set_json(_analysis_cache_key, analysis.model_dump(mode="json"), ex_seconds=300)
         # Gemini 이중 호출 방지: generate_feedback 대신 분석 데이터로 직접 요약
         if analysis.behavior_patterns:
             top = analysis.behavior_patterns[0]

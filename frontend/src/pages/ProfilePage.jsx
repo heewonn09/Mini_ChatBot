@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Crown,
+  Download,
   Flame,
   ShieldCheck,
   Sparkles,
@@ -18,7 +19,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
-import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences, fetchFollowStatus, followUser, unfollowUser, fetchFollowers, fetchFollowing } from "../api/api";
+import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences, fetchFollowStatus, followUser, unfollowUser, fetchFollowers, fetchFollowing, exportBehaviors } from "../api/api";
 import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import PageHeader from "../components/ui/PageHeader";
@@ -101,6 +102,15 @@ function ProfilePage() {
   const [prefForm, setPrefForm] = useState({ language: "ko", theme: "light" });
   const [saving, setSaving] = useState(false);
   const [followModal, setFollowModal] = useState(null); // 'followers' | 'following' | null
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport(format) {
+    if (!user?.id || exporting) return;
+    setExporting(true);
+    try { await exportBehaviors(user.id, format); }
+    catch { /* browser will handle download errors */ }
+    finally { setExporting(false); }
+  }
 
   const {
     data: profile,
@@ -580,6 +590,38 @@ function ProfilePage() {
                 </Card>
               );
             })}
+          </div>
+        </div>
+      </Card>
+      {/* 데이터 내보내기 */}
+      <Card className="p-6">
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <p className="app-kicker">내 데이터</p>
+            <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">데이터 내보내기</h2>
+            <p className="text-sm text-[color:var(--ink-soft)]">모든 행동 기록을 파일로 다운로드할 수 있어요.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              aria-label="CSV 형식으로 행동 기록 내보내기"
+              onClick={() => handleExport("csv")}
+              disabled={exporting}
+              className="app-secondary-button flex items-center gap-2 text-sm"
+            >
+              <Download size={14} strokeWidth={2.3} />
+              {exporting ? "다운로드 중..." : "CSV 다운로드"}
+            </button>
+            <button
+              type="button"
+              aria-label="JSON 형식으로 행동 기록 내보내기"
+              onClick={() => handleExport("json")}
+              disabled={exporting}
+              className="app-secondary-button flex items-center gap-2 text-sm"
+            >
+              <Download size={14} strokeWidth={2.3} />
+              {exporting ? "다운로드 중..." : "JSON 다운로드"}
+            </button>
           </div>
         </div>
       </Card>

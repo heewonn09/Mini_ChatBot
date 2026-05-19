@@ -8,7 +8,17 @@
       "Bash(grep -E \"\\\\.\\(css|scss\\)$|\\\\.json$\")",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(dir /s /b \"c:\\\\Users\\\\이희원\\\\OneDrive\\\\Desktop\\\\min_Project\\\\Mini_ChatBot\")",
+      "Bash(Get-ChildItem -Recurse -Path frontend\\\\src, backend -Include \"*.py\", \"*.js\", \"*.jsx\", \"*.css\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\이희원\\\\OneDrive\\\\Desktop\\\\min_Project\\\\Mini_ChatBot\\\\backend\" -Recurse -Include \"*.py\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\이희원\\\\OneDrive\\\\Desktop\\\\min_Project\\\\Mini_ChatBot\\\\frontend\" -Recurse -Include \"*.jsx\", \"*.js\", \"*.css\" -Force)",
+      "Bash(xargs wc -l)",
+      "Bash(python -m pytest backend/tests/test_user_service.py -v --tb=short)",
+      "Bash(python -m pytest backend/tests/test_behaviors.py -v --tb=short)",
+      "Bash(python -m pytest backend/tests/test_behaviors.py::test_dashboard_overview -v --tb=long)",
+      "Bash(python -m pytest backend/tests/ -v --tb=short)",
+      "Bash(python -m pytest backend/tests/test_api_health.py -v --tb=short)"
     ]
   }
 }

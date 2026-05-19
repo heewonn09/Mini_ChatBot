@@ -1,8 +1,11 @@
 import json
 import logging
 import secrets
+import ssl
 import urllib.parse
 import urllib.request
+
+_ssl_ctx = ssl.create_default_context()
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
@@ -14,11 +17,25 @@ from jose import JWTError, jwt
 from backend.auth import ALGORITHM, create_access_token, create_refresh_token, get_current_user, hash_password
 from backend.config import get_settings
 from backend.database import get_db
+from backend.models.audit import AuditLog
 from backend.models.behavior import User
 from backend.redis_client import redis_store
 from backend.schemas.behavior import RefreshRequest, RefreshResponse, TokenResponse, UserCreate, UserLogin
 from backend.services.email_service import send_password_reset_email
 from backend.services.user_service import UserService
+
+
+def _audit(db, user_id: int | None, action: str, ip: str | None = None, **meta) -> None:
+    try:
+        db.add(AuditLog(
+            user_id=user_id,
+            action=action,
+            ip_address=ip,
+            metadata_json=json.dumps(meta) if meta else None,
+        ))
+        db.commit()
+    except Exception:
+        pass
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -42,7 +59,9 @@ def _enforce_rate_limit(request: Request):
 @router.post("/signup", response_model=TokenResponse, status_code=201)
 def signup(payload: UserCreate, request: Request, db: Session = Depends(get_db)):
     _enforce_rate_limit(request)
+    ip = request.client.host if request.client else None
     user = UserService(db).register(payload.username, payload.email, payload.password)
+    _audit(db, user.id, "signup", ip, email=payload.email)
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         refresh_token=create_refresh_token(str(user.id)),
@@ -54,7 +73,9 @@ def signup(payload: UserCreate, request: Request, db: Session = Depends(get_db))
 @router.post("/login", response_model=TokenResponse)
 def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
     _enforce_rate_limit(request)
+    ip = request.client.host if request.client else None
     user = UserService(db).get_by_credentials(payload.username_or_email, payload.password)
+    _audit(db, user.id, "login", ip)
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         refresh_token=create_refresh_token(str(user.id)),
@@ -70,17 +91,29 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
         if data.get("type") != "refresh":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
         user_id = int(data.get("sub"))
+        old_jti = data.get("jti")
+        old_exp = data.get("exp")
     except (JWTError, TypeError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    # Reject already-used or revoked refresh tokens (token rotation)
+    if old_jti and redis_store.is_token_blacklisted(old_jti):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token has been revoked")
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    return RefreshResponse(
-        access_token=create_access_token(str(user.id)),
-        refresh_token=create_refresh_token(str(user.id)),
-    )
+    new_access = create_access_token(str(user.id))
+    new_refresh = create_refresh_token(str(user.id))
+
+    # Blacklist the consumed refresh token so it cannot be reused
+    if old_jti and old_exp:
+        import time as _time
+        ttl = max(int(old_exp - _time.time()), 0)
+        redis_store.blacklist_token(old_jti, ttl or 3600)
+
+    return RefreshResponse(access_token=new_access, refresh_token=new_refresh)
 
 
 @router.post("/logout", status_code=200)
@@ -94,9 +127,11 @@ def logout(
             payload = jwt.decode(credentials.credentials, get_settings().jwt_secret_key, algorithms=[ALGORITHM])
             jti = payload.get("jti")
             exp = payload.get("exp")
+            user_id_str = payload.get("sub")
             if jti and exp:
                 ttl = max(int(exp - _time.time()), 0)
                 redis_store.blacklist_token(jti, ttl or 3600)
+            # Audit logout (best-effort, no DB session available in this scope)
         except Exception:
             pass
     return {"detail": "Logged out successfully"}
@@ -144,7 +179,7 @@ def _http_post_form(url: str, data: dict) -> dict:
     encoded = urllib.parse.urlencode(data).encode()
     req = urllib.request.Request(url, data=encoded, method="POST")
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10, context=_ssl_ctx) as resp:
         return json.loads(resp.read())
 
 
@@ -152,7 +187,7 @@ def _http_get_json(url: str, headers: dict) -> dict:
     req = urllib.request.Request(url)
     for k, v in headers.items():
         req.add_header(k, v)
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10, context=_ssl_ctx) as resp:
         return json.loads(resp.read())
 
 

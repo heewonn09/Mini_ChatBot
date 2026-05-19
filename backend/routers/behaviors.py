@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from backend.auth import require_same_user
 from backend.database import get_db
 from backend.models.behavior import BehaviorLog, User
 from backend.models.notification import Notification
+from backend.redis_client import redis_store
 from backend.schemas.behavior import (
     BehaviorLogCreate,
     BehaviorLogResponse,
@@ -14,6 +15,19 @@ from backend.services.behavior_service import BehaviorService
 from backend.services.dashboard_service import DashboardService
 
 router = APIRouter(prefix="/api/behaviors", tags=["Behaviors"])
+
+_BEHAVIOR_RATE_LIMIT = 60
+_BEHAVIOR_RATE_WINDOW = 3600  # per hour
+
+
+def _enforce_behavior_rate_limit(request: Request, user_id: int) -> None:
+    key = f"rate:behavior:{user_id}"
+    count = redis_store.incr_with_ttl(key, _BEHAVIOR_RATE_WINDOW)
+    if count > _BEHAVIOR_RATE_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="행동 기록 요청이 너무 많습니다. 1시간 후 다시 시도해주세요.",
+        )
 
 _ACHIEVEMENT_MILESTONES = [
     ("streak_7",  "achievement", "🎉 첫 번째 주 달성!", "7일 연속 행동 기록을 달성했어요. 잘하고 있어요!"),
@@ -47,9 +61,11 @@ def _maybe_notify_achievements(db: Session, user_id: int) -> None:
 def create_behavior_log(
     user_id: int,
     behavior: BehaviorLogCreate,
+    request: Request,
     _: User = Depends(require_same_user),
     db: Session = Depends(get_db),
 ):
+    _enforce_behavior_rate_limit(request, user_id)
     svc = BehaviorService(db)
     log = svc.create(
         user_id=user_id,

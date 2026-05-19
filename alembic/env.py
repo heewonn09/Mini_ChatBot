@@ -26,6 +26,9 @@ from backend.models.behavior import User, BehaviorLog  # noqa: E402, F401
 from backend.models.chat import ChatSession, ChatHistory  # noqa: E402, F401
 from backend.models.preferences import UserPreferences  # noqa: E402, F401
 from backend.models.audit import AuditLog  # noqa: E402, F401
+from backend.models.community import Post, Comment, PostLike, Challenge, ChallengeParticipant, UserFollow  # noqa: E402, F401
+from backend.models.notification import Notification  # noqa: E402, F401
+from backend.models.behavior_tag import BehaviorTag  # noqa: E402, F401
 
 target_metadata = Base.metadata
 
