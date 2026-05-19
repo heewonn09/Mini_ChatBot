@@ -38,6 +38,7 @@ class BehaviorService:
         log = self.db.query(BehaviorLog).filter(
             BehaviorLog.id == log_id,
             BehaviorLog.user_id == user_id,
+            BehaviorLog.is_deleted == False,  # noqa: E712
         ).first()
         if not log:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Behavior log not found")
@@ -45,7 +46,10 @@ class BehaviorService:
 
     def list(self, user_id: int, limit: int = 50, skip: int = 0,
              emotion: Optional[str] = None, tag: Optional[str] = None) -> list[BehaviorLog]:
-        q = self.db.query(BehaviorLog).filter(BehaviorLog.user_id == user_id)
+        q = self.db.query(BehaviorLog).filter(
+            BehaviorLog.user_id == user_id,
+            BehaviorLog.is_deleted == False,  # noqa: E712
+        )
         if emotion:
             q = q.filter(BehaviorLog.emotion == emotion)
         if tag:
@@ -67,6 +71,6 @@ class BehaviorService:
 
     def delete(self, user_id: int, log_id: int) -> None:
         log = self.get(user_id, log_id)
-        self.db.delete(log)
+        log.is_deleted = True
         self.db.commit()
         self._invalidate_cache(user_id)

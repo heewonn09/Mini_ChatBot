@@ -129,7 +129,7 @@ def get_overview(
                 emotion=log.emotion,
                 created_at=log.created_at,
             )
-            for log in sorted(logs, key=lambda item: item.created_at, reverse=True)[:20]
+            for log in sorted(logs, key=lambda item: item.created_at, reverse=True)[:60]
         ],
     )
     redis_store.set_json(_cache_key, _resp.model_dump(mode="json"), ex_seconds=300)
@@ -524,9 +524,12 @@ def _get_user(user_id: int, db: Session) -> User:
 
 
 def _get_logs(user_id: int, db: Session, days: int, ascending: bool = False) -> list[BehaviorLog]:
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    # Use naive datetime for SQLite compatibility (stored datetimes are tz-naive)
+    since = datetime.now() - timedelta(days=days)
     query = db.query(BehaviorLog).filter(
-        (BehaviorLog.user_id == user_id) & (BehaviorLog.created_at >= since)
+        (BehaviorLog.user_id == user_id)
+        & (BehaviorLog.created_at >= since)
+        & (BehaviorLog.is_deleted == False)  # noqa: E712
     )
     order = BehaviorLog.created_at.asc() if ascending else BehaviorLog.created_at.desc()
     return query.order_by(order).all()

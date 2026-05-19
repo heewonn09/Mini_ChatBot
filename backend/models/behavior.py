@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Float, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Text, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from backend.models.base import Base
@@ -35,6 +35,7 @@ class BehaviorLog(Base):
     tag = Column(String(100), nullable=True)  # sleep, work, exercise, social, etc.
     intensity = Column(Float, default=5.0)  # 1-10 scale for emotion intensity
     notes = Column(String(300), nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     
     # Relationship

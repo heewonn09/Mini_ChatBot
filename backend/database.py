@@ -97,12 +97,14 @@ def run_schema_migrations():
             if "archived" not in cs_cols:
                 conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN archived BOOLEAN DEFAULT FALSE"))
 
-    # behavior_logs.notes column
+    # behavior_logs additional columns
     if "behavior_logs" in tables:
         bl_cols = {col["name"] for col in inspector.get_columns("behavior_logs")}
-        if "notes" not in bl_cols:
-            with engine.begin() as conn:
+        with engine.begin() as conn:
+            if "notes" not in bl_cols:
                 conn.execute(text("ALTER TABLE behavior_logs ADD COLUMN notes VARCHAR(300)"))
+            if "is_deleted" not in bl_cols:
+                conn.execute(text("ALTER TABLE behavior_logs ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0"))
 
     # Cross-DB index creation without raw IF NOT EXISTS syntax.
     index_specs = [
