@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { fetchNotifications, getStoredUserId, logOut } from "../../api/api";
 import { useAppSettings } from "../../context/AppSettingsContext";
+import { useLang } from "../../context/messages";
 import NotificationPanel from "../ui/NotificationPanel";
 
 function linkClassName(isActive) {
@@ -26,18 +27,19 @@ function linkClassName(isActive) {
   }`;
 }
 
-const navItems = [
-  { name: "대시보드", path: "/dashboard", icon: LayoutDashboard },
-  { name: "기록", path: "/log", icon: CirclePlus },
-  { name: "분석", path: "/analysis", icon: LineChart },
-  { name: "채팅", path: "/chat", icon: MessageSquare },
-  { name: "커뮤니티", path: "/community", icon: Users },
-  { name: "챌린지", path: "/challenges", icon: Trophy },
-  { name: "프로필", path: "/profile", icon: User },
+const NAV_PATHS = [
+  { key: "dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { key: "log",       path: "/log",       icon: CirclePlus },
+  { key: "analysis",  path: "/analysis",  icon: LineChart },
+  { key: "chat",      path: "/chat",      icon: MessageSquare },
+  { key: "community", path: "/community", icon: Users },
+  { key: "challenges",path: "/challenges",icon: Trophy },
+  { key: "profile",   path: "/profile",   icon: User },
 ];
 
 function Navbar() {
   const { theme, setTheme } = useAppSettings();
+  const m = useLang();
   const userId = getStoredUserId();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -71,12 +73,12 @@ function Navbar() {
           </NavLink>
 
           <nav className="hidden items-center gap-2 md:flex">
-            {navItems.map((item) => {
+            {NAV_PATHS.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink key={item.path} to={item.path} className={({ isActive }) => linkClassName(isActive)}>
                   <Icon size={16} strokeWidth={2.05} />
-                  <span>{item.name}</span>
+                  <span>{m.nav[item.key]}</span>
                 </NavLink>
               );
             })}
@@ -112,7 +114,7 @@ function Navbar() {
             </button>
             <div className="items-center gap-3 rounded-full border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] px-4 py-2 xl:flex hidden">
               <span className="h-2.5 w-2.5 rounded-full bg-[#0f766e]" />
-              <span className="text-sm font-semibold text-[color:var(--ink)]">기록하고, 돌아보고, 조정하세요.</span>
+              <span className="text-sm font-semibold text-[color:var(--ink)]">{m.nav.slogan}</span>
             </div>
           </div>
         </div>
@@ -120,7 +122,7 @@ function Navbar() {
 
       <nav className="fixed inset-x-2 bottom-3 z-40 mx-auto max-w-lg rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-lg)] backdrop-blur-xl md:hidden">
         <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
-          {navItems.map((item) => {
+          {NAV_PATHS.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -133,7 +135,7 @@ function Navbar() {
                 }
               >
                 <Icon size={17} strokeWidth={2.1} />
-                <span>{item.name}</span>
+                <span>{m.nav[item.key]}</span>
               </NavLink>
             );
           })}

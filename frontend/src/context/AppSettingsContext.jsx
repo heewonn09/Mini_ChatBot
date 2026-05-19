@@ -4,14 +4,20 @@ const AppSettingsContext = createContext(null);
 
 export function AppSettingsProvider({ children }) {
   const [theme, setTheme] = useState(localStorage.getItem("mindflow_theme") || "light");
+  const [lang, setLangState] = useState(localStorage.getItem("mindflow_lang") || "ko");
 
   useEffect(() => {
     localStorage.setItem("mindflow_theme", theme);
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  function setLang(value) {
+    localStorage.setItem("mindflow_lang", value);
+    setLangState(value);
+  }
+
   return (
-    <AppSettingsContext.Provider value={{ theme, setTheme }}>
+    <AppSettingsContext.Provider value={{ theme, setTheme, lang, setLang }}>
       {children}
     </AppSettingsContext.Provider>
   );

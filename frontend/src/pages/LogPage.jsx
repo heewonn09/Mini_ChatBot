@@ -12,6 +12,7 @@ import {
 import ToastContainer from "../components/ui/Toast";
 import { useToast } from "../hooks/useToast";
 import { normalizeCategory, CATEGORY_KO, MOOD_KO } from "../utils/normalize";
+import { useLang } from "../context/messages";
 
 const MAX_TEXT = 300;
 
@@ -213,6 +214,7 @@ function LogCard({ item, editingId, editForm, setEditForm, editError, savingEdit
 function LogPage() {
   const { user, overview, refreshOverview } = useOutletContext();
   const { toasts, showToast, dismiss } = useToast();
+  const m = useLang();
 
   const [text, setText] = useState("");
   const [emotion, setEmotion] = useState("neutral");
@@ -346,12 +348,12 @@ function LogPage() {
           <div>
             <div className="mb-2 flex items-center gap-2 text-teal-100">
               <Sparkles size={16} />
-              <span className="text-sm font-semibold uppercase tracking-wider">행동 기록</span>
+              <span className="text-sm font-semibold uppercase tracking-wider">{m.log.title}</span>
             </div>
             <h1 className="text-3xl font-black leading-tight">
-              오늘의 순간을<br />기록해보세요
+              {m.log.fastCapture}
             </h1>
-            <p className="mt-2 text-teal-100 text-sm">작고 솔직한 기록이 쌓여 인사이트가 됩니다.</p>
+            <p className="mt-2 text-teal-100 text-sm">{m.log.trackingTipDesc}</p>
           </div>
 
           {/* stat chips */}
@@ -359,17 +361,17 @@ function LogPage() {
             <div className="flex flex-col items-center rounded-2xl bg-white/15 px-5 py-4 backdrop-blur-sm">
               <Flame size={20} className="mb-1 text-amber-300" />
               <span className="text-2xl font-black">{streakDays}</span>
-              <span className="text-xs text-teal-100">연속</span>
+              <span className="text-xs text-teal-100">{m.log.logs}</span>
             </div>
             <div className="flex flex-col items-center rounded-2xl bg-white/15 px-5 py-4 backdrop-blur-sm">
               <TrendingUp size={20} className="mb-1 text-green-300" />
               <span className="text-2xl font-black">{todayCount}</span>
-              <span className="text-xs text-teal-100">오늘 기록</span>
+              <span className="text-xs text-teal-100">{m.log.recentActivity}</span>
             </div>
             <div className="flex flex-col items-center rounded-2xl bg-white/15 px-5 py-4 backdrop-blur-sm">
               <Zap size={20} className="mb-1 text-yellow-300" />
               <span className="text-2xl font-black">{list.length}</span>
-              <span className="text-xs text-teal-100">최근 기록</span>
+              <span className="text-xs text-teal-100">{m.log.latestEntries}</span>
             </div>
           </div>
         </div>
@@ -383,15 +385,15 @@ function LogPage() {
           <div className="overflow-hidden rounded-3xl bg-white shadow-lg border border-slate-100">
             {/* card header */}
             <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-              <h2 className="text-lg font-bold text-slate-700">새 기록 추가</h2>
-              <p className="text-xs text-slate-400 mt-0.5">무슨 일이 있었는지 솔직하게 남겨보세요</p>
+              <h2 className="text-lg font-bold text-slate-700">{m.log.title}</h2>
+              <p className="text-xs text-slate-400 mt-0.5">{m.log.descriptionDefault}</p>
             </div>
 
             <div className="p-6 space-y-7">
               {/* text area */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-slate-700">무슨 일이 있었나요?</label>
+                  <label className="text-sm font-bold text-slate-700">{m.log.whatHappened}</label>
                   <span className={`text-xs font-mono font-semibold ${text.length > MAX_TEXT ? "text-rose-500" : "text-slate-400"}`}>
                     {text.length}/{MAX_TEXT}
                   </span>
@@ -399,7 +401,7 @@ function LogPage() {
                 <textarea
                   className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 placeholder-slate-400 transition focus:border-teal-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100"
                   rows={4}
-                  placeholder="예: 한 시간 공부했고, 저녁엔 운동을 빠졌어요. 유튜브를 두 시간 봤는데 후회됩니다..."
+                  placeholder={m.log.happenedPlaceholder}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   maxLength={MAX_TEXT + 20}
@@ -408,7 +410,7 @@ function LogPage() {
 
               {/* quick category chips */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">카테고리</label>
+                <label className="text-sm font-bold text-slate-700">{m.log.category}</label>
                 <div className="flex flex-wrap gap-2">
                   {QUICK_CATS.map((c) => (
                     <button
@@ -432,7 +434,7 @@ function LogPage() {
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-700 placeholder-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
                     value={tag}
                     onChange={(e) => setTag(e.target.value)}
-                    placeholder="직접 입력..."
+                    placeholder={m.log.categoryPlaceholder}
                     onFocus={() => setTagFocused(true)}
                     onBlur={() => setTimeout(() => setTagFocused(false), 150)}
                   />
@@ -467,7 +469,7 @@ function LogPage() {
                   ? <input type="datetime-local" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100" />
                   : <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-400">
-                      <Clock3 size={14} /><span>현재 시간으로 저장</span>
+                      <Clock3 size={14} /><span>{m.log.useCurrentTime}</span>
                     </div>
                 }
               </div>
@@ -475,7 +477,7 @@ function LogPage() {
               {/* emotion picker */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-slate-700">지금 기분이 어때요?</label>
+                  <label className="text-sm font-bold text-slate-700">{m.log.moodQuestion}</label>
                   <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${selectedMood.bg} ${selectedMood.text}`}>
                     <span>{selectedMood.emoji}</span><span>{selectedMood.label}</span>
                   </span>
@@ -494,8 +496,8 @@ function LogPage() {
                 className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 py-4 text-base font-bold text-white shadow-lg transition hover:from-teal-600 hover:to-emerald-600 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting
-                  ? <><div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" /><span>저장 중...</span></>
-                  : <><Plus size={20} /><span>지금 이 순간 저장</span></>
+                  ? <><div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" /><span>{m.log.saving}</span></>
+                  : <><Plus size={20} /><span>{m.log.saveMoment}</span></>
                 }
               </button>
             </div>
@@ -508,9 +510,9 @@ function LogPage() {
                 <Sparkles size={18} className="text-violet-600" />
               </div>
               <div>
-                <p className="text-sm font-bold text-violet-700">기록 팁</p>
+                <p className="text-sm font-bold text-violet-700">{m.log.trackingTip}</p>
                 <p className="mt-1 text-sm text-violet-600 leading-relaxed">
-                  완벽한 문장 대신 짧고 솔직하게 써보세요. 반복되는 작은 순간이 쌓여 패턴이 보입니다.
+                  {m.log.trackingTipDesc}
                 </p>
               </div>
             </div>
@@ -523,7 +525,7 @@ function LogPage() {
           {/* quick actions */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-lg border border-slate-100">
             <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-4">
-              <h2 className="text-sm font-bold text-slate-700">⚡ 빠른 기록</h2>
+              <h2 className="text-sm font-bold text-slate-700">⚡ {m.log.fastCapture}</h2>
             </div>
             <div className="grid grid-cols-2 gap-3 p-4">
               {QUICK_CATS.slice(0, 6).map((c) => (
@@ -544,7 +546,7 @@ function LogPage() {
           {/* recent logs */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-lg border border-slate-100">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-5 py-4">
-              <h2 className="text-sm font-bold text-slate-700">📋 최근 기록</h2>
+              <h2 className="text-sm font-bold text-slate-700">📋 {m.log.latestEntries}</h2>
               <span className="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-700">
                 {list.length}개
               </span>
@@ -578,8 +580,8 @@ function LogPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400">
                   <span className="text-4xl mb-3">📝</span>
-                  <p className="text-sm font-medium">아직 기록이 없어요</p>
-                  <p className="text-xs mt-1">첫 번째 기록을 남겨보세요!</p>
+                  <p className="text-sm font-medium">{m.log.noRecent}</p>
+                  <p className="text-xs mt-1">{m.log.saveMoment}!</p>
                 </div>
               )}
               {logsError && <p className="text-xs text-rose-500 text-center">{logsError}</p>}

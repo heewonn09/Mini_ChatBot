@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
 import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences, updateProfile, fetchFollowStatus, followUser, unfollowUser, fetchFollowers, fetchFollowing, exportBehaviors } from "../api/api";
+import { useAppSettings } from "../context/AppSettingsContext";
 import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import PageHeader from "../components/ui/PageHeader";
@@ -97,6 +98,7 @@ function FollowListModal({ isOpen, onClose, title, items }) {
 function ProfilePage() {
   const { user, error: appError, refreshOverview } = useOutletContext();
   const queryClient = useQueryClient();
+  const { setTheme, setLang } = useAppSettings();
   const [hoveredDay, setHoveredDay] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [prefForm, setPrefForm] = useState({ language: "ko", theme: "light" });
@@ -180,6 +182,8 @@ function ProfilePage() {
     setSaving(true);
     try {
       await updatePreferences(user.id, prefForm);
+      setTheme(prefForm.theme);
+      setLang(prefForm.language);
     } finally {
       setSaving(false);
       setEditOpen(false);

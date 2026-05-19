@@ -1,3 +1,10 @@
+import { useAppSettings } from "./AppSettingsContext";
+
+export function useLang() {
+  const { lang } = useAppSettings();
+  return messages[lang] ?? messages.ko;
+}
+
 export const messages = {
   en: {
     nav: {
@@ -5,6 +12,8 @@ export const messages = {
       log: "Log",
       analysis: "Analysis",
       chat: "Chat",
+      community: "Community",
+      challenges: "Challenges",
       profile: "Profile",
       studio: "Behavior studio",
       slogan: "Track. Reflect. Adjust.",
@@ -104,6 +113,8 @@ export const messages = {
       log: "기록",
       analysis: "분석",
       chat: "채팅",
+      community: "커뮤니티",
+      challenges: "챌린지",
       profile: "프로필",
       studio: "행동 스튜디오",
       slogan: "기록하고, 돌아보고, 조정하세요.",
