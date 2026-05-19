@@ -1,6 +1,33 @@
 import { useState, useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { logIn, signUp, getErrorMessage, requestPasswordReset, confirmPasswordReset } from "../api/api";
+
+function PasswordField({ placeholder, value, onChange, required, minLength }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        className="app-field pr-12"
+        type={show ? "text" : "password"}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        required={required}
+        minLength={minLength}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setShow((v) => !v)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-[color:var(--ink-soft)] transition hover:text-[color:var(--ink)]"
+        aria-label={show ? "비밀번호 숨기기" : "비밀번호 보기"}
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
 
 const WELCOME_NEW = "마인드플로우에 오신 것을 환영합니다! 함께 좋은 습관을 만들어가요 🌱";
 const WELCOME_BACK = "다시 오신 것을 환영해요! 오늘도 함께 성장해봐요 👋";
@@ -111,7 +138,7 @@ function AuthPage() {
             <>
               <input className="app-field" placeholder="사용자 이름" value={form.username} onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))} required />
               <input className="app-field" type="email" placeholder="이메일" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} required />
-              <input className="app-field" type="password" placeholder="비밀번호 (8자 이상)" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} required />
+              <PasswordField placeholder="비밀번호 (8자 이상)" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} required />
             </>
           )}
 
@@ -119,7 +146,7 @@ function AuthPage() {
           {mode === "login" && (
             <>
               <input className="app-field" type="email" placeholder="이메일" value={form.username_or_email} onChange={(e) => setForm((p) => ({ ...p, username_or_email: e.target.value }))} required />
-              <input className="app-field" type="password" placeholder="비밀번호" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} required />
+              <PasswordField placeholder="비밀번호" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} required />
               <button type="button" onClick={() => switchMode("forgot")} className="text-xs text-[color:var(--ink-soft)] underline underline-offset-2 hover:text-[color:var(--ink)]">
                 비밀번호를 잊으셨나요?
               </button>
@@ -136,8 +163,8 @@ function AuthPage() {
           {/* 비밀번호 재설정 필드 */}
           {mode === "reset" && (
             <>
-              <input className="app-field" type="password" placeholder="새 비밀번호 (8자 이상)" value={form.newPassword} onChange={(e) => setForm((p) => ({ ...p, newPassword: e.target.value }))} required minLength={8} />
-              <input className="app-field" type="password" placeholder="비밀번호 확인" value={form.confirmPassword} onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))} required minLength={8} />
+              <PasswordField placeholder="새 비밀번호 (8자 이상)" value={form.newPassword} onChange={(e) => setForm((p) => ({ ...p, newPassword: e.target.value }))} required minLength={8} />
+              <PasswordField placeholder="비밀번호 확인" value={form.confirmPassword} onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))} required minLength={8} />
             </>
           )}
 

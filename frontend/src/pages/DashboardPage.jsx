@@ -1,4 +1,6 @@
 import {
+  ChevronRight,
+  CirclePlus,
   Clock3,
   Sparkles,
   Target,
@@ -6,7 +8,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { fetchFocusPrediction, fetchWeeklyReport } from "../api/api";
 import Chart from "../components/Chart";
 import Card from "../components/ui/Card";
@@ -80,6 +82,20 @@ function DashboardPage() {
         title={`다시 오신 것을 환영해요, ${welcomeName}.`}
         description="집중 시간과 방해 요소, 작은 성장을 한눈에 보는 공간입니다."
       />
+
+      <Link
+        to="/log"
+        className="flex items-center gap-4 rounded-[1.6rem] bg-gradient-to-r from-[#0f766e] via-[#1b8d84] to-[#dd7a5f] px-6 py-4 text-white shadow-[0_18px_40px_rgba(15,118,110,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_50px_rgba(15,118,110,0.36)]"
+      >
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.1rem] bg-white/20">
+          <CirclePlus size={22} strokeWidth={2.2} />
+        </div>
+        <div className="flex-1">
+          <p className="text-base font-bold">오늘 기록 추가하기</p>
+          <p className="text-sm text-white/75">행동을 기록하면 AI 분석이 더 정확해져요</p>
+        </div>
+        <ChevronRight size={20} className="text-white/70" />
+      </Link>
 
       {focusPrediction ? (
         <div className="flex flex-wrap items-center gap-4 rounded-[1.4rem] border border-[rgba(24,50,53,0.08)] bg-[color:var(--surface)] px-5 py-3.5">

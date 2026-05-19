@@ -57,7 +57,7 @@ body {
   background:
     radial-gradient(circle at top left, rgba(221, 122, 95, 0.15), transparent 28%),
     radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 30%),
-    linear-gradient(180deg, #fff9f2 0%, #f7efe5 45%, #f3ebdf 100%);
+    linear-gradient(150deg, #fff9f2 0%, #f7efe5 45%, #f3ebdf 100%);
   color: var(--ink);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -67,7 +67,7 @@ body {
   background:
     radial-gradient(circle at top left, rgba(221, 122, 95, 0.2), transparent 30%),
     radial-gradient(circle at top right, rgba(15, 118, 110, 0.24), transparent 34%),
-    linear-gradient(180deg, #111920 0%, #0f151b 60%, #0c1218 100%);
+    linear-gradient(150deg, #111920 0%, #0f151b 60%, #0c1218 100%);
 }
 
 body::before {
@@ -128,14 +128,14 @@ a,
 }
 
 .app-panel {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 251, 246, 0.72));
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.70), rgba(255, 251, 246, 0.70));
   border-color: var(--line);
   box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(40px);
 }
 
 .app-panel-strong {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 253, 249, 0.88));
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.70), rgba(255, 253, 249, 0.70));
 }
 
 .app-panel-soft {
@@ -369,4 +369,54 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .app-secondary-button {
     min-height: 44px;
   }
+}
+
+/* ─── Range slider 커스텀 스타일 ─── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  border: none;
+  box-shadow: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0f766e;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.35);
+  border: 2.5px solid white;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.45);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0f766e;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.35);
+  border: 2.5px solid white;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  border-radius: 999px;
+  height: 6px;
+}
+
+input[type="range"]::-moz-range-track {
+  border-radius: 999px;
+  height: 6px;
+  background: rgba(24, 50, 53, 0.12);
 }

@@ -1,6 +1,9 @@
+import logging
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
@@ -115,7 +118,7 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
         token = secrets.token_urlsafe(32)
         redis_store.set_reset_token(token, user.email, ttl=3600)
         reset_url = f"{settings.frontend_url}/auth?token={token}"
-        send_password_reset_email(
+        sent = send_password_reset_email(
             to_email=user.email,
             reset_url=reset_url,
             smtp_host=settings.smtp_host,
@@ -124,6 +127,13 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
             smtp_password=settings.smtp_password,
             smtp_from=settings.smtp_from,
         )
+        if not sent:
+            logger.warning(
+                "[forgot-password] SMTP 미설정 — Render 환경 변수를 확인하세요. "
+                "SMTP_USER=%s  reset_url=%s",
+                settings.smtp_user or "(비어있음)",
+                reset_url,
+            )
     return {"message": "입력한 이메일로 재설정 링크를 보냈습니다. 받은 편지함을 확인해주세요."}
 
 

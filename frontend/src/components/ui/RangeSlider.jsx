@@ -11,6 +11,11 @@ function RangeSlider({
   highLabel,
   midLabel,
 }) {
+  const pct = ((value - min) / Math.max(1, max - min)) * 100;
+  const trackStyle = {
+    background: `linear-gradient(to right, #0f766e ${pct}%, rgba(24,50,53,0.12) ${pct}%)`,
+  };
+
   return (
     <div className="space-y-3">
       {(label || showValue) && (
@@ -35,7 +40,8 @@ function RangeSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full cursor-pointer accent-[#0f766e]"
+        className="w-full cursor-pointer"
+        style={trackStyle}
       />
       {(lowLabel || midLabel || highLabel) && (
         <div className="flex justify-between text-xs text-[color:var(--ink-soft)]">
