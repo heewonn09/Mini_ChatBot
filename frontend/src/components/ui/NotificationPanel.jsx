@@ -25,21 +25,19 @@ const TYPE_DEST = {
 };
 
 function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState(null);
   const panelRef = useRef(null);
   const navigate = useNavigate();
+  const loading = items === null;
 
   useEffect(() => {
     if (!isOpen || !userId) return;
-    setLoading(true);
     fetchNotifications(userId)
       .then((data) => {
         setItems(data.items ?? []);
         onUnreadChange?.(data.unread_count ?? 0);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => { setItems([]); });
   }, [isOpen, userId]);
 
   useEffect(() => {
@@ -63,7 +61,7 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
     if (!notif.is_read) {
       await markNotificationRead(userId, notif.id).catch(() => {});
       setItems((prev) => prev.map((n) => n.id === notif.id ? { ...n, is_read: true } : n));
-      onUnreadChange?.(Math.max(0, items.filter((n) => !n.is_read).length - 1));
+      onUnreadChange?.(Math.max(0, (items ?? []).filter((n) => !n.is_read).length - 1));
     }
     const dest = TYPE_DEST[notif.type] ?? "/dashboard";
     onClose();
@@ -90,7 +88,7 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
             <span className="text-sm font-bold text-[color:var(--ink)]">알림</span>
           </div>
           <div className="flex items-center gap-2">
-            {items.some((n) => !n.is_read) && (
+            {(items ?? []).some((n) => !n.is_read) && (
               <button
                 type="button"
                 onClick={handleReadAll}
@@ -110,10 +108,10 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
           {loading && (
             <p className="py-6 text-center text-sm text-[color:var(--ink-soft)]">불러오는 중...</p>
           )}
-          {!loading && items.length === 0 && (
+          {!loading && (items ?? []).length === 0 && (
             <p className="py-8 text-center text-sm text-[color:var(--ink-soft)]">새 알림이 없습니다.</p>
           )}
-          {!loading && items.map((notif) => {
+          {!loading && (items ?? []).map((notif) => {
             const Icon = TYPE_ICON[notif.type] ?? Bell;
             const ago = notif.created_at ? _relTime(notif.created_at) : null;
             return (

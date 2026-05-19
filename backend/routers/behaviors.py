@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from backend.auth import require_same_user
 from backend.database import get_db
 from backend.models.behavior import BehaviorLog, User
+from backend.models.behavior_tag import BehaviorTag
 from backend.models.notification import Notification
 from backend.redis_client import redis_store
 from backend.schemas.behavior import (
@@ -57,6 +58,43 @@ def _maybe_notify_achievements(db: Session, user_id: int) -> None:
     db.commit()
 
 
+def _upsert_behavior_tag(db: Session, tag: str | None) -> None:
+    """Maintain global BehaviorTag registry and increment usage count."""
+    if not tag:
+        return
+    normalized = tag.strip().lower()
+    if not normalized:
+        return
+    try:
+        existing = db.query(BehaviorTag).filter(BehaviorTag.name == normalized).first()
+        if existing:
+            existing.usage_count = (existing.usage_count or 0) + 1
+        else:
+            db.add(BehaviorTag(name=normalized, usage_count=1))
+        db.commit()
+    except Exception:
+        pass
+
+
+@router.get("/{user_id}/tags")
+def list_user_tags(
+    user_id: int,
+    limit: int = Query(default=20, ge=1, le=50),
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    """Returns this user's most-used tags from their behavior log history."""
+    from collections import Counter
+    logs = db.query(BehaviorLog.tag).filter(
+        BehaviorLog.user_id == user_id,
+        BehaviorLog.tag.isnot(None),
+        BehaviorLog.is_deleted == False,  # noqa: E712
+    ).all()
+    counter = Counter(row.tag for row in logs if row.tag)
+    tags = [{"tag": tag, "count": count} for tag, count in counter.most_common(limit)]
+    return {"tags": tags}
+
+
 @router.post("/{user_id}", response_model=BehaviorLogResponse, status_code=201)
 def create_behavior_log(
     user_id: int,
@@ -75,6 +113,7 @@ def create_behavior_log(
         intensity=behavior.intensity,
         created_at=behavior.created_at,
     )
+    _upsert_behavior_tag(db, behavior.tag)
     try:
         _maybe_notify_achievements(db, user_id)
     except Exception:

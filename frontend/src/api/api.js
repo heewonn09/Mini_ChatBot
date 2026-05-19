@@ -299,6 +299,13 @@ export async function fetchBehaviors(userId, limit = 20) {
   return data;
 }
 
+export async function fetchUserTags(userId) {
+  const { data } = await withErrorLogging("fetchUserTags", () =>
+    api.get(`/behaviors/${userId}/tags`)
+  );
+  return data.tags ?? [];
+}
+
 export async function askAssistant(userId, message, sessionId = null) {
   const { data } = await withErrorLogging("askAssistant", () =>
     api.post(`/ui/${userId}/chat`, { message, session_id: sessionId }, { timeout: 30000 })

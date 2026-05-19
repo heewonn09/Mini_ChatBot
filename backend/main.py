@@ -53,8 +53,8 @@ app.add_middleware(
     allow_origins=_DEV_ORIGINS + _EXTRA_ORIGINS,
     allow_origin_regex=r"https://.*\.(vercel\.app|onrender\.com)",
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
 )
 
 # ── Global exception handler ─────────────────────────────────────────────────

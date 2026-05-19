@@ -7,11 +7,11 @@ import {
 import { useOutletContext } from "react-router-dom";
 import {
   createBehavior, deleteBehavior, fetchBehaviors,
-  getErrorMessage, updateBehavior,
+  fetchUserTags, getErrorMessage, updateBehavior,
 } from "../api/api";
 import ToastContainer from "../components/ui/Toast";
 import { useToast } from "../hooks/useToast";
-import { normalizeCategory, CATEGORY_KO, MOOD_KO } from "../utils/normalize";
+import { CATEGORY_KO, MOOD_KO } from "../utils/normalize";
 import { useLang } from "../context/messages";
 
 const MAX_TEXT = 300;
@@ -224,6 +224,7 @@ function LogPage() {
   const [customTime, setCustomTime] = useState(false);
   const [timeValue, setTimeValue] = useState("");
   const [list, setList] = useState([]);
+  const [apiTags, setApiTags] = useState([]);
   const [relativeBaseTime, setRelativeBaseTime] = useState(0);
   const [logsLoading, setLogsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -239,8 +240,12 @@ function LogPage() {
     const load = async () => {
       setLogsLoading(true);
       try {
-        const data = await fetchBehaviors(user.id, 12);
+        const [data, tags] = await Promise.all([
+          fetchBehaviors(user.id, 12),
+          fetchUserTags(user.id).catch(() => []),
+        ]);
         setList(data);
+        setApiTags(tags.map((t) => t.tag));
         setRelativeBaseTime(Date.now());
       } catch (e) {
         setLogsError(getErrorMessage(e, "불러오지 못했습니다."));
@@ -255,6 +260,8 @@ function LogPage() {
     const seen = new Set();
     const result = [];
     for (const t of [
+      // API tags first (sorted by usage) so they rank higher in suggestions
+      ...apiTags,
       ...(overview?.habit_frequency ?? []).map((i) => i.tag),
       ...list.map((i) => i.tag),
     ]) {
@@ -263,7 +270,7 @@ function LogPage() {
       if (!seen.has(lower)) { seen.add(lower); result.push(t.trim()); }
     }
     return result;
-  }, [overview, list]);
+  }, [apiTags, overview, list]);
 
   const tagSuggestions = useMemo(() => {
     const q = tag.trim().toLowerCase();

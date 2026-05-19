@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { fetchFocusPrediction, fetchWeeklyReport } from "../api/api";
+import { useLang } from "../context/messages";
 import Chart from "../components/Chart";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
@@ -46,6 +47,7 @@ function toCode(value = "") {
 
 function DashboardPage() {
   const { user, overview } = useOutletContext();
+  const m = useLang();
   const statsByTitle = Object.fromEntries((overview.stat_cards ?? []).map((card) => [card.title, card]));
   const welcomeName = overview.welcome_name?.split(" ")[0] ?? "거기";
   const leadInsight = overview.insights?.[0];
@@ -91,8 +93,8 @@ function DashboardPage() {
           <CirclePlus size={22} strokeWidth={2.2} />
         </div>
         <div className="flex-1">
-          <p className="text-base font-bold">오늘 기록 추가하기</p>
-          <p className="text-sm text-white/75">행동을 기록하면 AI 분석이 더 정확해져요</p>
+          <p className="text-base font-bold">{m.dashboard.addLog}</p>
+          <p className="text-sm text-white/75">{m.dashboard.addLogDesc}</p>
         </div>
         <ChevronRight size={20} className="text-white/70" />
       </Link>
@@ -110,7 +112,7 @@ function DashboardPage() {
             <p className="text-xs text-[color:var(--ink-soft)]">{focusPrediction.hour_range} 기준</p>
           </div>
           {focusPrediction.confidence === "low" ? (
-            <span className="ml-auto rounded-full bg-[rgba(24,50,53,0.07)] px-3 py-1 text-xs text-[color:var(--ink-soft)]">데이터 부족</span>
+            <span className="ml-auto rounded-full bg-[rgba(24,50,53,0.07)] px-3 py-1 text-xs text-[color:var(--ink-soft)]">{m.dashboard.dataInsufficient}</span>
           ) : null}
         </div>
       ) : null}
@@ -119,7 +121,7 @@ function DashboardPage() {
         <Card className="app-panel-strong p-6">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="app-kicker">AI 주간 리포트</p>
+              <p className="app-kicker">{m.dashboard.weeklyReport}</p>
               <span className="app-chip text-sm">{weeklyReport.week_label}</span>
             </div>
             <p className="text-[1rem] leading-8 text-[color:var(--ink-soft)]">{weeklyReport.report}</p>

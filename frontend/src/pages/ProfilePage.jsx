@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Brain,
   CalendarDays,
@@ -19,8 +19,9 @@ import {
   UserCheck,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
-import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences, updateProfile, fetchFollowStatus, followUser, unfollowUser, fetchFollowers, fetchFollowing, exportBehaviors } from "../api/api";
+import { fetchHeatmap, fetchPreferences, fetchProfileView, getErrorMessage, updatePreferences, updateProfile, fetchFollowStatus, fetchFollowers, fetchFollowing, exportBehaviors } from "../api/api";
 import { useAppSettings } from "../context/AppSettingsContext";
+import { useLang } from "../context/messages";
 import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import PageHeader from "../components/ui/PageHeader";
@@ -99,6 +100,7 @@ function ProfilePage() {
   const { user, error: appError, refreshOverview } = useOutletContext();
   const queryClient = useQueryClient();
   const { setTheme, setLang } = useAppSettings();
+  const m = useLang();
   const [hoveredDay, setHoveredDay] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [prefForm, setPrefForm] = useState({ language: "ko", theme: "light" });
@@ -340,9 +342,9 @@ function ProfilePage() {
             />
             {usernameError && <p className="text-xs text-red-500">{usernameError}</p>}
             <div className="flex gap-3">
-              <button onClick={() => setUsernameEdit(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50">취소</button>
+              <button onClick={() => setUsernameEdit(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50">{m.profile.cancel}</button>
               <button onClick={handleSaveUsername} disabled={usernameSaving} className="flex-1 rounded-xl bg-[#0f766e] py-2.5 text-sm font-bold text-white hover:bg-[#0b5c56] disabled:opacity-60">
-                {usernameSaving ? "저장 중..." : "저장"}
+                {usernameSaving ? "..." : m.profile.saveChanges}
               </button>
             </div>
           </div>
@@ -352,9 +354,9 @@ function ProfilePage() {
       <Modal
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
-        title="프로필 편집"
+        title={m.profile.editProfile}
         onConfirm={handleSavePrefs}
-        confirmLabel={saving ? "저장 중..." : "저장"}
+        confirmLabel={saving ? "..." : m.profile.saveChanges}
       >
         <div className="space-y-4">
           <div>
@@ -373,7 +375,7 @@ function ProfilePage() {
             </div>
           </div>
           <div>
-            <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">언어</p>
+            <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">{m.profile.language}</p>
             <select
               value={prefForm.language}
               onChange={(e) => setPrefForm((f) => ({ ...f, language: e.target.value }))}
@@ -384,7 +386,7 @@ function ProfilePage() {
             </select>
           </div>
           <div>
-            <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">테마</p>
+            <p className="mb-1 text-xs font-semibold text-[color:var(--ink)]">{m.profile.theme}</p>
             <div className="flex gap-2">
               {["light", "dark"].map((t) => (
                 <button
@@ -646,12 +648,12 @@ function ProfilePage() {
                     {achievement.unlocked ? (
                       <div className="flex items-center gap-2 text-sm font-semibold text-[#0f766e]">
                         <CheckCircle2 size={14} />
-                        <span>달성 완료</span>
+                        <span>{m.profile.unlocked}</span>
                       </div>
                     ) : (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs text-[color:var(--ink-soft)]">
-                          <span>진행 중</span>
+                          <span>{m.profile.inProgress}</span>
                           <span className="font-semibold">
                             {achievement.progress_current ?? 0} / {achievement.progress_total ?? 1}
                           </span>
@@ -678,7 +680,7 @@ function ProfilePage() {
         <div className="space-y-4">
           <div className="space-y-1">
             <p className="app-kicker">내 데이터</p>
-            <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">데이터 내보내기</h2>
+            <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{m.profile.exportData}</h2>
             <p className="text-sm text-[color:var(--ink-soft)]">모든 행동 기록을 파일로 다운로드할 수 있어요.</p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -690,7 +692,7 @@ function ProfilePage() {
               className="app-secondary-button flex items-center gap-2 text-sm"
             >
               <Download size={14} strokeWidth={2.3} />
-              {exporting ? "다운로드 중..." : "CSV 다운로드"}
+              {exporting ? "..." : `${m.profile.exportCsv}`}
             </button>
             <button
               type="button"
@@ -700,7 +702,7 @@ function ProfilePage() {
               className="app-secondary-button flex items-center gap-2 text-sm"
             >
               <Download size={14} strokeWidth={2.3} />
-              {exporting ? "다운로드 중..." : "JSON 다운로드"}
+              {exporting ? "..." : `${m.profile.exportJson}`}
             </button>
           </div>
         </div>

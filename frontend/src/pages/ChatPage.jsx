@@ -8,10 +8,9 @@ import {
   fetchChatBootstrap,
   fetchChatHistoryBySession,
   fetchChatSessions,
-  getErrorMessage,
   renameChatSession,
 } from "../api/api";
-import { messages as i18nMessages } from "../context/messages";
+import { useLang } from "../context/messages";
 import ChatSidebar from "../components/chat/ChatSidebar";
 import ChatSidebarMobile from "../components/chat/ChatSidebarMobile";
 import AiMessage from "../components/chat/AiMessage";
@@ -39,7 +38,8 @@ function toMsg(item) {
 
 function ChatPage() {
   const { user } = useOutletContext();
-  const t = (key) => i18nMessages.ko.chat[key] ?? key;
+  const m = useLang();
+  const t = (key) => m.chat[key] ?? key;
 
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);

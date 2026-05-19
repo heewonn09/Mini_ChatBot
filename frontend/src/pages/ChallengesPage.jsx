@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLang } from "../context/messages";
 import {
   fetchChallenges,
   createChallenge,
@@ -432,6 +433,7 @@ function ChallengeCard({ ch, onAction, onJoinRequest }) {
 }
 
 export default function ChallengesPage() {
+  const m = useLang();
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -446,7 +448,7 @@ export default function ChallengesPage() {
       const params = category ? { category } : {};
       const data = await fetchChallenges(params);
       setChallenges(data);
-    } catch (e) {
+    } catch {
       setError("챌린지를 불러오지 못했어요.");
     } finally {
       setLoading(false);
@@ -474,13 +476,13 @@ export default function ChallengesPage() {
               <Trophy size={22} className="text-amber-200" />
               <span className="text-sm font-semibold text-amber-100 uppercase tracking-wider">챌린지 센터</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight mb-1">도전하고, 성장하세요</h1>
-            <p className="text-amber-100 text-sm">매일 체크인으로 연속 기록을 쌓고 목표를 완주하세요.</p>
+            <h1 className="text-3xl font-extrabold tracking-tight mb-1">{m.challenges.title}</h1>
+            <p className="text-amber-100 text-sm">{m.challenges.description}</p>
           </div>
           <div className="flex gap-4 sm:gap-6">
             <div className="text-center">
               <div className="text-3xl font-black">{myJoined.length}</div>
-              <div className="text-xs text-amber-100 mt-0.5">참가 중</div>
+              <div className="text-xs text-amber-100 mt-0.5">{m.challenges.joined}</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-black">{totalStreakDays}</div>
@@ -524,7 +526,7 @@ export default function ChallengesPage() {
                   : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
-              {t === "all" ? "전체 챌린지" : `내 챌린지 (${myJoined.length})`}
+              {t === "all" ? m.challenges.title : `내 챌린지 (${myJoined.length})`}
             </button>
           ))}
         </div>

@@ -3,20 +3,19 @@ import { Download, X } from "lucide-react";
 
 export default function PwaInstallBanner() {
   const [prompt, setPrompt] = useState(null);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(
+    () => Boolean(localStorage.getItem("pwa-banner-dismissed"))
+  );
 
   useEffect(() => {
-    if (localStorage.getItem("pwa-banner-dismissed")) {
-      setDismissed(true);
-      return;
-    }
+    if (dismissed) return;
     const handler = (e) => {
       e.preventDefault();
       setPrompt(e);
     };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
+  }, [dismissed]);
 
   if (!prompt || dismissed) return null;
 

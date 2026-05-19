@@ -60,6 +60,33 @@ from backend.utils.analysis_utils import (
 router = APIRouter(prefix="/api/ui", tags=["UI"])
 ai_service = AIFeedbackService()
 
+
+def _maybe_send_streak_alert(user_id: int, logs: list, db: Session) -> None:
+    """Fires a streak_alert notification at most once per user per day when streak is at risk."""
+    streak = DashboardService.current_streak(logs)
+    if streak < 2:
+        return
+    today = datetime.now().date()
+    has_logged_today = any(
+        (log.created_at.replace(tzinfo=None) if log.created_at.tzinfo else log.created_at).date() == today
+        for log in logs
+    )
+    if has_logged_today:
+        return
+    dedup_key = f"notif:streak_alert:{user_id}:{today}"
+    count = redis_store.incr_with_ttl(dedup_key, 86400)
+    if count != 1:
+        return
+    try:
+        NotificationService(db).create(
+            user_id=user_id,
+            type="streak_alert",
+            title=f"🔥 {streak}일 연속 기록이 끊길 뻔했어요!",
+            body="오늘 아직 기록이 없어요. 지금 기록하면 연속 기록을 이어갈 수 있어요!",
+        )
+    except Exception:
+        pass
+
 _CORR_MIN_DAYS = 3   # 상관관계 계산 최소 활성 날짜 수 (focus_prediction 가드와 통일)
 _CORR_MIN_DIFF = 15  # 보고 가치 있는 최소 퍼센트포인트 차이
 
@@ -106,6 +133,8 @@ def get_overview(
         )
         redis_store.set_json(_cache_key, _resp.model_dump(mode="json"), ex_seconds=300)
         return _resp
+
+    _maybe_send_streak_alert(user_id, logs, db)
 
     # stat_cards / charts use 7-day subset; recent_activity uses full 30 days
     _cutoff_7d = datetime.now() - timedelta(days=7)

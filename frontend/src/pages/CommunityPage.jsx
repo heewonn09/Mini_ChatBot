@@ -10,6 +10,7 @@ import {
 } from "../api/api";
 import ToastContainer from "../components/ui/Toast";
 import { useToast } from "../hooks/useToast";
+import { useLang } from "../context/messages";
 
 const CATEGORIES = [
   { key: "all",         label: "전체",    emoji: "✨" },
@@ -38,6 +39,7 @@ function timeAgo(dateStr) {
 
 // ── Create Post Modal ─────────────────────────────────────────────────────────
 function CreatePostModal({ onClose, onCreated }) {
+  const m = useLang();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("general");
@@ -97,7 +99,7 @@ function CreatePostModal({ onClose, onCreated }) {
             <button onClick={handle} disabled={saving}
               className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 py-3 text-sm font-bold text-white hover:from-teal-600 hover:to-emerald-600 disabled:opacity-50"
             >
-              <Send size={14} />{saving ? "등록 중..." : "게시하기"}
+              <Send size={14} />{saving ? "..." : m.community.post}
             </button>
           </div>
         </div>
@@ -107,7 +109,7 @@ function CreatePostModal({ onClose, onCreated }) {
 }
 
 // ── Comment section ───────────────────────────────────────────────────────────
-function CommentSection({ post, currentUserId }) {
+function CommentSection({ post }) {
   const [comments, setComments] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -171,6 +173,7 @@ function CommentSection({ post, currentUserId }) {
 
 // ── Post Card ─────────────────────────────────────────────────────────────────
 function PostCard({ post: initialPost, currentUserId, onDelete, followedUsers, onFollowToggle }) {
+  const m = useLang();
   const [post, setPost] = useState(initialPost);
   const [showComments, setShowComments] = useState(false);
   const [liking, setLiking] = useState(false);
@@ -213,7 +216,7 @@ function PostCard({ post: initialPost, currentUserId, onDelete, followedUsers, o
                     : "bg-teal-50 text-teal-600 hover:bg-teal-100"
                 }`}
               >
-                {isFollowing ? "팔로잉" : "+ 팔로우"}
+                {isFollowing ? m.community.following : `+ ${m.community.follow}`}
               </button>
             )}
             {isOwnPost && (

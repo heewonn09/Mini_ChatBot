@@ -16,11 +16,13 @@ import AIInsightCard from "../components/ui/AIInsightCard";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 import { SkeletonCard, SkeletonRow } from "../components/ui/Skeleton";
+import { useLang } from "../context/messages";
 
 const DAY_OPTIONS = [7, 14, 30, 90];
 
 function AnalysisPage() {
   const { user, overview, error: appError, refreshOverview } = useOutletContext();
+  const m = useLang();
   const [days, setDays] = useState(7);
   const navigate = useNavigate();
 
@@ -98,7 +100,7 @@ function AnalysisPage() {
   if (!analysis) {
     return (
       <Card className="app-panel-strong space-y-4 p-6 text-[color:var(--ink-soft)]">
-        <p>아직 AI 분석이 없습니다.</p>
+        <p>{m.analysis.noAnalysis}</p>
         {user?.id ? (
           <button
             type="button"
@@ -108,7 +110,7 @@ function AnalysisPage() {
             }}
             className="app-secondary-button"
           >
-            새로고침
+            {m.analysis.refresh}
           </button>
         ) : null}
       </Card>
@@ -126,8 +128,8 @@ function AnalysisPage() {
         <PageHeader
           variant="icon"
           badgeIcon={Brain}
-          title="AI 인사이트"
-          description="흐트러지는 지점과 집중되는 지점을 보고 다음 조정을 제안합니다."
+          title={m.analysis.title}
+          description={m.analysis.description}
         />
         <div className="flex gap-1.5">
           {DAY_OPTIONS.map((d) => (
@@ -141,7 +143,7 @@ function AnalysisPage() {
                   : "bg-[rgba(24,50,53,0.07)] text-[color:var(--ink-soft)] hover:bg-[rgba(24,50,53,0.12)]"
               }`}
             >
-              {d}일
+              {d}{m.analysis.days}
             </button>
           ))}
         </div>
@@ -150,12 +152,12 @@ function AnalysisPage() {
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.15fr,0.85fr]">
           <div className="space-y-4">
-            <p className="app-kicker">패턴 스포트라이트</p>
+            <p className="app-kicker">{m.analysis.spotlight}</p>
             <h2 className="app-heading text-[2.35rem] leading-[1.02] text-[color:var(--ink)] sm:text-[2.95rem]">
-              {spotlight?.title ?? "지금 바로 실행할 수 있는 핵심 신호가 있어요."}
+              {spotlight?.title ?? m.analysis.spotlightFallback}
             </h2>
             <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">
-              {spotlight?.description ?? "최근 기록을 비교해 지금 가장 보호/수정이 필요한 패턴을 보여줍니다."}
+              {spotlight?.description ?? m.analysis.spotlightDescFallback}
             </p>
           </div>
 
@@ -192,8 +194,8 @@ function AnalysisPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Chart
-          title="행동 분포"
-          description="최근 시간이 집중/중립/방해 행동으로 어떻게 나뉘는지"
+          title={m.analysis.behaviorDistribution}
+          description={m.analysis.behaviorDistributionDesc}
           variant="donut"
           data={distribution}
           categoryKey="label"
@@ -210,8 +212,8 @@ function AnalysisPage() {
         />
 
         <Chart
-          title="주간 패턴"
-          description="시간대별 생산 리듬 보기"
+          title={m.analysis.weeklyPattern}
+          description={m.analysis.weeklyPatternDesc}
           variant="radar"
           data={weeklyPattern}
           categoryKey="label"
@@ -231,7 +233,7 @@ function AnalysisPage() {
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-[color:var(--ink)]">
             <TrendingUp size={18} className="text-[#0f766e]" />
-            <h2 className="app-heading text-[2rem]">추천 액션</h2>
+            <h2 className="app-heading text-[2rem]">{m.analysis.recommendations}</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -266,7 +268,7 @@ function AnalysisPage() {
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-[color:var(--ink)]">
             <Link2 size={18} className="text-[#0f766e]" />
-            <h2 className="app-heading text-[2rem]">습관 상관관계</h2>
+            <h2 className="app-heading text-[2rem]">{m.analysis.correlations}</h2>
           </div>
 
           {correlations.length === 0 ? (
