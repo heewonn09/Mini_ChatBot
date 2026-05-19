@@ -3,6 +3,7 @@ import { getErrorMessage, getStoredToken } from "../api/api";
 import Navbar from "../components/navigation/Navbar";
 import CommandMenu from "../components/navigation/CommandMenu";
 import Card from "../components/ui/Card";
+import PwaInstallBanner from "../components/ui/PwaInstallBanner";
 import { SkeletonCard, SkeletonStatCard } from "../components/ui/Skeleton";
 import useAppData from "../hooks/useAppData";
 
@@ -24,6 +25,8 @@ function AppLayout() {
       <Navbar />
 
       <CommandMenu />
+
+      <PwaInstallBanner />
 
       {/* pb-safe: 하단 홈바 영역 + 탭바 높이 확보 */}
       <main
