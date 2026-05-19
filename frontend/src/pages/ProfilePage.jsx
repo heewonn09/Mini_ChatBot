@@ -116,6 +116,8 @@ function ProfilePage() {
     finally { setExporting(false); }
   }
 
+  const STALE_5MIN = 5 * 60 * 1000;
+
   const {
     data: profile,
     error: profileQueryError,
@@ -125,36 +127,42 @@ function ProfilePage() {
     queryKey: ["profile", user?.id],
     queryFn: () => fetchProfileView(user.id),
     enabled: !!user?.id,
+    staleTime: STALE_5MIN,
   });
 
   const { data: heatmapData } = useQuery({
     queryKey: ["heatmap", user?.id],
     queryFn: () => fetchHeatmap(user.id),
     enabled: !!user?.id,
+    staleTime: STALE_5MIN,
   });
 
   const { data: prefsData } = useQuery({
     queryKey: ["preferences", user?.id],
     queryFn: () => fetchPreferences(user.id),
     enabled: !!user?.id,
+    staleTime: STALE_5MIN,
   });
 
   const { data: followStatus } = useQuery({
     queryKey: ["followStatus", user?.id],
     queryFn: () => fetchFollowStatus(user.id),
     enabled: !!user?.id,
+    staleTime: STALE_5MIN,
   });
 
   const { data: followersList = [] } = useQuery({
     queryKey: ["followers", user?.id],
     queryFn: () => fetchFollowers(user.id),
     enabled: followModal === "followers" && !!user?.id,
+    staleTime: STALE_5MIN,
   });
 
   const { data: followingList = [] } = useQuery({
     queryKey: ["following", user?.id],
     queryFn: () => fetchFollowing(user.id),
     enabled: followModal === "following" && !!user?.id,
+    staleTime: STALE_5MIN,
   });
 
   const heatmap = heatmapData ?? null;
@@ -559,7 +567,7 @@ function ProfilePage() {
       <Card className="p-6">
         <div className="space-y-5">
           <div className="space-y-1">
-            <p className="app-kicker">30일 감정 기록</p>
+            <p className="app-kicker">90일 감정 기록</p>
             <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">감정 히트맵</h2>
           </div>
 
@@ -570,7 +578,7 @@ function ProfilePage() {
             <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-[#e9f1ef]" /><span>없음</span></div>
           </div>
 
-          <div className="relative grid grid-cols-10 gap-1.5">
+          <div className="relative grid grid-cols-[repeat(13,1fr)] gap-1">
             {hoveredDay ? (
               <div className="absolute -top-14 left-1/2 z-10 w-56 -translate-x-1/2 rounded-xl border border-[rgba(24,50,53,0.08)] bg-white/95 p-2.5 text-xs shadow-lg">
                 <p className="font-semibold text-[color:var(--ink)]">{hoveredDay.date}</p>
@@ -595,7 +603,7 @@ function ProfilePage() {
                   key={day.date}
                   onMouseEnter={() => setHoveredDay({ ...day, emotionLabel })}
                   onMouseLeave={() => setHoveredDay(null)}
-                  className={`h-7 rounded-md ${colorClass} transition-opacity hover:opacity-70`}
+                  className={`h-5 rounded-sm ${colorClass} transition-opacity hover:opacity-70`}
                 />
               );
             })}

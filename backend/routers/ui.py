@@ -277,12 +277,12 @@ def get_heatmap(
     db: Session = Depends(get_db),
 ):
     _get_user(user_id, db)
-    logs = _get_logs(user_id, db, days=30, ascending=True)
+    logs = _get_logs(user_id, db, days=90, ascending=True)
     grouped: dict[str, list[BehaviorLog]] = defaultdict(list)
     for log in logs:
         grouped[log.created_at.date().isoformat()].append(log)
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now().date()
     return HeatmapResponse(
         days=[
             HeatmapDayItem(
@@ -290,7 +290,7 @@ def get_heatmap(
                 count=len(grouped.get(d.isoformat(), [])),
                 dominant_emotion=_dominant_emotion_label(grouped.get(d.isoformat(), [])),
             )
-            for i in range(29, -1, -1)
+            for i in range(89, -1, -1)
         ]
     )
 
