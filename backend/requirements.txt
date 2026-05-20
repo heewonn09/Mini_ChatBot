@@ -17,6 +17,9 @@ redis==5.0.8
 # Alembic (DB migrations)
 alembic==1.16.1
 
+# Scheduled jobs
+apscheduler==3.10.4
+
 # Testing
 pytest==9.0.3
 pytest-asyncio==1.3.0

@@ -80,6 +80,8 @@ class ChallengeParticipant(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     current_streak = Column(Integer, default=0)
     completed_days = Column(Integer, default=0)
+    is_completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
     joined_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_checked_in = Column(DateTime, nullable=True)
 

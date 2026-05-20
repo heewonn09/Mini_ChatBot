@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, RefreshCw, Sparkles } from "lucide-react";
+import { Check, Copy, RefreshCw, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -39,6 +39,7 @@ const markdownComponents = {
 
 function AiMessage({ content, onRegenerate, t }) {
   const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState(null); // null | "up" | "down"
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content).then(() => {
@@ -47,20 +48,24 @@ function AiMessage({ content, onRegenerate, t }) {
     });
   };
 
+  const handleFeedback = (value) => {
+    setFeedback((prev) => (prev === value ? null : value));
+  };
+
   return (
     <div className="group mb-6 flex gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] bg-[#def2ee] text-[#0f766e]">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] bg-[color:var(--teal-soft)] text-[color:var(--teal)]">
         <Sparkles size={15} strokeWidth={2.3} />
       </div>
 
       <div className="flex-1 max-w-3xl">
-        <div className="rounded-[1.4rem] rounded-tl-[0.4rem] border border-[rgba(24,50,53,0.08)] bg-white/78 px-5 py-4 text-[0.97rem] text-[color:var(--ink)] shadow-[var(--shadow-sm)]">
+        <div className="rounded-[1.4rem] rounded-tl-[0.4rem] border border-[color:var(--line)] bg-[color:var(--surface-strong)] px-5 py-4 text-[0.97rem] text-[color:var(--ink)] shadow-[var(--shadow-sm)]">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
             {content}
           </ReactMarkdown>
         </div>
 
-        <div className="mt-1.5 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             type="button"
             onClick={handleCopy}
@@ -78,6 +83,36 @@ function AiMessage({ content, onRegenerate, t }) {
               <RefreshCw size={12} />
               {t("regenerate")}
             </button>
+          )}
+          <span className="mx-1 h-3 w-px bg-[color:var(--border)]" />
+          <button
+            type="button"
+            onClick={() => handleFeedback("up")}
+            aria-label="도움됐어요"
+            className={`rounded-lg px-2 py-1 transition-colors ${
+              feedback === "up"
+                ? "text-[#0f766e]"
+                : "text-[color:var(--ink-soft)] hover:text-[#0f766e]"
+            }`}
+          >
+            <ThumbsUp size={12} fill={feedback === "up" ? "currentColor" : "none"} />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFeedback("down")}
+            aria-label="별로예요"
+            className={`rounded-lg px-2 py-1 transition-colors ${
+              feedback === "down"
+                ? "text-[#dd7a5f]"
+                : "text-[color:var(--ink-soft)] hover:text-[#dd7a5f]"
+            }`}
+          >
+            <ThumbsDown size={12} fill={feedback === "down" ? "currentColor" : "none"} />
+          </button>
+          {feedback && (
+            <span className="text-[10px] text-[color:var(--ink-soft)] ml-0.5">
+              {feedback === "up" ? "감사해요!" : "개선할게요!"}
+            </span>
           )}
         </div>
       </div>

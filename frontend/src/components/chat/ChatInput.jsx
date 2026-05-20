@@ -19,7 +19,7 @@ function ChatInput({ value, onChange, onSend, disabled, placeholder }) {
   };
 
   return (
-    <div className="flex items-end gap-3 rounded-[1.7rem] border border-[rgba(24,50,53,0.1)] bg-white/80 p-2 shadow-[var(--shadow-sm)] backdrop-blur-sm">
+    <div className="flex items-end gap-3 rounded-[1.7rem] border border-[color:var(--line)] bg-[color:var(--surface-strong)] p-2 shadow-[var(--shadow-sm)] backdrop-blur-sm">
       <textarea
         ref={ref}
         rows={1}

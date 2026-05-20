@@ -4,6 +4,17 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("react-markdown") || id.includes("remark-gfm")) return "markdown";
+          if (id.includes("recharts")) return "charts";
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/") || id.includes("node_modules/react-router-dom/")) return "vendor";
+        },
+      },
+    },
+  },
   plugins: [
     tailwindcss(),
     react(),
@@ -54,6 +65,22 @@ export default defineConfig({
             options: {
               cacheName: 'google-fonts-static',
               expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
+          {
+            urlPattern: /\/api\/ui\/\d+\/overview/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'api-overview',
+              expiration: { maxEntries: 5, maxAgeSeconds: 60 * 5 },
+            },
+          },
+          {
+            urlPattern: /\/api\/community\/challenges/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'api-challenges',
+              expiration: { maxEntries: 5, maxAgeSeconds: 60 * 10 },
             },
           },
         ],

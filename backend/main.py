@@ -14,6 +14,7 @@ from backend.routers import users, behaviors, analysis, ui, auth
 from backend.routers import community as community_router
 from backend.models.behavior import User, BehaviorLog  # noqa: F401
 from backend.models.chat import ChatHistory  # noqa: F401
+from backend.services.scheduler import start_scheduler, stop_scheduler
 
 settings = get_settings()
 
@@ -27,7 +28,9 @@ async def lifespan(app: FastAPI):
     create_tables()
     tables = inspect(engine).get_table_names()
     logger.info("Active tables: %s", tables)
+    start_scheduler()
     yield
+    stop_scheduler()
     logger.info("Shutting down %s", settings.app_name)
 
 

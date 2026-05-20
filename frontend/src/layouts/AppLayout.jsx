@@ -1,9 +1,10 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { getErrorMessage, getStoredToken } from "../api/api";
 import Navbar from "../components/navigation/Navbar";
 import CommandMenu from "../components/navigation/CommandMenu";
 import Card from "../components/ui/Card";
 import PwaInstallBanner from "../components/ui/PwaInstallBanner";
+import QuickLogFAB from "../components/ui/QuickLogFAB";
 import { SkeletonCard, SkeletonStatCard } from "../components/ui/Skeleton";
 import useAppData from "../hooks/useAppData";
 import useIdleLogout from "../hooks/useIdleLogout";
@@ -12,6 +13,8 @@ function AppLayout() {
   const appData = useAppData();
   const appErrorMessage = getErrorMessage(appData.error, "Mindflow 데이터를 불러오지 못했습니다.");
   const hasToken = Boolean(getStoredToken());
+  const { pathname } = useLocation();
+  const showFAB = !appData.loading && !appData.error && !pathname.startsWith("/chat") && !pathname.startsWith("/log");
   useIdleLogout();
 
   if (!hasToken) return <Navigate to="/auth" replace />;
@@ -29,6 +32,14 @@ function AppLayout() {
       <CommandMenu />
 
       <PwaInstallBanner />
+
+      {showFAB && (
+        <QuickLogFAB
+          user={appData.user}
+          overview={appData.overview}
+          refreshOverview={appData.refreshOverview}
+        />
+      )}
 
       {/* pb-safe: 하단 홈바 영역 + 탭바 높이 확보 */}
       <main

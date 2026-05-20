@@ -32,7 +32,7 @@ function ChatSidebar({ sessions, currentId, onSelect, onNew, onDelete, onRename,
         <button
           type="button"
           onClick={onNew}
-          className="flex w-full items-center gap-2 rounded-[1rem] border border-[rgba(24,50,53,0.12)] bg-white/70 px-3 py-2.5 text-sm font-semibold text-[color:var(--ink)] shadow-[var(--shadow-sm)] transition hover:bg-white active:scale-95"
+          className="flex w-full items-center gap-2 rounded-[1rem] border border-[color:var(--line)] bg-[color:var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[color:var(--ink)] shadow-[var(--shadow-sm)] transition hover:bg-[color:var(--surface)] active:scale-95"
         >
           <Pencil size={14} strokeWidth={2.4} />
           {t("newChat")}
@@ -50,7 +50,7 @@ function ChatSidebar({ sessions, currentId, onSelect, onNew, onDelete, onRename,
               onDoubleClick={(e) => startEdit(e, s)}
               className={`group relative mb-1 flex cursor-pointer items-center justify-between rounded-[0.85rem] px-3 py-2.5 transition-colors ${
                 s.id === currentId
-                  ? "bg-[#def2ee] text-[#0f766e]"
+                  ? "bg-[color:var(--teal-soft)] text-[color:var(--teal)]"
                   : "hover:bg-[rgba(24,50,53,0.06)] text-[color:var(--ink)]"
               }`}
             >
@@ -63,7 +63,7 @@ function ChatSidebar({ sessions, currentId, onSelect, onNew, onDelete, onRename,
                   onKeyDown={(e) => handleKeyDown(e, s.id)}
                   onClick={(e) => e.stopPropagation()}
                   maxLength={100}
-                  className="flex-1 rounded bg-white/80 px-1 text-sm font-medium outline-none ring-1 ring-[#0f766e]"
+                  className="flex-1 rounded bg-[color:var(--surface-strong)] px-1 text-sm font-medium text-[color:var(--ink)] outline-none ring-1 ring-[color:var(--teal)]"
                 />
               ) : (
                 <span className="flex-1 truncate pr-1 text-sm font-medium">{s.title}</span>

@@ -41,6 +41,11 @@
   --ink-soft: #a6b4c0;
   --shadow-lg: 0 24px 72px rgba(0, 0, 0, 0.45);
   --shadow-sm: 0 12px 30px rgba(0, 0, 0, 0.28);
+  /* semantic palette — muted in dark mode */
+  --teal-soft: rgba(15, 118, 110, 0.22);
+  --coral-soft: rgba(221, 122, 95, 0.22);
+  --gold-soft: rgba(217, 168, 90, 0.22);
+  --sage-soft: rgba(143, 165, 137, 0.22);
 }
 
 * {
@@ -283,6 +288,28 @@ a,
 [data-theme="dark"] {
   --ink: #f2f7fb;
   --ink-soft: #d0dbe5;
+}
+
+/* ─── dark mode: white-card pattern overrides ─── */
+[data-theme="dark"] .dark-card {
+  background: rgba(22, 30, 38, 0.92) !important;
+  border-color: rgba(224, 236, 247, 0.12) !important;
+  color: var(--ink);
+}
+[data-theme="dark"] .dark-input {
+  background: rgba(18, 25, 32, 0.92) !important;
+  border-color: rgba(224, 236, 247, 0.16) !important;
+  color: var(--ink) !important;
+}
+[data-theme="dark"] .dark-input::placeholder {
+  color: var(--ink-soft) !important;
+}
+[data-theme="dark"] .dark-muted {
+  color: var(--ink-soft) !important;
+}
+[data-theme="dark"] .dark-surface {
+  background: var(--surface) !important;
+  color: var(--ink);
 }
 
 :root {
