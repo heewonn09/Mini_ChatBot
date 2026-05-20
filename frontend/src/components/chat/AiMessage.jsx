@@ -58,7 +58,7 @@ function AiMessage({ content, onRegenerate, t }) {
         <Sparkles size={15} strokeWidth={2.3} />
       </div>
 
-      <div className="flex-1 max-w-3xl">
+      <div className="min-w-0 flex-1 max-w-3xl">
         <div className="rounded-[1.4rem] rounded-tl-[0.4rem] border border-[color:var(--line)] bg-[color:var(--surface-strong)] px-5 py-4 text-[0.97rem] text-[color:var(--ink)] shadow-[var(--shadow-sm)]">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
             {content}

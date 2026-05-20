@@ -352,7 +352,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
     padding: 0.85rem 1.1rem;
     font-size: 0.95rem;
     border-radius: 1rem;
-    width: 100%;
   }
 
   /* 입력 필드 모바일 높이 */

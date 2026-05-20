@@ -305,7 +305,7 @@ function ChatPage() {
 
   return (
     <div
-      className="-mx-4 -mt-4 flex h-[calc(100dvh-10rem)] sm:-mx-6 md:h-[calc(100dvh-7rem)] lg:-mx-8"
+      className="-mx-4 -mt-4 flex h-[calc(100dvh-10rem)] overflow-hidden sm:-mx-6 md:h-[calc(100dvh-7rem)] lg:-mx-8"
       style={{ marginBottom: isDesktop ? "calc(-9rem - var(--safe-bottom, 0px))" : "0px" }}
     >
       {/* 모바일 드로어 사이드바 (sm 미만) */}
@@ -337,7 +337,7 @@ function ChatPage() {
       )}
 
       {/* 메인 채팅 영역 */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,rgba(255,250,244,0.72),rgba(255,250,244,0.9))]">
         {/* 헤더 */}
         <div className="flex-shrink-0 flex items-center gap-3 border-b border-[rgba(24,50,53,0.08)] bg-white/60 px-5 py-3 backdrop-blur-sm">
           <button
@@ -360,8 +360,9 @@ function ChatPage() {
         </div>
 
         {/* 메시지 영역 */}
-        <div ref={scrollBoxRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-          <div ref={topSentinelRef} className="h-1" />
+        <div ref={scrollBoxRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8">
+          <div className="mx-auto w-full max-w-4xl">
+            <div ref={topSentinelRef} className="h-1" />
 
           {loadingMore && (
             <p className="py-2 text-center text-sm text-[color:var(--ink-soft)]">
@@ -374,7 +375,7 @@ function ChatPage() {
               {t("loading")}
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="mx-auto flex min-h-full max-w-3xl flex-col items-center justify-center py-16 text-center sm:py-20">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[1.2rem] bg-[#def2ee] text-[#0f766e]">
                 <Sparkles size={24} strokeWidth={2} />
               </div>
@@ -422,6 +423,7 @@ function ChatPage() {
               <div ref={bottomRef} />
             </>
           )}
+          </div>
         </div>
 
         {/* 하단 고정 입력창 */}
@@ -429,13 +431,15 @@ function ChatPage() {
           className="flex-shrink-0 border-t border-[rgba(24,50,53,0.08)] bg-white/60 px-4 pt-3 backdrop-blur-sm sm:px-8"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
         >
-          <ChatInput
-            value={input}
-            onChange={setInput}
-            onSend={() => send(input)}
-            disabled={sending}
-            placeholder={t("placeholder")}
-          />
+          <div className="mx-auto w-full max-w-4xl">
+            <ChatInput
+              value={input}
+              onChange={setInput}
+              onSend={() => send(input)}
+              disabled={sending}
+              placeholder={t("placeholder")}
+            />
+          </div>
           <p className="mt-1.5 hidden text-center text-[0.72rem] text-[color:var(--ink-soft)] sm:block">
             Shift + Enter로 줄 바꿈 · Enter로 전송
           </p>

@@ -170,8 +170,8 @@ function AuthPage() {
         {/* 로그인/회원가입 탭 (forgot/reset 모드에서는 숨김) */}
         {(mode === "login" || mode === "signup") && (
           <div className="mt-6 flex gap-2">
-            <button type="button" className={mode === "login" ? "app-primary-button" : "app-secondary-button"} onClick={() => switchMode("login")}>로그인</button>
-            <button type="button" className={mode === "signup" ? "app-primary-button" : "app-secondary-button"} onClick={() => switchMode("signup")}>회원가입</button>
+            <button type="button" className={`${mode === "login" ? "app-primary-button" : "app-secondary-button"} flex-1`} onClick={() => switchMode("login")}>로그인</button>
+            <button type="button" className={`${mode === "signup" ? "app-primary-button" : "app-secondary-button"} flex-1`} onClick={() => switchMode("signup")}>회원가입</button>
           </div>
         )}
 
