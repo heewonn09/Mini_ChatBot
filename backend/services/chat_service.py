@@ -4,9 +4,10 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.models.behavior import User
+from backend.models.behavior import BehaviorLog, User
 from backend.models.chat import ChatHistory, ChatSession
 from backend.redis_client import redis_store
+from backend.schemas.behavior import PatternAnalysisResult
 from backend.schemas.ui import (
     ChatBootstrapResponse,
     ChatHistoryItem,
@@ -16,14 +17,18 @@ from backend.schemas.ui import (
     ChatSessionListResponse,
     CreateSessionResponse,
 )
-from backend.models.behavior import BehaviorLog
 from backend.services.ai_feedback_service import AIFeedbackService
+from backend.services.chat_intent_router_service import (
+    ChatIntentRouterService,
+    LocalChatContext,
+)
 from backend.services.dashboard_service import DashboardService
 from backend.services.pattern_analysis_service import PatternAnalysisService
 from backend.utils.analysis_utils import format_display_name as _format_display_name
 
 CHAT_RATE_LIMIT = 30
 CHAT_RATE_WINDOW = 60
+DEFAULT_SESSION_TITLE = "새 대화"
 
 CHAT_SUGGESTIONS = [
     "왜 나는 생산적이지 않을까요?",
@@ -57,17 +62,17 @@ class ChatService:
         return ChatSessionListResponse(
             sessions=[
                 ChatSessionItem(
-                    id=s.id,
-                    title=s.title,
-                    created_at=s.created_at,
-                    updated_at=s.updated_at,
+                    id=session.id,
+                    title=session.title,
+                    created_at=session.created_at,
+                    updated_at=session.updated_at,
                 )
-                for s in sessions
+                for session in sessions
             ]
         )
 
     def create_session(self, user_id: int) -> CreateSessionResponse:
-        session = ChatSession(user_id=user_id, title="새 대화")
+        session = ChatSession(user_id=user_id, title=DEFAULT_SESSION_TITLE)
         self.db.add(session)
         self.db.commit()
         self.db.refresh(session)
@@ -90,17 +95,19 @@ class ChatService:
 
     def get_bootstrap(self, user: User) -> ChatBootstrapResponse:
         analysis = PatternAnalysisService.analyze_behaviors(
-            user_id=user.id, days=7, db=self.db
+            user_id=user.id,
+            days=7,
+            db=self.db,
         )
         top_emotion = (
             analysis.behavior_patterns[0].emotion
             if analysis.behavior_patterns
-            else "습관"
+            else "기록 없음"
         )
         name = _format_display_name(user.username)
         intro = (
-            f"안녕하세요, {name}님! 저는 행동 분석 어시스턴트입니다. 최근 패턴을 분석했으며 "
-            f"습관을 더 잘 이해할 수 있도록 도울 준비가 됐어요. 지금 가장 강한 신호는 '{top_emotion}'입니다."
+            f"안녕하세요, {name}님. 행동 패턴을 함께 보는 채팅 어시스턴트예요. "
+            f"최근 7일 기록을 바탕으로 지금 가장 자주 보이는 감정은 '{top_emotion}'이에요."
         )
         history = (
             self.db.query(ChatHistory)
@@ -110,75 +117,27 @@ class ChatService:
             .all()
         )
         if history:
-            intro += " 최근 대화 내용도 기억하고 있어요."
+            intro += " 최근 대화 흐름도 함께 참고해서 이어서 도와드릴게요."
         return ChatBootstrapResponse(intro=intro, suggested_prompts=CHAT_SUGGESTIONS)
 
     def send_message(
-        self, user: User, message: str, session_id: int | None
+        self,
+        user: User,
+        message: str,
+        session_id: int | None,
     ) -> ChatResponse:
         self.check_rate_limit(user.id)
 
-        if session_id:
-            session = (
-                self.db.query(ChatSession)
-                .filter(
-                    ChatSession.id == session_id,
-                    ChatSession.user_id == user.id,
-                )
-                .first()
-            )
-            if not session:
-                raise HTTPException(status_code=404, detail="Session not found")
-        else:
-            session = ChatSession(user_id=user.id, title="새 대화")
-            self.db.add(session)
-            self.db.flush()
-            session_id = session.id
+        session = self._get_or_create_session(user.id, session_id)
+        session_id = session.id
 
-        _analysis_cache_key = f"chat_analysis:{user.id}:14"
-        _cached = redis_store.get_json(_analysis_cache_key)
-        if _cached:
-            from backend.schemas.behavior import PatternAnalysisResult
-            analysis = PatternAnalysisResult(**_cached)
-        else:
-            analysis = PatternAnalysisService.analyze_behaviors(
-                user_id=user.id, days=14, db=self.db
-            )
-            redis_store.set_json(_analysis_cache_key, analysis.model_dump(mode="json"), ex_seconds=300)
-        # Gemini 이중 호출 방지: generate_feedback 대신 분석 데이터로 직접 요약
-        if analysis.behavior_patterns:
-            top = analysis.behavior_patterns[0]
-            behavior_summary = (
-                f"최근 14일 행동 분석: 총 {analysis.total_logs}건 기록. "
-                f"주요 감정: {top.emotion} ({top.percentage:.0f}%, 평균 강도 {top.intensity_avg:.1f}/10). "
-            )
-            if len(analysis.behavior_patterns) > 1:
-                others = ", ".join(p.emotion for p in analysis.behavior_patterns[1:3])
-                behavior_summary += f"기타 감정: {others}."
-        else:
-            behavior_summary = "최근 행동 기록이 없습니다."
-
-        recent_messages = (
-            self.db.query(ChatHistory)
-            .filter(
-                ChatHistory.user_id == user.id,
-                ChatHistory.session_id == session_id,
-            )
-            .order_by(ChatHistory.created_at.desc())
-            .limit(10)
-            .all()
-        )
+        analysis = self._get_cached_analysis(user.id)
+        recent_messages = self._load_recent_messages(user.id, session_id)
         memory = "\n".join(
             f"{item.role}: {item.message}" for item in reversed(recent_messages)
         )
+        logs = self._load_recent_logs(user.id)
 
-        logs = (
-            self.db.query(BehaviorLog)
-            .filter(BehaviorLog.user_id == user.id)
-            .order_by(BehaviorLog.created_at.desc())
-            .limit(200)
-            .all()
-        )
         recent_log_details = [
             {
                 "created_at": log.created_at.isoformat() if log.created_at else "",
@@ -191,60 +150,71 @@ class ChatService:
             for log in logs[:15]
         ]
         tag_counts = Counter(log.tag for log in logs if log.tag)
-        top_tags = [{"tag": tag, "count": cnt} for tag, cnt in tag_counts.most_common(5)]
+        top_tags = [
+            {"tag": tag, "count": count}
+            for tag, count in tag_counts.most_common(5)
+        ]
         emotion_distribution = [
-            {"emotion": p.emotion, "pct": round(p.percentage, 1), "intensity": round(p.intensity_avg, 1)}
-            for p in analysis.behavior_patterns[:4]
+            {
+                "emotion": pattern.emotion,
+                "pct": round(pattern.percentage, 1),
+                "intensity": round(pattern.intensity_avg, 1),
+            }
+            for pattern in analysis.behavior_patterns[:4]
         ]
         user_context = {
-            "top_emotion": analysis.behavior_patterns[0].emotion if analysis.behavior_patterns else None,
+            "top_emotion": (
+                analysis.behavior_patterns[0].emotion
+                if analysis.behavior_patterns
+                else None
+            ),
             "streak_days": DashboardService.current_streak(logs),
             "total_logs": analysis.total_logs,
             "recent_logs": recent_log_details,
             "top_tags": top_tags,
             "emotion_distribution": emotion_distribution,
         }
+        behavior_summary = self._build_behavior_summary(analysis)
 
-        try:
-            answer = self.ai.generate_chat_response(
-                user_message=message,
-                username=_format_display_name(user.username),
-                behavior_summary=behavior_summary,
-                conversation_memory=memory,
-                user_context=user_context,
-            )
-        except Exception:
-            answer = "지금은 답변하지 못했어요. 잠시 후 다시 시도해주세요."
+        local_answer = ChatIntentRouterService.try_answer(
+            message=message,
+            context=LocalChatContext(
+                username=user.username,
+                logs=logs,
+                analysis=analysis,
+            ),
+        )
+
+        if local_answer is not None:
+            answer = local_answer
+        else:
+            try:
+                answer = self.ai.generate_chat_response(
+                    user_message=message,
+                    username=_format_display_name(user.username),
+                    behavior_summary=behavior_summary,
+                    conversation_memory=memory,
+                    user_context=user_context,
+                )
+            except Exception:
+                answer = "지금은 답변을 불러오지 못했어요. 잠시 후 다시 시도해주세요."
 
         if not recent_messages:
             session.title = message[:40] + ("..." if len(message) > 40 else "")
 
-        self.db.add(
-            ChatHistory(
-                user_id=user.id,
-                session_id=session_id,
-                role="user",
-                message=message,
-                created_at=datetime.now(timezone.utc),
-            )
-        )
-        self.db.add(
-            ChatHistory(
-                user_id=user.id,
-                session_id=session_id,
-                role="assistant",
-                message=answer,
-                created_at=datetime.now(timezone.utc),
-            )
-        )
-        self.db.commit()
+        self._save_messages(user.id, session_id, message, answer)
         self.db.query(ChatSession).filter(ChatSession.id == session_id).update(
             {"message_count": ChatSession.message_count + 2}
         )
         self.db.commit()
         return ChatResponse(answer=answer, session_id=session_id)
 
-    def rename_session(self, user_id: int, session_id: int, title: str) -> ChatSessionItem:
+    def rename_session(
+        self,
+        user_id: int,
+        session_id: int,
+        title: str,
+    ) -> ChatSessionItem:
         session = (
             self.db.query(ChatSession)
             .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
@@ -288,3 +258,111 @@ class ChatService:
                 for row in rows
             ]
         )
+
+    def _get_or_create_session(
+        self,
+        user_id: int,
+        session_id: int | None,
+    ) -> ChatSession:
+        if session_id:
+            session = (
+                self.db.query(ChatSession)
+                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .first()
+            )
+            if not session:
+                raise HTTPException(status_code=404, detail="Session not found")
+            return session
+
+        session = ChatSession(user_id=user_id, title=DEFAULT_SESSION_TITLE)
+        self.db.add(session)
+        self.db.flush()
+        return session
+
+    def _get_cached_analysis(self, user_id: int) -> PatternAnalysisResult:
+        cache_key = f"chat_analysis:{user_id}:14"
+        cached = redis_store.get_json(cache_key)
+        if cached:
+            return PatternAnalysisResult(**cached)
+
+        analysis = PatternAnalysisService.analyze_behaviors(
+            user_id=user_id,
+            days=14,
+            db=self.db,
+        )
+        redis_store.set_json(
+            cache_key,
+            analysis.model_dump(mode="json"),
+            ex_seconds=300,
+        )
+        return analysis
+
+    def _load_recent_messages(
+        self,
+        user_id: int,
+        session_id: int,
+    ) -> list[ChatHistory]:
+        return (
+            self.db.query(ChatHistory)
+            .filter(
+                ChatHistory.user_id == user_id,
+                ChatHistory.session_id == session_id,
+            )
+            .order_by(ChatHistory.created_at.desc())
+            .limit(10)
+            .all()
+        )
+
+    def _load_recent_logs(self, user_id: int) -> list[BehaviorLog]:
+        return (
+            self.db.query(BehaviorLog)
+            .filter(BehaviorLog.user_id == user_id)
+            .order_by(BehaviorLog.created_at.desc())
+            .limit(200)
+            .all()
+        )
+
+    def _build_behavior_summary(self, analysis: PatternAnalysisResult) -> str:
+        if not analysis.behavior_patterns:
+            return "최근 행동 기록이 아직 충분하지 않습니다."
+
+        top = analysis.behavior_patterns[0]
+        summary = (
+            f"최근 14일 행동 분석: 총 {analysis.total_logs}건 기록. "
+            f"주요 감정은 {top.emotion}이며 비중은 {top.percentage:.0f}%, "
+            f"평균 강도는 {top.intensity_avg:.1f}/10입니다. "
+        )
+        if len(analysis.behavior_patterns) > 1:
+            others = ", ".join(
+                pattern.emotion for pattern in analysis.behavior_patterns[1:3]
+            )
+            summary += f"그다음으로 많이 보인 감정은 {others}입니다."
+        return summary
+
+    def _save_messages(
+        self,
+        user_id: int,
+        session_id: int,
+        user_message: str,
+        answer: str,
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        self.db.add(
+            ChatHistory(
+                user_id=user_id,
+                session_id=session_id,
+                role="user",
+                message=user_message,
+                created_at=now,
+            )
+        )
+        self.db.add(
+            ChatHistory(
+                user_id=user_id,
+                session_id=session_id,
+                role="assistant",
+                message=answer,
+                created_at=now,
+            )
+        )
+        self.db.commit()
