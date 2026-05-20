@@ -269,7 +269,7 @@ function ChatPage() {
 
   return (
     <div
-      className="-mx-4 -mt-4 flex h-[calc(100vh-10rem)] sm:-mx-6 md:h-[calc(100vh-7rem)] lg:-mx-8"
+      className="-mx-4 -mt-4 flex h-[calc(100dvh-10rem)] sm:-mx-6 md:h-[calc(100dvh-7rem)] lg:-mx-8"
       style={{ marginBottom: "calc(-9rem - var(--safe-bottom, 0px))" }}
     >
       {/* 모바일 드로어 사이드바 (sm 미만) */}
@@ -391,7 +391,10 @@ function ChatPage() {
         </div>
 
         {/* 하단 고정 입력창 */}
-        <div className="border-t border-[rgba(24,50,53,0.08)] bg-white/60 px-4 py-3 backdrop-blur-sm sm:px-8">
+        <div
+          className="border-t border-[rgba(24,50,53,0.08)] bg-white/60 px-4 pt-3 backdrop-blur-sm sm:px-8"
+          style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
+        >
           <ChatInput
             value={input}
             onChange={setInput}

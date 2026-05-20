@@ -6,11 +6,13 @@ import Card from "../components/ui/Card";
 import PwaInstallBanner from "../components/ui/PwaInstallBanner";
 import { SkeletonCard, SkeletonStatCard } from "../components/ui/Skeleton";
 import useAppData from "../hooks/useAppData";
+import useIdleLogout from "../hooks/useIdleLogout";
 
 function AppLayout() {
   const appData = useAppData();
   const appErrorMessage = getErrorMessage(appData.error, "Mindflow 데이터를 불러오지 못했습니다.");
   const hasToken = Boolean(getStoredToken());
+  useIdleLogout();
 
   if (!hasToken) return <Navigate to="/auth" replace />;
 

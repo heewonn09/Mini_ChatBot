@@ -77,12 +77,21 @@ function DashboardPage() {
   const worstHabitCard = statsByTitle["최악의 습관 시간"] ?? statsByTitle["Worst Habit Time"];
   const weeklyProgressCard = statsByTitle["주간 진도"] ?? statsByTitle["Weekly Progress"];
 
+  // 기록이 전혀 없으면 신규 회원으로 판단
+  const isNewUser = recentActivity.length === 0;
+  const greetingTitle = isNewUser
+    ? `처음 오신 것을 환영해요, ${welcomeName}! 🎉`
+    : `다시 오신 것을 환영해요, ${welcomeName}.`;
+  const greetingDesc = isNewUser
+    ? "첫 행동을 기록해보세요. 패턴이 쌓이면 AI가 당신만의 인사이트를 만들어드려요."
+    : "집중 시간과 방해 요소, 작은 성장을 한눈에 보는 공간입니다.";
+
   return (
     <section className="space-y-8">
       <PageHeader
         variant="hero"
-        title={`다시 오신 것을 환영해요, ${welcomeName}.`}
-        description="집중 시간과 방해 요소, 작은 성장을 한눈에 보는 공간입니다."
+        title={greetingTitle}
+        description={greetingDesc}
       />
 
       <Link

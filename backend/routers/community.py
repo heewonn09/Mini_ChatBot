@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from backend.auth import get_current_user
 from backend.database import get_db
@@ -113,7 +113,10 @@ def list_posts(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Post).filter(Post.is_public == True)
+    q = db.query(Post).filter(Post.is_public == True).options(
+        joinedload(Post.likes),
+        joinedload(Post.author),
+    )
     if following:
         followed_ids = (
             db.query(UserFollow.following_id)
@@ -278,7 +281,7 @@ def list_challenges(
     db: Session = Depends(get_db),
 ):
     _seed_official_challenges(db)
-    q = db.query(Challenge)
+    q = db.query(Challenge).options(joinedload(Challenge.participants))
     if category:
         q = q.filter(Challenge.category == category)
     challenges = q.order_by(Challenge.is_official.desc(), Challenge.participant_count.desc()).all()

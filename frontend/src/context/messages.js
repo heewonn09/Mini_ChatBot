@@ -184,6 +184,23 @@ export const messages = {
       noActive: "No active challenges. Join one above!",
       noChallenges: "No challenges found.",
     },
+    notifications: {
+      title: "Notifications",
+      markAllRead: "Mark all as read",
+      loading: "Loading...",
+      empty: "No new notifications",
+    },
+    pwa: {
+      title: "Add to Home Screen",
+      subtitle: "Run as an app instantly",
+      install: "Install",
+      close: "Close",
+    },
+    errorBoundary: {
+      title: "Unable to load this section",
+      desc: "Please try again in a moment.",
+      retry: "Retry",
+    },
   },
   ko: {
     nav: {
@@ -362,6 +379,23 @@ export const messages = {
       allCategories: "전체",
       noActive: "참가 중인 챌린지가 없어요. 위에서 참가해보세요!",
       noChallenges: "챌린지를 찾을 수 없습니다.",
+    },
+    notifications: {
+      title: "알림",
+      markAllRead: "모두 읽음",
+      loading: "불러오는 중...",
+      empty: "새 알림이 없습니다.",
+    },
+    pwa: {
+      title: "홈 화면에 추가",
+      subtitle: "앱처럼 바로 실행할 수 있어요",
+      install: "설치",
+      close: "닫기",
+    },
+    errorBoundary: {
+      title: "이 섹션을 불러오지 못했어요",
+      desc: "잠시 후 다시 시도해주세요.",
+      retry: "다시 시도",
     },
   },
 };

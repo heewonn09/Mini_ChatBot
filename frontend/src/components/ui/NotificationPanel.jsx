@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, CheckCheck, Flame, Target, Trophy, UserPlus, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "../../api/api";
+import { useLang } from "../../context/messages";
 
 function _relTime(iso) {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -28,6 +29,7 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
   const [items, setItems] = useState(null);
   const panelRef = useRef(null);
   const navigate = useNavigate();
+  const m = useLang();
   const loading = items === null;
 
   useEffect(() => {
@@ -85,7 +87,7 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div className="flex items-center gap-2">
             <Bell size={16} className="text-[#0f766e]" />
-            <span className="text-sm font-bold text-[color:var(--ink)]">알림</span>
+            <span className="text-sm font-bold text-[color:var(--ink)]">{m.notifications.title}</span>
           </div>
           <div className="flex items-center gap-2">
             {(items ?? []).some((n) => !n.is_read) && (
@@ -95,7 +97,7 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
                 className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-[#0f766e] hover:bg-[rgba(15,118,110,0.08)] transition"
               >
                 <CheckCheck size={13} />
-                모두 읽음
+                {m.notifications.markAllRead}
               </button>
             )}
             <button type="button" onClick={onClose} className="p-1 opacity-50 hover:opacity-100 transition">
@@ -106,10 +108,10 @@ function NotificationPanel({ userId, isOpen, onClose, onUnreadChange }) {
 
         <div className="max-h-80 overflow-y-auto px-3 pb-4 space-y-1">
           {loading && (
-            <p className="py-6 text-center text-sm text-[color:var(--ink-soft)]">불러오는 중...</p>
+            <p className="py-6 text-center text-sm text-[color:var(--ink-soft)]">{m.notifications.loading}</p>
           )}
           {!loading && (items ?? []).length === 0 && (
-            <p className="py-8 text-center text-sm text-[color:var(--ink-soft)]">새 알림이 없습니다.</p>
+            <p className="py-8 text-center text-sm text-[color:var(--ink-soft)]">{m.notifications.empty}</p>
           )}
           {!loading && (items ?? []).map((notif) => {
             const Icon = TYPE_ICON[notif.type] ?? Bell;

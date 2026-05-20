@@ -304,9 +304,11 @@ function JoinConfirmModal({ ch, onClose, onConfirmed }) {
 function ChallengeCard({ ch, onAction, onJoinRequest }) {
   const [actioning, setActioning] = useState(false);
   const [toast, setToast] = useState(null);
-  const style = getCatStyle(ch.category);
-  const pct = ch.duration_days > 0 ? ch.my_completed_days / ch.duration_days : 0;
-  const isComplete = ch.my_completed_days >= ch.duration_days;
+  // Optimistic 로컬 상태 — 체크인 성공 시 즉시 반영
+  const [localCh, setLocalCh] = useState(ch);
+  const style = getCatStyle(localCh.category);
+  const pct = localCh.duration_days > 0 ? localCh.my_completed_days / localCh.duration_days : 0;
+  const isComplete = localCh.my_completed_days >= localCh.duration_days;
 
   function showToast(msg, ok = true) {
     setToast({ msg, ok });
@@ -330,17 +332,25 @@ function ChallengeCard({ ch, onAction, onJoinRequest }) {
 
   async function handleCheckin() {
     setActioning(true);
+    // Optimistic update: 즉시 로컬 상태 업데이트
+    const nextCompleted = localCh.my_completed_days + 1;
+    setLocalCh((prev) => ({
+      ...prev,
+      my_completed_days: nextCompleted,
+      current_streak: (prev.current_streak ?? 0) + 1,
+    }));
     try {
       const res = await checkinChallenge(ch.id);
-      showToast(res.message || "체크인 완료!");
-      onAction();
+      showToast(res.message || "체크인 완료! 🎉");
+      onAction(); // 서버 최신 데이터 동기화
     } catch (e) {
+      setLocalCh(ch); // 실패 시 롤백
       showToast(e?.response?.data?.detail || "체크인에 실패했어요.", false);
     } finally { setActioning(false); }
   }
 
   return (
-    <div className={`relative rounded-[1.4rem] border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all duration-200 p-5 flex flex-col gap-4 ${ch.joined ? "ring-2 ring-teal-300/60" : ""}`}>
+    <div className={`relative rounded-[1.4rem] border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all duration-200 p-5 flex flex-col gap-4 ${localCh.joined ? "ring-2 ring-teal-300/60" : ""}`}>
       {toast && (
         <div className={`absolute top-3 right-3 text-xs font-semibold px-3 py-1.5 rounded-full shadow z-10 ${toast.ok ? "bg-teal-500 text-white" : "bg-red-500 text-white"}`}>
           {toast.msg}
@@ -350,20 +360,20 @@ function ChallengeCard({ ch, onAction, onJoinRequest }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            {ch.is_official && (
+            {localCh.is_official && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide">
                 <Star size={10} fill="currentColor" /> 공식
               </span>
             )}
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${style.badge}`}>
-              {CATEGORIES.find((c) => c.key === ch.category)?.label || ch.category}
+              {CATEGORIES.find((c) => c.key === localCh.category)?.label || localCh.category}
             </span>
           </div>
-          <h3 className="font-bold text-slate-800 text-base leading-snug">{ch.title}</h3>
-          <p className="text-xs text-slate-500 mt-1 line-clamp-2">{ch.description}</p>
+          <h3 className="font-bold text-slate-800 text-base leading-snug">{localCh.title}</h3>
+          <p className="text-xs text-slate-500 mt-1 line-clamp-2">{localCh.description}</p>
         </div>
 
-        {ch.joined && (
+        {localCh.joined && (
           <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: 52, height: 52 }}>
             <ProgressRing pct={pct} />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -374,20 +384,20 @@ function ChallengeCard({ ch, onAction, onJoinRequest }) {
       </div>
 
       <div className="flex items-center gap-4 text-xs text-slate-500">
-        <span className="flex items-center gap-1"><Users size={12} /> {ch.participant_count.toLocaleString()}명 참여</span>
-        <span className="flex items-center gap-1"><Calendar size={12} /> {ch.duration_days}일</span>
-        {ch.joined && ch.my_streak > 0 && (
-          <span className="flex items-center gap-1 text-orange-500 font-semibold"><Flame size={12} /> {ch.my_streak}일 연속</span>
+        <span className="flex items-center gap-1"><Users size={12} /> {localCh.participant_count.toLocaleString()}명 참여</span>
+        <span className="flex items-center gap-1"><Calendar size={12} /> {localCh.duration_days}일</span>
+        {localCh.joined && localCh.current_streak > 0 && (
+          <span className="flex items-center gap-1 text-orange-500 font-semibold"><Flame size={12} /> {localCh.current_streak}일 연속</span>
         )}
-        {isComplete && ch.joined && (
+        {isComplete && localCh.joined && (
           <span className="flex items-center gap-1 text-teal-600 font-semibold"><Award size={12} /> 완료!</span>
         )}
       </div>
 
-      {ch.joined && (
+      {localCh.joined && (
         <div className="space-y-1.5">
           <div className="flex justify-between text-[11px] text-slate-500">
-            <span>{ch.my_completed_days}/{ch.duration_days}일 완료</span>
+            <span>{localCh.my_completed_days}/{localCh.duration_days}일 완료</span>
             {isComplete && <span className="text-teal-600 font-semibold">🎉 달성!</span>}
           </div>
           <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -400,7 +410,7 @@ function ChallengeCard({ ch, onAction, onJoinRequest }) {
       )}
 
       <div className="flex gap-2 pt-1">
-        {!ch.joined ? (
+        {!localCh.joined ? (
           <button
             onClick={handleJoin}
             disabled={actioning}

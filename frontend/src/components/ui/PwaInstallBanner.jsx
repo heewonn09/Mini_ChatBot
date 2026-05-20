@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
+import { useLang } from "../../context/messages";
 
 export default function PwaInstallBanner() {
+  const m = useLang();
   const [prompt, setPrompt] = useState(null);
   const [dismissed, setDismissed] = useState(
     () => Boolean(localStorage.getItem("pwa-banner-dismissed"))
@@ -36,19 +38,19 @@ export default function PwaInstallBanner() {
           <Download size={18} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-[color:var(--ink)]">홈 화면에 추가</p>
-          <p className="text-xs text-[color:var(--ink-soft)]">앱처럼 바로 실행할 수 있어요</p>
+          <p className="text-sm font-bold text-[color:var(--ink)]">{m.pwa.title}</p>
+          <p className="text-xs text-[color:var(--ink-soft)]">{m.pwa.subtitle}</p>
         </div>
         <button
           onClick={handleInstall}
           className="rounded-xl bg-[#0f766e] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#0b5c56]"
         >
-          설치
+          {m.pwa.install}
         </button>
         <button
           onClick={handleDismiss}
           className="p-1 text-[color:var(--ink-soft)] hover:text-[color:var(--ink)] transition"
-          aria-label="닫기"
+          aria-label={m.pwa.close}
         >
           <X size={14} />
         </button>
