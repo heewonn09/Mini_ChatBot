@@ -323,7 +323,10 @@ def join_challenge(
     if existing:
         raise HTTPException(status_code=400, detail="Already joined")
     db.add(ChallengeParticipant(challenge_id=challenge_id, user_id=current_user.id))
-    challenge.participant_count += 1
+    db.query(Challenge).filter(Challenge.id == challenge_id).update(
+        {Challenge.participant_count: Challenge.participant_count + 1},
+        synchronize_session=False,
+    )
     db.commit()
     db.refresh(challenge)
     return _challenge_to_out(challenge, current_user.id)
@@ -341,9 +344,13 @@ def leave_challenge(
     ).first()
     if not p:
         raise HTTPException(status_code=404, detail="Not joined")
-    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
-    if challenge:
-        challenge.participant_count = max(0, challenge.participant_count - 1)
+    db.query(Challenge).filter(
+        Challenge.id == challenge_id,
+        Challenge.participant_count > 0,
+    ).update(
+        {Challenge.participant_count: Challenge.participant_count - 1},
+        synchronize_session=False,
+    )
     db.delete(p)
     db.commit()
 

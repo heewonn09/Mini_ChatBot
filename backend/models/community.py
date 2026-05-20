@@ -17,7 +17,7 @@ class Post(Base):
     title = Column(String(100), nullable=False)
     content = Column(Text, nullable=False)
     image_url = Column(String(500), nullable=True)
-    category = Column(String(30), default="general")  # general | tip | question | achievement
+    category = Column(String(30), default="general", index=True)  # general | tip | question | achievement
     is_public = Column(Boolean, default=True)
     like_count = Column(Integer, default=0)
     comment_count = Column(Integer, default=0)
@@ -47,7 +47,7 @@ class PostLike(Base):
     __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_post_user_like"),)
 
     id = Column(Integer, primary_key=True)
-    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -76,8 +76,8 @@ class ChallengeParticipant(Base):
     __table_args__ = (UniqueConstraint("challenge_id", "user_id", name="uq_challenge_user"),)
 
     id = Column(Integer, primary_key=True)
-    challenge_id = Column(Integer, ForeignKey("challenges.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    challenge_id = Column(Integer, ForeignKey("challenges.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     current_streak = Column(Integer, default=0)
     completed_days = Column(Integer, default=0)
     joined_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

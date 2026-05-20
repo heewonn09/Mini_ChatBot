@@ -265,12 +265,17 @@ export default function CommunityPage() {
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
   const [category, setCategory] = useState("all");
   const [feedTab, setFeedTab] = useState("all"); // "all" | "following"
   const [showCreate, setShowCreate] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
   const [followedUsers, setFollowedUsers] = useState(new Set());
   const latestIdRef = useRef(null);
+  const sentinelRef = useRef(null);
+  const PAGE_SIZE = 10;
 
   const handleFollowToggle = useCallback(async (targetUserId) => {
     const isFollowing = followedUsers.has(targetUserId);
@@ -308,8 +313,10 @@ export default function CommunityPage() {
     setLoading(true);
     setHasNewPosts(false);
     try {
-      const data = await fetchPosts(buildParams(cat, tab));
+      const data = await fetchPosts({ ...buildParams(cat, tab), limit: PAGE_SIZE, offset: 0 });
       setPosts(data);
+      setOffset(data.length);
+      setHasMore(data.length === PAGE_SIZE);
       if (data.length > 0) latestIdRef.current = data[0].id;
     } catch (e) {
       showToast(getErrorMessage(e, "불러오지 못했습니다."), "error");
@@ -332,6 +339,29 @@ export default function CommunityPage() {
     const id = setInterval(pollForNew, 30000);
     return () => clearInterval(id);
   }, [pollForNew]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !loadingMore && !loading) {
+          setLoadingMore(true);
+          fetchPosts({ ...buildParams(category, feedTab), limit: PAGE_SIZE, offset })
+            .then((data) => {
+              setPosts((prev) => [...prev, ...data]);
+              setOffset((prev) => prev + data.length);
+              setHasMore(data.length === PAGE_SIZE);
+            })
+            .catch(() => {})
+            .finally(() => setLoadingMore(false));
+        }
+      },
+      { rootMargin: "150px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, offset, category, feedTab, buildParams]);
 
   const handleDelete = async (postId) => {
     try {
@@ -470,6 +500,12 @@ export default function CommunityPage() {
           {posts.map((p) => (
             <PostCard key={p.id} post={p} currentUserId={user?.id} onDelete={handleDelete} followedUsers={followedUsers} onFollowToggle={handleFollowToggle} />
           ))}
+          {loadingMore && (
+            <div className="flex justify-center py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-200 border-t-violet-500" />
+            </div>
+          )}
+          <div ref={sentinelRef} className="h-1" />
         </div>
       )}
     </>

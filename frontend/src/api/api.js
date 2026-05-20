@@ -292,9 +292,9 @@ export async function deleteBehavior(userId, logId) {
   );
 }
 
-export async function fetchBehaviors(userId, limit = 20) {
+export async function fetchBehaviors(userId, limit = 20, skip = 0) {
   const { data } = await withErrorLogging("fetchBehaviors", () =>
-    api.get(`/behaviors/${userId}`, { params: { limit } })
+    api.get(`/behaviors/${userId}`, { params: { limit, skip } })
   );
   return data;
 }

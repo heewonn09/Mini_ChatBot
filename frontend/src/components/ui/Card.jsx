@@ -36,7 +36,7 @@ function Card({
   return (
     <article className={`app-panel rounded-[2rem] border border-white/30 bg-white/55 backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 hover:scale-[1.005] ${className}`.trim()}>
       {(icon || trendUi) ? (
-        <div className="mb-4 flex items-start justify-between">
+        <div className="mb-3 flex items-start justify-between">
           {icon ? (
             <div className={`flex h-11 w-11 items-center justify-center rounded-[1.2rem] ${iconClassName}`.trim()}>
               {icon}
@@ -70,8 +70,8 @@ function Card({
         </div>
       ) : null}
 
-      {children ? <div className={title || hasValue || subtitle ? "mt-6" : ""}>{children}</div> : null}
-      {footer ? <div className="mt-5">{footer}</div> : null}
+      {children ? <div className={title || hasValue || subtitle ? "mt-4 sm:mt-6" : ""}>{children}</div> : null}
+      {footer ? <div className="mt-3 sm:mt-5">{footer}</div> : null}
     </article>
   );
 }

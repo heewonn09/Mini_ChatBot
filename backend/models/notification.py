@@ -11,7 +11,7 @@ class Notification(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    type = Column(String(50), nullable=False)   # streak_alert / achievement / challenge_reminder
+    type = Column(String(50), nullable=False, index=True)   # streak_alert / achievement / challenge_reminder
     title = Column(String(200), nullable=False)
     body = Column(Text, nullable=True)
     is_read = Column(Boolean, default=False)

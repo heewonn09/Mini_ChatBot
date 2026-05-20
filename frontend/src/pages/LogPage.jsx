@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen, Check, Clock3, Coffee, Dumbbell, Flame,
   Music, Pencil, Plus, Smartphone, Sparkles, Tag,
@@ -227,6 +227,10 @@ function LogPage() {
   const [apiTags, setApiTags] = useState([]);
   const [relativeBaseTime, setRelativeBaseTime] = useState(0);
   const [logsLoading, setLogsLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const sentinelRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ text: "", emotion: "neutral", tag: "" });
@@ -235,16 +239,20 @@ function LogPage() {
   const [deletingIds, setDeletingIds] = useState(new Set());
   const [logsError, setLogsError] = useState("");
 
+  const PAGE_SIZE = 12;
+
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       setLogsLoading(true);
       try {
         const [data, tags] = await Promise.all([
-          fetchBehaviors(user.id, 12),
+          fetchBehaviors(user.id, PAGE_SIZE, 0),
           fetchUserTags(user.id).catch(() => []),
         ]);
         setList(data);
+        setOffset(data.length);
+        setHasMore(data.length === PAGE_SIZE);
         setApiTags(tags.map((t) => t.tag));
         setRelativeBaseTime(Date.now());
       } catch (e) {
@@ -253,6 +261,29 @@ function LogPage() {
     };
     load();
   }, [user]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !loadingMore && !logsLoading) {
+          setLoadingMore(true);
+          fetchBehaviors(user.id, PAGE_SIZE, offset)
+            .then((data) => {
+              setList((prev) => [...prev, ...data]);
+              setOffset((prev) => prev + data.length);
+              setHasMore(data.length === PAGE_SIZE);
+            })
+            .catch(() => {})
+            .finally(() => setLoadingMore(false));
+        }
+      },
+      { rootMargin: "120px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, logsLoading, offset, user]);
 
   const canSubmit = useMemo(() => text.trim().length > 0 && text.length <= MAX_TEXT, [text]);
 
@@ -288,8 +319,10 @@ function LogPage() {
       });
       setText(""); setTag("Study"); setEmotion("neutral"); setIntensity(6);
       setCustomTime(false); setTimeValue("");
-      const data = await fetchBehaviors(user.id, 12);
+      const data = await fetchBehaviors(user.id, PAGE_SIZE, 0);
       setList(data);
+      setOffset(data.length);
+      setHasMore(data.length === PAGE_SIZE);
       setRelativeBaseTime(Date.now());
       await refreshOverview();
       showToast("기록이 저장됐어요! ✨", "success");
@@ -592,6 +625,12 @@ function LogPage() {
                 </div>
               )}
               {logsError && <p className="text-xs text-rose-500 text-center">{logsError}</p>}
+              {loadingMore && (
+                <div className="flex justify-center py-2">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-teal-200 border-t-teal-500" />
+                </div>
+              )}
+              <div ref={sentinelRef} className="h-1" />
             </div>
           </div>
         </div>

@@ -87,7 +87,7 @@ function DashboardPage() {
     : "집중 시간과 방해 요소, 작은 성장을 한눈에 보는 공간입니다.";
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-5 sm:space-y-8">
       <PageHeader
         variant="hero"
         title={greetingTitle}
@@ -127,7 +127,7 @@ function DashboardPage() {
       ) : null}
 
       {weeklyReport?.report ? (
-        <Card className="app-panel-strong p-6">
+        <Card className="app-panel-strong p-4 sm:p-6">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="app-kicker">{m.dashboard.weeklyReport}</p>
@@ -139,8 +139,8 @@ function DashboardPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr,0.95fr]">
-        <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
-          <div className="grid gap-8 lg:grid-cols-[1.1fr,0.9fr]">
+        <Card className="app-panel-strong overflow-hidden p-5 sm:p-8">
+          <div className="grid gap-5 sm:gap-8 lg:grid-cols-[1.1fr,0.9fr]">
             <div className="space-y-5">
               <p className="app-kicker">한눈에 보는 이번 주</p>
               <div className="space-y-4">
@@ -193,7 +193,7 @@ function DashboardPage() {
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="space-y-5">
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-1">
@@ -337,7 +337,7 @@ function DashboardPage() {
           ]}
         />
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="space-y-5">
             <div className="space-y-1">
               <p className="app-kicker">코칭 노트</p>
