@@ -103,6 +103,17 @@ export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+export function getStoredUserId() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.sub ? Number(payload.sub) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function setStoredToken(token) {
   if (token) localStorage.setItem(TOKEN_KEY, token);
 }
@@ -149,16 +160,41 @@ export function getErrorMessage(error, fallback = "Something went wrong.") {
 // - ui: GET /ui/{userId}/overview, /analysis, /profile, /chat/bootstrap; POST /ui/{userId}/chat
 // - analysis: POST /analysis/{userId} payload: { days: number }
 
+export async function logOut() {
+  try {
+    await withErrorLogging("logOut", () => api.post("/auth/logout"));
+  } catch {
+    // best-effort — always clear local token
+  }
+  clearStoredToken();
+}
+
 export async function signUp(payload) {
   const { data } = await withErrorLogging("signUp", () => api.post("/auth/signup", payload));
   setStoredToken(data.access_token);
-  return data.user;
+  return { user: data.user, isNewUser: data.is_new_user ?? true };
 }
 
 export async function logIn(payload) {
   const { data } = await withErrorLogging("logIn", () => api.post("/auth/login", payload));
   setStoredToken(data.access_token);
-  return data.user;
+  return { user: data.user, isNewUser: data.is_new_user ?? false };
+}
+
+export async function kakaoOAuthLogin(code, redirectUri) {
+  const { data } = await withErrorLogging("kakaoOAuthLogin", () =>
+    api.post("/auth/oauth/kakao", { code, redirect_uri: redirectUri })
+  );
+  setStoredToken(data.access_token);
+  return { user: data.user, isNewUser: data.is_new_user ?? false };
+}
+
+export async function googleOAuthLogin(code, redirectUri) {
+  const { data } = await withErrorLogging("googleOAuthLogin", () =>
+    api.post("/auth/oauth/google", { code, redirect_uri: redirectUri })
+  );
+  setStoredToken(data.access_token);
+  return { user: data.user, isNewUser: data.is_new_user ?? false };
 }
 
 export async function fetchCurrentUser() {
@@ -175,43 +211,9 @@ export async function bootstrapDemoUser() {
     return null;
   }
 }
-
-export async function ensureSeedLogs(userId) {
-  if (!userId) return false;
-
-  const { data } = await withErrorLogging("ensureSeedLogs.list", () =>
-    api.get(`/behaviors/${userId}`, { params: { limit: 1 } })
-  );
-  if (data?.length) return false;
-
-  const seed = [
-    { text: "Morning study sprint", emotion: "focused", tag: "Study", intensity: 8, daysAgo: 2, hour: 9 },
-    { text: "YouTube browsing", emotion: "stressed", tag: "YouTube", intensity: 6, daysAgo: 1, hour: 22 },
-    { text: "Workout", emotion: "happy", tag: "Exercise", intensity: 7, daysAgo: 1, hour: 7 },
-    { text: "Study session", emotion: "focused", tag: "Study", intensity: 9, daysAgo: 0, hour: 10 },
-  ];
-
-  await Promise.all(
-    seed.map((item) => {
-      const createdAt = new Date();
-      createdAt.setHours(item.hour, 0, 0, 0);
-      createdAt.setDate(createdAt.getDate() - item.daysAgo);
-
-      return withErrorLogging("ensureSeedLogs.create", () =>
-        api.post(`/behaviors/${userId}`, {
-          text: item.text,
-          emotion: item.emotion,
-          tag: item.tag,
-          intensity: item.intensity,
-          created_at: createdAt.toISOString(),
-        })
-      );
-    })
-  );
-
-  return true;
+export async function ensureSeedLogs() {
+  return false;
 }
-
 export async function fetchOverview(userId) {
   const { data } = await withErrorLogging("fetchOverview", () => api.get(`/ui/${userId}/overview`));
   return data;
@@ -222,8 +224,10 @@ export async function fetchAnalysis(userId, days = 7) {
   return data;
 }
 
-export async function fetchAnalysisView(userId) {
-  const { data } = await withErrorLogging("fetchAnalysisView", () => api.get(`/ui/${userId}/analysis`));
+export async function fetchAnalysisView(userId, days = 7) {
+  const { data } = await withErrorLogging("fetchAnalysisView", () =>
+    api.get(`/ui/${userId}/analysis`, { params: { days } })
+  );
   return data;
 }
 
@@ -232,13 +236,41 @@ export async function fetchProfileView(userId) {
   return data;
 }
 
+export async function fetchHeatmap(userId) {
+  const { data } = await withErrorLogging("fetchHeatmap", () => api.get(`/ui/${userId}/heatmap`));
+  return data;
+}
+
+export async function fetchHabitCorrelations(userId) {
+  const { data } = await withErrorLogging("fetchHabitCorrelations", () =>
+    api.get(`/ui/${userId}/habit-correlations`)
+  );
+  return data;
+}
+
+export async function fetchFocusPrediction(userId) {
+  const { data } = await withErrorLogging("fetchFocusPrediction", () =>
+    api.get(`/ui/${userId}/focus-prediction`)
+  );
+  return data;
+}
+
+export async function fetchWeeklyReport(userId) {
+  const { data } = await withErrorLogging("fetchWeeklyReport", () =>
+    api.get(`/ui/${userId}/weekly-report`)
+  );
+  return data;
+}
+
 export async function fetchChatBootstrap(userId) {
   const { data } = await withErrorLogging("fetchChatBootstrap", () => api.get(`/ui/${userId}/chat/bootstrap`));
   return data;
 }
 
-export async function fetchChatHistory(userId) {
-  const { data } = await withErrorLogging("fetchChatHistory", () => api.get(`/ui/${userId}/chat/history`));
+export async function fetchChatHistory(userId, offset = 0) {
+  const { data } = await withErrorLogging("fetchChatHistory", () =>
+    api.get(`/ui/${userId}/chat/history`, { params: { offset } })
+  );
   return data;
 }
 
@@ -247,18 +279,292 @@ export async function createBehavior(userId, payload) {
   return data;
 }
 
-export async function fetchBehaviors(userId, limit = 20) {
-  const { data } = await withErrorLogging("fetchBehaviors", () =>
-    api.get(`/behaviors/${userId}`, { params: { limit } })
+export async function updateBehavior(userId, logId, payload) {
+  const { data } = await withErrorLogging("updateBehavior", () =>
+    api.put(`/behaviors/${userId}/${logId}`, payload)
   );
   return data;
 }
 
-export async function askAssistant(userId, message, language = "en") {
-  const { data } = await withErrorLogging("askAssistant", () =>
-    api.post(`/ui/${userId}/chat`, { message, language })
+export async function deleteBehavior(userId, logId) {
+  await withErrorLogging("deleteBehavior", () =>
+    api.delete(`/behaviors/${userId}/${logId}`)
+  );
+}
+
+export async function fetchBehaviors(userId, limit = 20, skip = 0) {
+  const { data } = await withErrorLogging("fetchBehaviors", () =>
+    api.get(`/behaviors/${userId}`, { params: { limit, skip } })
   );
   return data;
+}
+
+export async function fetchUserTags(userId) {
+  const { data } = await withErrorLogging("fetchUserTags", () =>
+    api.get(`/behaviors/${userId}/tags`)
+  );
+  return data.tags ?? [];
+}
+
+export async function askAssistant(userId, message, sessionId = null) {
+  const { data } = await withErrorLogging("askAssistant", () =>
+    api.post(`/ui/${userId}/chat`, { message, session_id: sessionId }, { timeout: 30000 })
+  );
+  return data;
+}
+
+export async function fetchChatSessions(userId) {
+  const { data } = await withErrorLogging("fetchChatSessions", () =>
+    api.get(`/ui/${userId}/chat/sessions`)
+  );
+  return data;
+}
+
+export async function createChatSession(userId) {
+  const { data } = await withErrorLogging("createChatSession", () =>
+    api.post(`/ui/${userId}/chat/sessions`)
+  );
+  return data;
+}
+
+export async function deleteChatSession(userId, sessionId) {
+  await withErrorLogging("deleteChatSession", () =>
+    api.delete(`/ui/${userId}/chat/sessions/${sessionId}`)
+  );
+}
+
+export async function renameChatSession(userId, sessionId, title) {
+  const { data } = await withErrorLogging("renameChatSession", () =>
+    api.patch(`/ui/${userId}/chat/sessions/${sessionId}`, { title })
+  );
+  return data;
+}
+
+export async function fetchPreferences(userId) {
+  const { data } = await withErrorLogging("fetchPreferences", () =>
+    api.get(`/ui/${userId}/preferences`)
+  );
+  return data;
+}
+
+export async function updatePreferences(userId, payload) {
+  const { data } = await withErrorLogging("updatePreferences", () =>
+    api.patch(`/ui/${userId}/preferences`, payload)
+  );
+  return data;
+}
+
+export async function updateProfile(userId, payload) {
+  const { data } = await withErrorLogging("updateProfile", () =>
+    api.patch(`/ui/${userId}/profile`, payload)
+  );
+  return data;
+}
+
+export async function fetchChatHistoryBySession(userId, sessionId, limit = 50, offset = 0) {
+  const { data } = await withErrorLogging("fetchChatHistoryBySession", () =>
+    api.get(`/ui/${userId}/chat/history`, { params: { session_id: sessionId, limit, offset } })
+  );
+  return data;
+}
+
+// ── Community: Posts ──────────────────────────────────────────────────────────
+export async function fetchPosts(params = {}) {
+  const { data } = await withErrorLogging("fetchPosts", () =>
+    api.get("/community/posts", { params })
+  );
+  return data;
+}
+
+export async function createPost(payload) {
+  const { data } = await withErrorLogging("createPost", () =>
+    api.post("/community/posts", payload)
+  );
+  return data;
+}
+
+export async function updatePost(postId, payload) {
+  const { data } = await withErrorLogging("updatePost", () =>
+    api.patch(`/community/posts/${postId}`, payload)
+  );
+  return data;
+}
+
+export async function deletePost(postId) {
+  await withErrorLogging("deletePost", () => api.delete(`/community/posts/${postId}`));
+}
+
+export async function toggleLike(postId) {
+  const { data } = await withErrorLogging("toggleLike", () =>
+    api.post(`/community/posts/${postId}/like`)
+  );
+  return data;
+}
+
+export async function fetchComments(postId) {
+  const { data } = await withErrorLogging("fetchComments", () =>
+    api.get(`/community/posts/${postId}/comments`)
+  );
+  return data;
+}
+
+export async function createComment(postId, content) {
+  const { data } = await withErrorLogging("createComment", () =>
+    api.post(`/community/posts/${postId}/comments`, { content })
+  );
+  return data;
+}
+
+export async function deleteComment(postId, commentId) {
+  await withErrorLogging("deleteComment", () =>
+    api.delete(`/community/posts/${postId}/comments/${commentId}`)
+  );
+}
+
+// ── Community: Challenges ─────────────────────────────────────────────────────
+export async function fetchChallenges(params = {}) {
+  const { data } = await withErrorLogging("fetchChallenges", () =>
+    api.get("/community/challenges", { params })
+  );
+  return data;
+}
+
+export async function createChallenge(payload) {
+  const { data } = await withErrorLogging("createChallenge", () =>
+    api.post("/community/challenges", payload)
+  );
+  return data;
+}
+
+export async function joinChallenge(challengeId) {
+  const { data } = await withErrorLogging("joinChallenge", () =>
+    api.post(`/community/challenges/${challengeId}/join`)
+  );
+  return data;
+}
+
+export async function leaveChallenge(challengeId) {
+  await withErrorLogging("leaveChallenge", () =>
+    api.delete(`/community/challenges/${challengeId}/join`)
+  );
+}
+
+export async function checkinChallenge(challengeId) {
+  const { data } = await withErrorLogging("checkinChallenge", () =>
+    api.post(`/community/challenges/${challengeId}/checkin`)
+  );
+  return data;
+}
+
+export async function fetchLeaderboard(challengeId, limit = 10) {
+  const { data } = await withErrorLogging("fetchLeaderboard", () =>
+    api.get(`/community/challenges/${challengeId}/leaderboard`, { params: { limit } })
+  );
+  return data;
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+export async function fetchNotifications(userId) {
+  const { data } = await withErrorLogging("fetchNotifications", () =>
+    api.get(`/ui/${userId}/notifications`)
+  );
+  return data;
+}
+
+export async function markNotificationRead(userId, notifId) {
+  const { data } = await withErrorLogging("markNotificationRead", () =>
+    api.patch(`/ui/${userId}/notifications/${notifId}`)
+  );
+  return data;
+}
+
+export async function markAllNotificationsRead(userId) {
+  await withErrorLogging("markAllNotificationsRead", () =>
+    api.post(`/ui/${userId}/notifications/read-all`)
+  );
+}
+
+// ── Follow / Following ────────────────────────────────────────────────────────
+export async function fetchFollowStatus(targetId) {
+  const { data } = await withErrorLogging("fetchFollowStatus", () =>
+    api.get(`/community/users/${targetId}/follow-status`)
+  );
+  return data;
+}
+
+export async function followUser(targetId) {
+  const { data } = await withErrorLogging("followUser", () =>
+    api.post(`/community/users/${targetId}/follow`)
+  );
+  return data;
+}
+
+export async function unfollowUser(targetId) {
+  const { data } = await withErrorLogging("unfollowUser", () =>
+    api.delete(`/community/users/${targetId}/follow`)
+  );
+  return data;
+}
+
+export async function fetchFollowers(targetId) {
+  const { data } = await withErrorLogging("fetchFollowers", () =>
+    api.get(`/community/users/${targetId}/followers`)
+  );
+  return data;
+}
+
+export async function fetchFollowing(targetId) {
+  const { data } = await withErrorLogging("fetchFollowing", () =>
+    api.get(`/community/users/${targetId}/following`)
+  );
+  return data;
+}
+
+export async function fetchPublicProfile(targetId) {
+  const { data } = await withErrorLogging("fetchPublicProfile", () =>
+    api.get(`/community/users/${targetId}/public-profile`)
+  );
+  return data;
+}
+
+// ── Password Reset ────────────────────────────────────────────────────────────
+export async function requestPasswordReset(email) {
+  const { data } = await withErrorLogging("requestPasswordReset", () =>
+    api.post("/auth/forgot-password", { email })
+  );
+  return data;
+}
+
+export async function confirmPasswordReset(token, newPassword) {
+  const { data } = await withErrorLogging("confirmPasswordReset", () =>
+    api.post("/auth/reset-password", { token, new_password: newPassword })
+  );
+  return data;
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+export async function exportBehaviors(userId, format = "csv") {
+  const response = await withErrorLogging("exportBehaviors", () =>
+    api.get(`/ui/${userId}/export`, { params: { format }, responseType: "blob" })
+  );
+  const url = URL.createObjectURL(response.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `behaviors.${format}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function exportChatSession(userId, sessionId) {
+  const response = await withErrorLogging("exportChatSession", () =>
+    api.get(`/ui/${userId}/chat/sessions/${sessionId}/export`, { responseType: "blob" })
+  );
+  const url = URL.createObjectURL(response.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `chat_${sessionId}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default api;

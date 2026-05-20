@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 from backend.database import get_db
@@ -11,6 +11,19 @@ from backend.redis_client import redis_store
 router = APIRouter(prefix="/api/analysis", tags=["Analysis"])
 
 ai_service = AIFeedbackService()
+
+_ANALYSIS_RATE_LIMIT = 20
+_ANALYSIS_RATE_WINDOW = 3600  # per hour
+
+
+def _enforce_analysis_rate_limit(user_id: int) -> None:
+    key = f"rate:analysis:{user_id}"
+    count = redis_store.incr_with_ttl(key, _ANALYSIS_RATE_WINDOW)
+    if count > _ANALYSIS_RATE_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="분석 요청이 너무 많습니다. 1시간 후 다시 시도해주세요.",
+        )
 
 
 @router.post("/{user_id}", response_model=PatternAnalysisResult)
@@ -25,6 +38,8 @@ def analyze_user_patterns(
     - Extracts emotion patterns, trends, and risky behaviors
     - Generates AI feedback using Gemini
     """
+    _enforce_analysis_rate_limit(user_id)
+
     # Check if user exists
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

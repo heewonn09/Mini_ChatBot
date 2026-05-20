@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StatCard(BaseModel):
@@ -100,6 +100,8 @@ class AchievementItem(BaseModel):
     description: str
     unlocked: bool
     icon: str
+    progress_current: int = 0
+    progress_total: int = 1
 
 
 class ProfileResponse(BaseModel):
@@ -107,6 +109,7 @@ class ProfileResponse(BaseModel):
     member_since: str
     summary_title: str
     summary_description: str
+    logged_today: bool
     stats: List[ProfileMetricItem]
     top_habits: List[HabitFrequencyItem]
     recent_activity: List[RecentActivityItem]
@@ -115,12 +118,70 @@ class ProfileResponse(BaseModel):
     achievements: List[AchievementItem]
 
 
+class HabitCorrelationItem(BaseModel):
+    tag_a: str
+    tag_b: str
+    direction: str
+    diff_pct: int
+    description: str
+
+
+class HabitCorrelationResponse(BaseModel):
+    correlations: list[HabitCorrelationItem]
+
+
+class FocusPredictionResponse(BaseModel):
+    score: int
+    label: str
+    hour_range: str
+    confidence: str
+
+
+class WeeklyReportResponse(BaseModel):
+    report: str
+    week_label: str
+    cached: bool
+
+
+class HeatmapDayItem(BaseModel):
+    date: str
+    count: int
+    dominant_emotion: str
+
+
+class HeatmapResponse(BaseModel):
+    days: List[HeatmapDayItem]
+
+
+class ChatSessionItem(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChatSessionListResponse(BaseModel):
+    sessions: List[ChatSessionItem]
+
+
+class CreateSessionResponse(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+
+
+class RenameSessionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+
+
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
+    session_id: Optional[int] = None
 
 
 class ChatResponse(BaseModel):
     answer: str
+    session_id: int
 
 
 class ChatBootstrapResponse(BaseModel):
@@ -136,3 +197,31 @@ class ChatHistoryItem(BaseModel):
 
 class ChatHistoryResponse(BaseModel):
     items: List[ChatHistoryItem]
+
+
+class UserPreferencesResponse(BaseModel):
+    language: str
+    theme: str
+    notifications_enabled: bool
+
+
+class UpdatePreferencesRequest(BaseModel):
+    language: Optional[str] = Field(default=None, pattern="^(ko|en)$")
+    theme: Optional[str] = Field(default=None, pattern="^(light|dark)$")
+    notifications_enabled: Optional[bool] = None
+
+
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    type: str
+    title: str
+    body: Optional[str] = None
+    is_read: bool
+    created_at: datetime
+    read_at: Optional[datetime] = None
+
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationOut]
+    unread_count: int

@@ -1,7 +1,8 @@
 from datetime import datetime
+from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ============= User Schemas =============
@@ -22,12 +23,10 @@ class UserCreate(UserBase):
 
 
 class UserResponse(UserBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 class UserLogin(BaseModel):
@@ -37,14 +36,35 @@ class UserLogin(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user: UserResponse
+    is_new_user: bool = False
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
+class RefreshResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    
 # ============= BehaviorLog Schemas =============
+class EmotionType(str, Enum):
+    happy = "happy"
+    neutral = "neutral"
+    stressed = "stressed"
+    anxious = "anxious"
+    sad = "sad"
+    angry = "angry"
+    focused = "focused"
+    tired = "tired"
+
+
 class BehaviorLogBase(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
-    emotion: str = Field(..., min_length=1, max_length=50)
+    emotion: EmotionType = Field(..., description="Emotion type")
     tag: Optional[str] = Field(None, max_length=100)
     intensity: float = Field(default=5.0, ge=1, le=10)
     created_at: Optional[datetime] = None
@@ -56,18 +76,16 @@ class BehaviorLogCreate(BehaviorLogBase):
 
 class BehaviorLogUpdate(BaseModel):
     text: Optional[str] = Field(None, min_length=1, max_length=2000)
-    emotion: Optional[str] = Field(None, min_length=1, max_length=50)
+    emotion: Optional[EmotionType] = None
     tag: Optional[str] = Field(None, max_length=100)
     intensity: Optional[float] = Field(None, ge=1, le=10)
 
 
 class BehaviorLogResponse(BehaviorLogBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: int
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 class BehaviorLogWithUser(BehaviorLogResponse):

@@ -1,14 +1,14 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Float, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Text, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
-from backend.database import Base
+from backend.models.base import Base
 
 
 class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, index=True, nullable=False)
+    username = Column(String(50), index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -17,6 +17,9 @@ class User(Base):
     # Relationship
     behavior_logs = relationship("BehaviorLog", back_populates="user", cascade="all, delete-orphan")
     chat_history = relationship("ChatHistory", back_populates="user", cascade="all, delete-orphan")
+    chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
+    preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User(id={self.id}, username={self.username})>"
@@ -31,6 +34,8 @@ class BehaviorLog(Base):
     emotion = Column(String(50), nullable=False)  # happy, sad, angry, neutral, anxious, etc.
     tag = Column(String(100), nullable=True)  # sleep, work, exercise, social, etc.
     intensity = Column(Float, default=5.0)  # 1-10 scale for emotion intensity
+    notes = Column(String(300), nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     
     # Relationship

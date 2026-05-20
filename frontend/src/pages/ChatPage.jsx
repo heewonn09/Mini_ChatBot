@@ -1,203 +1,451 @@
-import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
-import { useAppSettings } from "../context/AppSettingsContext";
-import { askAssistant, fetchChatBootstrap, fetchChatHistory, getErrorMessage } from "../api/api";
-import Card from "../components/ui/Card";
-import PageHeader from "../components/ui/PageHeader";
+import {
+  askAssistant,
+  createChatSession,
+  deleteChatSession,
+  fetchChatBootstrap,
+  fetchChatHistoryBySession,
+  fetchChatSessions,
+  renameChatSession,
+} from "../api/api";
+import { useLang } from "../context/messages";
+import ChatSidebar from "../components/chat/ChatSidebar";
+import ChatSidebarMobile from "../components/chat/ChatSidebarMobile";
+import AiMessage from "../components/chat/AiMessage";
+import UserMessage from "../components/chat/UserMessage";
+import ChatInput from "../components/chat/ChatInput";
 
-const fallbackSuggestions = [
-  "Why am I unproductive?",
-  "Analyze my habits",
-  "How can I focus better?",
-  "What's my best time to study?",
+const FALLBACK_SUGGESTIONS = [
+  "왜 나는 생산적이지 않을까요?",
+  "내 습관을 분석해줘",
+  "어떻게 하면 더 집중할 수 있나요?",
+  "공부하기 가장 좋은 시간대가 언제인가요?",
 ];
+
+const PAGE_SIZE = 20;
+const TYPING_CHUNK = 3;
+const TYPING_INTERVAL_MS = 16;
+const SIDEBAR_BREAKPOINT = 640;
+
+function isDesktopViewport() {
+  return typeof window !== "undefined" && window.innerWidth >= SIDEBAR_BREAKPOINT;
+}
+
+let _msgId = 0;
+function nextId() {
+  return ++_msgId;
+}
+function toMsg(item) {
+  return { id: nextId(), role: item.role, text: item.message };
+}
 
 function ChatPage() {
   const { user } = useOutletContext();
-  const { t, language } = useAppSettings();
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [suggestions, setSuggestions] = useState(fallbackSuggestions);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const bottomRef = useRef(null);
+  const m = useLang();
+  const t = (key) => m.chat[key] ?? key;
 
+  const [sessions, setSessions] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [suggestions, setSuggestions] = useState(FALLBACK_SUGGESTIONS);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(isDesktopViewport);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const bottomRef = useRef(null);
+  const abortRef = useRef(false);
+  const topSentinelRef = useRef(null);
+  const scrollBoxRef = useRef(null);
+  const offsetRef = useRef(0);
+  const hasMoreRef = useRef(false);
+  const loadingMoreRef = useRef(false);
+  const typingTimerRef = useRef(null);
+
+  // 세션 목록 + bootstrap 로드
   useEffect(() => {
     if (!user) return;
-    let active = true;
-
-    const load = async () => {
-      try {
-        const [bootstrap, history] = await Promise.all([
-          fetchChatBootstrap(user.id),
-          fetchChatHistory(user.id),
-        ]);
-        if (!active) return;
-        const normalized = (history.items || []).map((item) => ({ role: item.role, text: item.message }));
-        setMessages(normalized.length ? normalized : [{ role: "assistant", text: bootstrap.intro }]);
-        setSuggestions(bootstrap.suggested_prompts?.length ? bootstrap.suggested_prompts : fallbackSuggestions);
-      } catch {
-        if (!active) return;
-        setMessages([{ role: "assistant", text: t.chat.loadError ?? "Could not load chat history. Please refresh." }]);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    load();
-
-    return () => {
-      active = false;
-    };
+    fetchChatSessions(user.id)
+      .then((data) => setSessions(data.sessions ?? []))
+      .catch(() => {});
+    fetchChatBootstrap(user.id)
+      .then((data) => {
+        if (data.suggested_prompts?.length) setSuggestions(data.suggested_prompts);
+      })
+      .catch(() => {});
   }, [user]);
 
+  // 세션 선택 시 메시지 로드
+  const loadSession = useCallback(
+    async (sessionId) => {
+      if (!user) return;
+      abortRef.current = true;
+      setCurrentSessionId(sessionId);
+      setMessages([]);
+      offsetRef.current = 0;
+      hasMoreRef.current = false;
+      setLoadingMessages(true);
+      abortRef.current = false;
+      try {
+        const data = await fetchChatHistoryBySession(user.id, sessionId);
+        if (abortRef.current) return;
+        const items = data.items ?? [];
+        setMessages(items.map(toMsg));
+        hasMoreRef.current = items.length === PAGE_SIZE;
+        offsetRef.current = items.length;
+      } catch {
+        if (!abortRef.current) setMessages([]);
+      } finally {
+        if (!abortRef.current) setLoadingMessages(false);
+      }
+    },
+    [user]
+  );
+
+  // 스크롤 맨 아래로
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
+    if (!loadingMore) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages.length, sending, loadingMore]);
+
+  // IntersectionObserver: 상단 스크롤 시 이전 메시지 페이지네이션
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    if (!sentinel || !user || !currentSessionId) return;
+
+    const observer = new IntersectionObserver(
+      async ([entry]) => {
+        if (!entry.isIntersecting || loadingMoreRef.current || !hasMoreRef.current) return;
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+
+        const box = scrollBoxRef.current;
+        const prevScrollHeight = box?.scrollHeight ?? 0;
+
+        try {
+          const history = await fetchChatHistoryBySession(
+            user.id,
+            currentSessionId,
+            PAGE_SIZE,
+            offsetRef.current
+          );
+          const items = history.items ?? [];
+          const older = items.map(toMsg);
+          setMessages((prev) => [...older, ...prev]);
+          hasMoreRef.current = items.length === PAGE_SIZE;
+          offsetRef.current += items.length;
+
+          requestAnimationFrame(() => {
+            if (box) box.scrollTop = box.scrollHeight - prevScrollHeight;
+          });
+        } catch {
+          // 조용히 무시 — 사용자가 다시 위로 스크롤하면 재시도
+        } finally {
+          loadingMoreRef.current = false;
+          setLoadingMore(false);
+        }
+      },
+      { root: scrollBoxRef.current, threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [user, currentSessionId]);
+
+  // 언마운트 시 타이핑 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+
+    const mediaQuery = window.matchMedia(`(min-width: ${SIDEBAR_BREAKPOINT}px)`);
+    const handleChange = (event) => {
+      setIsDesktop(event.matches);
+      setMobileSidebarOpen(false);
+    };
+
+    setIsDesktop(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  const handleNewSession = async () => {
+    if (!user) return;
+    try {
+      const session = await createChatSession(user.id);
+      setSessions((prev) => [session, ...prev]);
+      setCurrentSessionId(session.id);
+      setMessages([]);
+      offsetRef.current = 0;
+      hasMoreRef.current = false;
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleDeleteSession = async (sessionId) => {
+    if (!user) return;
+    try {
+      await deleteChatSession(user.id, sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(null);
+        setMessages([]);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleRenameSession = async (sessionId, title) => {
+    if (!user) return;
+    try {
+      const updated = await renameChatSession(user.id, sessionId, title);
+      setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, title: updated.title } : s)));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleSelectSession = (sessionId) => {
+    if (sessionId === currentSessionId) return;
+    offsetRef.current = 0;
+    hasMoreRef.current = false;
+    loadSession(sessionId);
+  };
 
   const send = async (value) => {
-    if (!value.trim()) return;
-    const next = [...messages, { role: "user", text: value }];
-    setMessages(next);
+    const text = value.trim();
+    if (!text || sending) return;
     setInput("");
     setSending(true);
 
+    const userMsgId = nextId();
+    const placeholderId = nextId();
+    setMessages((prev) => [
+      ...prev,
+      { id: userMsgId, role: "user", text },
+      { id: placeholderId, role: "assistant", text: "" },
+    ]);
+
     try {
-      const data = await askAssistant(user.id, value, language);
-      setMessages([...next, { role: "assistant", text: data.answer }]);
+      const data = await askAssistant(user.id, text, currentSessionId);
+      const fullText = data.answer;
+      const returnedSessionId = data.session_id;
+
+      if (!currentSessionId || returnedSessionId !== currentSessionId) {
+        setCurrentSessionId(returnedSessionId);
+      }
+      fetchChatSessions(user.id)
+        .then((d) => setSessions(d.sessions ?? []))
+        .catch(() => {});
+
+      // setInterval 기반 타이핑 시뮬레이션
+      let i = 0;
+      typingTimerRef.current = setInterval(() => {
+        i += TYPING_CHUNK;
+        const chunk = fullText.slice(0, i);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === placeholderId ? { ...m, text: chunk } : m))
+        );
+        if (i >= fullText.length) {
+          clearInterval(typingTimerRef.current);
+          setMessages((prev) =>
+            prev.map((m) => (m.id === placeholderId ? { ...m, text: fullText } : m))
+          );
+        }
+      }, TYPING_INTERVAL_MS);
     } catch (error) {
-      setMessages([
-        ...next,
-        {
-          role: "assistant",
-          text: getErrorMessage(error, "I couldn't answer that just now. Please try again in a moment."),
-        },
-      ]);
+      let errText = "지금은 답변하지 못했어요. 잠시 후 다시 시도해주세요.";
+      if (error?.code === "ECONNABORTED" || error?.message?.includes("timeout")) {
+        errText = "응답 시간이 초과됐어요. AI 서버가 바쁠 수 있으니 잠시 후 다시 시도해주세요.";
+      } else if (error?.response?.status === 429) {
+        errText = "채팅 요청이 너무 많아요. 잠시 후 다시 시도해주세요.";
+      } else if (error?.response?.status >= 500) {
+        errText = "서버에 일시적인 오류가 있어요. 잠시 후 다시 시도해주세요.";
+      }
+      setMessages((prev) =>
+        prev.map((m) => (m.id === placeholderId ? { ...m, text: errText } : m))
+      );
     } finally {
       setSending(false);
     }
   };
 
-  if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{t.chat.loading}</Card>;
-  }
+  const handleRegenerate = async () => {
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    setMessages((prev) => prev.slice(0, -1));
+    await send(lastUser.text);
+  };
+
+  const activeSessionTitle = sessions.find((s) => s.id === currentSessionId)?.title ?? t("title");
+  const toggleSidebar = () => {
+    if (isDesktop) {
+      setDesktopSidebarOpen((prev) => !prev);
+      return;
+    }
+    setMobileSidebarOpen((prev) => !prev);
+  };
 
   return (
-    <section className="space-y-8">
-      <PageHeader
-        variant="icon"
-        badgeIcon={Bot}
-        title={t.chat.title}
-        description={t.chat.description}
+    <div
+      className="-mx-4 -mt-4 flex h-[calc(100dvh-10rem)] overflow-hidden sm:-mx-6 md:h-[calc(100dvh-7rem)] lg:-mx-8"
+      style={{ marginBottom: isDesktop ? "calc(-9rem - var(--safe-bottom, 0px))" : "0px" }}
+    >
+      {/* 모바일 드로어 사이드바 (sm 미만) */}
+      <ChatSidebarMobile
+        isOpen={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
+        sessions={sessions}
+        currentId={currentSessionId}
+        onSelect={handleSelectSession}
+        onNew={handleNewSession}
+        onDelete={handleDeleteSession}
+        onRename={handleRenameSession}
+        t={t}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[0.88fr,1.12fr]">
-        <Card className="app-panel-strong p-6">
-          <div className="space-y-6">
-            <div className="rounded-[1.85rem] bg-[linear-gradient(140deg,#183235_0%,#1c4b4e_54%,#0f766e_100%)] p-6 text-white">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-white/14">
-                <Sparkles size={20} strokeWidth={2.2} />
-              </div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-white/70">{t.chat.starter}</p>
-              <p className="mt-4 text-[1rem] leading-8 text-white/92">{messages[0]?.text}</p>
+      {/* 데스크톱 인라인 사이드바 (sm 이상) */}
+      {desktopSidebarOpen && (
+        <div className="hidden sm:block">
+          <ChatSidebar
+            sessions={sessions}
+            currentId={currentSessionId}
+            onSelect={handleSelectSession}
+            onNew={handleNewSession}
+            onDelete={handleDeleteSession}
+            onRename={handleRenameSession}
+            t={t}
+          />
+        </div>
+      )}
+
+      {/* 메인 채팅 영역 */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,rgba(255,250,244,0.72),rgba(255,250,244,0.9))]">
+        {/* 헤더 */}
+        <div className="flex-shrink-0 flex items-center gap-3 border-b border-[rgba(24,50,53,0.08)] bg-white/60 px-5 py-3 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[color:var(--ink-soft)] transition hover:bg-[rgba(24,50,53,0.06)] hover:text-[color:var(--ink)]"
+            title="사이드바 토글"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <rect y="2" width="16" height="1.5" rx="0.75" />
+              <rect y="7.25" width="16" height="1.5" rx="0.75" />
+              <rect y="12.5" width="16" height="1.5" rx="0.75" />
+            </svg>
+          </button>
+
+          <div className="flex h-7 w-7 items-center justify-center rounded-[0.6rem] bg-[#def2ee] text-[#0f766e]">
+            <Sparkles size={14} strokeWidth={2.3} />
+          </div>
+          <span className="text-sm font-semibold text-[color:var(--ink)]">{activeSessionTitle}</span>
+        </div>
+
+        {/* 메시지 영역 */}
+        <div ref={scrollBoxRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8">
+          <div className="mx-auto w-full max-w-4xl">
+            <div ref={topSentinelRef} className="h-1" />
+
+          {loadingMore && (
+            <p className="py-2 text-center text-sm text-[color:var(--ink-soft)]">
+              이전 대화 불러오는 중...
+            </p>
+          )}
+
+          {loadingMessages ? (
+            <div className="flex items-center justify-center py-16 text-sm text-[color:var(--ink-soft)]">
+              {t("loading")}
             </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <p className="app-kicker">{t.chat.tryAsking}</p>
-                <h2 className="app-heading text-[2rem] text-[color:var(--ink)]">{t.chat.suggested}</h2>
+          ) : messages.length === 0 ? (
+            <div className="mx-auto flex min-h-full max-w-3xl flex-col items-center justify-center py-16 text-center sm:py-20">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[1.2rem] bg-[#def2ee] text-[#0f766e]">
+                <Sparkles size={24} strokeWidth={2} />
               </div>
-
-              <div className="flex flex-wrap gap-2">
-                {suggestions.map((item) => (
+              <p className="text-base font-semibold text-[color:var(--ink)]">{t("emptyState")}</p>
+              <p className="mt-1 text-sm text-[color:var(--ink-soft)]">{t("emptyStateDesc")}</p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {suggestions.map((s) => (
                   <button
-                    key={item}
+                    key={s}
                     type="button"
-                    onClick={() => send(item)}
-                    className="app-chip text-sm font-semibold"
+                    onClick={() => send(s)}
+                    className="app-chip text-sm"
+                    disabled={sending}
                   >
-                    {item}
+                    {s}
                   </button>
                 ))}
               </div>
             </div>
+          ) : (
+            <>
+              {messages.map((msg, idx) =>
+                msg.role === "assistant" ? (
+                  <AiMessage
+                    key={msg.id}
+                    content={msg.text}
+                    onRegenerate={idx === messages.length - 1 && !sending ? handleRegenerate : null}
+                    t={t}
+                  />
+                ) : (
+                  <UserMessage key={msg.id} content={msg.text} />
+                )
+              )}
 
-            <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-[rgba(247,240,231,0.92)] p-5">
-              <p className="app-kicker">{t.chat.bestUse}</p>
-              <p className="mt-3 text-[1rem] leading-7 text-[color:var(--ink-soft)]">
-                {t.chat.bestUseDesc}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="flex min-h-[38rem] flex-col p-4 sm:p-5">
-          <div className="flex-1 space-y-4 overflow-y-auto pr-1">
-            {messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={`flex gap-4 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {message.role === "assistant" ? (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1.2rem] bg-[#def2ee] text-[#0f766e]">
-                    <Sparkles size={18} strokeWidth={2.2} />
+              {sending && messages[messages.length - 1]?.role !== "assistant" && (
+                <div className="mb-6 flex gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] bg-[#def2ee] text-[#0f766e]">
+                    <Sparkles size={15} strokeWidth={2.3} />
                   </div>
-                ) : null}
-
-                <div
-                  className={`max-w-[80%] rounded-[1.6rem] px-5 py-4 text-[1rem] leading-8 shadow-[var(--shadow-sm)] ${
-                    message.role === "assistant"
-                      ? "border border-[rgba(24,50,53,0.08)] bg-white/78 text-[color:var(--ink)]"
-                      : "bg-[linear-gradient(135deg,#0f766e_0%,#1b8d84_100%)] text-white"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{message.text}</p>
+                  <div className="rounded-[1.4rem] rounded-tl-[0.4rem] border border-[rgba(24,50,53,0.08)] bg-white/78 px-5 py-4 text-sm text-[color:var(--ink-soft)] shadow-[var(--shadow-sm)]">
+                    {t("thinking")}
+                  </div>
                 </div>
-              </div>
-            ))}
-
-            {sending ? (
-              <div className="flex gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[1.2rem] bg-[#def2ee] text-[#0f766e]">
-                  <Sparkles size={18} strokeWidth={2.2} />
-                </div>
-                <div className="rounded-[1.6rem] border border-[rgba(24,50,53,0.08)] bg-white/78 px-5 py-4 text-[color:var(--ink-soft)] shadow-[var(--shadow-sm)]">
-                  {t.chat.thinking}
-                </div>
-              </div>
-            ) : null}
-
-            <div ref={bottomRef} />
+              )}
+              <div ref={bottomRef} />
+            </>
+          )}
           </div>
+        </div>
 
-          <div className="mt-5 border-t border-[rgba(24,50,53,0.08)] pt-5">
-            <div className="flex items-center gap-3 rounded-[1.7rem] border border-[rgba(24,50,53,0.08)] bg-white/78 p-2 shadow-[var(--shadow-sm)]">
-              <input
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                className="flex-1 bg-transparent px-3 py-2 text-[1rem] text-[color:var(--ink)] outline-none placeholder:text-[color:var(--ink-soft)]"
-                placeholder={t.chat.placeholder}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    send(input);
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => send(input)}
-                disabled={sending || !input.trim()}
-                className="app-primary-button h-12 w-12 rounded-[1.25rem] px-0"
-              >
-                <Send size={18} strokeWidth={2.2} />
-              </button>
-            </div>
+        {/* 하단 고정 입력창 */}
+        <div
+          className="flex-shrink-0 border-t border-[rgba(24,50,53,0.08)] bg-white/60 px-4 pt-3 backdrop-blur-sm sm:px-8"
+          style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
+        >
+          <div className="mx-auto w-full max-w-4xl">
+            <ChatInput
+              value={input}
+              onChange={setInput}
+              onSend={() => send(input)}
+              disabled={sending}
+              placeholder={t("placeholder")}
+            />
           </div>
-        </Card>
+          <p className="mt-1.5 hidden text-center text-[0.72rem] text-[color:var(--ink-soft)] sm:block">
+            Shift + Enter로 줄 바꿈 · Enter로 전송
+          </p>
+        </div>
       </div>
-    </section>
+    </div>
   );
 }
 

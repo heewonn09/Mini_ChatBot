@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session
 from backend.config import get_settings
+from backend.models.base import Base  # noqa: F401  — re-exported for legacy callers
 
 settings = get_settings()
 
@@ -40,15 +41,15 @@ engine = _create_engine_with_fallback()
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for models
-Base = declarative_base()
-
 # ==================== 가장 중요한 부분 ====================
 # 모든 모델을 여기서 import (테이블 생성을 위해)
-from backend.models.behavior import User, BehaviorLog
-from backend.models.chat import ChatHistory
-# 다른 모델이 있으면 아래에 계속 추가
-# from backend.models.behavior import XXX
+from backend.models.behavior import User, BehaviorLog  # noqa: F401
+from backend.models.chat import ChatHistory, ChatSession  # noqa: F401
+from backend.models.preferences import UserPreferences  # noqa: F401
+from backend.models.audit import AuditLog  # noqa: F401
+from backend.models.community import Post, Comment, PostLike, Challenge, ChallengeParticipant  # noqa: F401
+from backend.models.notification import Notification  # noqa: F401
+from backend.models.behavior_tag import BehaviorTag  # noqa: F401
 # =========================================================
 
 def get_db() -> Session:
@@ -69,7 +70,8 @@ def create_tables():
 def run_schema_migrations():
     """Lightweight runtime migration for development environments."""
     inspector = inspect(engine)
-    if "users" not in inspector.get_table_names():
+    tables = set(inspector.get_table_names())
+    if "users" not in tables:
         return
 
     columns = {col["name"] for col in inspector.get_columns("users")}
@@ -79,3 +81,43 @@ def run_schema_migrations():
             if "password" in columns:
                 conn.execute(text("UPDATE users SET password_hash = password WHERE password_hash IS NULL"))
 
+    # chat_history.session_id migration
+    if "chat_history" in tables:
+        chat_cols = {col["name"] for col in inspector.get_columns("chat_history")}
+        if "session_id" not in chat_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE chat_history ADD COLUMN session_id INTEGER REFERENCES chat_sessions(id)"))
+
+    # chat_sessions new columns
+    if "chat_sessions" in tables:
+        cs_cols = {col["name"] for col in inspector.get_columns("chat_sessions")}
+        with engine.begin() as conn:
+            if "message_count" not in cs_cols:
+                conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN message_count INTEGER DEFAULT 0"))
+            if "archived" not in cs_cols:
+                conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN archived BOOLEAN DEFAULT FALSE"))
+
+    # behavior_logs additional columns
+    if "behavior_logs" in tables:
+        bl_cols = {col["name"] for col in inspector.get_columns("behavior_logs")}
+        with engine.begin() as conn:
+            if "notes" not in bl_cols:
+                conn.execute(text("ALTER TABLE behavior_logs ADD COLUMN notes VARCHAR(300)"))
+            if "is_deleted" not in bl_cols:
+                conn.execute(text("ALTER TABLE behavior_logs ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0"))
+
+    # Cross-DB index creation without raw IF NOT EXISTS syntax.
+    index_specs = [
+        ("behavior_logs", "idx_behavior_logs_user_created", "user_id, created_at"),
+        ("chat_history", "idx_chat_history_session_created", "session_id, created_at"),
+        ("audit_logs", "idx_audit_logs_user_created", "user_id, created_at"),
+    ]
+    for table_name, index_name, columns_sql in index_specs:
+        if table_name not in tables:
+            continue
+        table_indexes = inspector.get_indexes(table_name)
+        index_exists = any(index.get("name") == index_name for index in table_indexes)
+        if index_exists:
+            continue
+        with engine.begin() as conn:
+            conn.execute(text(f"CREATE INDEX {index_name} ON {table_name}({columns_sql})"))

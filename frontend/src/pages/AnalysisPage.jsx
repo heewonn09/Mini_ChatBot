@@ -1,61 +1,49 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   Brain,
   Clock3,
   Lightbulb,
+  Link2,
   Target,
   TrendingUp,
 } from "lucide-react";
-import { useOutletContext } from "react-router-dom";
-import { fetchAnalysisView, getErrorMessage } from "../api/api";
+import { useNavigate, useOutletContext } from "react-router-dom";
+import { fetchAnalysisView, fetchHabitCorrelations, getErrorMessage } from "../api/api";
 import Chart from "../components/Chart";
 import AIInsightCard from "../components/ui/AIInsightCard";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
-import { useAppSettings } from "../context/AppSettingsContext";
-import { useI18n } from "../i18n/useI18n";
+import { SkeletonCard, SkeletonRow } from "../components/ui/Skeleton";
+import { useLang } from "../context/messages";
+
+const DAY_OPTIONS = [7, 14, 30, 90];
 
 function AnalysisPage() {
-  const { language } = useAppSettings();
-  const t = useI18n(language);
   const { user, overview, error: appError, refreshOverview } = useOutletContext();
-  const [analysis, setAnalysis] = useState(null);
-  const [analysisError, setAnalysisError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [reloadKey, setReloadKey] = useState(0);
+  const m = useLang();
+  const [days, setDays] = useState(7);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!user) return;
-    let active = true;
+  const {
+    data: analysis,
+    error: analysisQueryError,
+    isLoading: loading,
+    refetch: refetchAnalysis,
+  } = useQuery({
+    queryKey: ["analysis", user?.id, days],
+    queryFn: () => fetchAnalysisView(user.id, days),
+    enabled: !!user?.id,
+  });
 
-    const load = async () => {
-      setLoading(true);
-      setAnalysisError("");
+  const { data: corrData } = useQuery({
+    queryKey: ["correlations", user?.id],
+    queryFn: () => fetchHabitCorrelations(user.id),
+    enabled: !!user?.id,
+  });
 
-      try {
-        const data = await fetchAnalysisView(user.id);
-        if (active) {
-          setAnalysis(data);
-        }
-      } catch (error) {
-        if (active) {
-          setAnalysis(null);
-          setAnalysisError(getErrorMessage(error, t("analysis.loadError")));
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    load();
-
-    return () => {
-      active = false;
-    };
-  }, [user, reloadKey]);
+  const correlations = corrData?.correlations ?? [];
 
   const distribution = useMemo(
     () =>
@@ -90,10 +78,20 @@ function AnalysisPage() {
   };
 
   if (loading) {
-    return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{t("analysis.loading")}</Card>;
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}
+        </div>
+        <SkeletonRow />
+        <SkeletonRow />
+      </div>
+    );
   }
 
-  const errorMessage = analysisError || (appError ? getErrorMessage(appError, t("analysis.loadError")) : "");
+  const errorMessage =
+    (analysisQueryError ? getErrorMessage(analysisQueryError, "AI 인사이트를 불러오지 못했습니다.") : "") ||
+    (appError ? getErrorMessage(appError, "AI 인사이트를 불러오지 못했습니다.") : "");
 
   if (errorMessage) {
     return <Card className="app-panel-strong p-6 text-[color:var(--ink-soft)]">{errorMessage}</Card>;
@@ -102,17 +100,17 @@ function AnalysisPage() {
   if (!analysis) {
     return (
       <Card className="app-panel-strong space-y-4 p-6 text-[color:var(--ink-soft)]">
-        <p>{t("analysis.empty")}</p>
+        <p>{m.analysis.noAnalysis}</p>
         {user?.id ? (
           <button
             type="button"
             onClick={async () => {
               await refreshOverview?.(user.id);
-              setReloadKey((value) => value + 1);
+              refetchAnalysis();
             }}
             className="app-secondary-button"
           >
-            {t("common.refresh")}
+            {m.analysis.refresh}
           </button>
         ) : null}
       </Card>
@@ -126,23 +124,40 @@ function AnalysisPage() {
 
   return (
     <section className="space-y-8">
-      <PageHeader
-        variant="icon"
-        badgeIcon={Brain}
-        title={t("analysis.title")}
-        description={t("analysis.description")}
-      />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader
+          variant="icon"
+          badgeIcon={Brain}
+          title={m.analysis.title}
+          description={m.analysis.description}
+        />
+        <div className="flex gap-1.5">
+          {DAY_OPTIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDays(d)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                days === d
+                  ? "bg-[#0f766e] text-white"
+                  : "bg-[rgba(24,50,53,0.07)] text-[color:var(--ink-soft)] hover:bg-[rgba(24,50,53,0.12)]"
+              }`}
+            >
+              {d}{m.analysis.days}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Card className="app-panel-strong overflow-hidden p-7 sm:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.15fr,0.85fr]">
           <div className="space-y-4">
-            <p className="app-kicker">{t("analysis.spotlight")}</p>
+            <p className="app-kicker">{m.analysis.spotlight}</p>
             <h2 className="app-heading text-[2.35rem] leading-[1.02] text-[color:var(--ink)] sm:text-[2.95rem]">
-              {spotlight?.title ?? t("analysis.spotlightFallback")}
+              {spotlight?.title ?? m.analysis.spotlightFallback}
             </h2>
             <p className="max-w-xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">
-              {spotlight?.description ??
-                t("analysis.spotlightDescFallback")}
+              {spotlight?.description ?? m.analysis.spotlightDescFallback}
             </p>
           </div>
 
@@ -179,8 +194,8 @@ function AnalysisPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Chart
-          title={t("analysis.behaviorDistribution")}
-          description={t("analysis.behaviorDistributionDesc")}
+          title={m.analysis.behaviorDistribution}
+          description={m.analysis.behaviorDistributionDesc}
           variant="donut"
           data={distribution}
           categoryKey="label"
@@ -188,7 +203,7 @@ function AnalysisPage() {
           series={[
             {
               key: "value",
-              label: t("analysis.share"),
+              label: "비율",
               stroke: "#0f766e",
               dotClassName: "bg-[#0f766e]",
             },
@@ -197,8 +212,8 @@ function AnalysisPage() {
         />
 
         <Chart
-          title={t("analysis.weeklyPattern")}
-          description={t("analysis.weeklyPatternDesc")}
+          title={m.analysis.weeklyPattern}
+          description={m.analysis.weeklyPatternDesc}
           variant="radar"
           data={weeklyPattern}
           categoryKey="label"
@@ -206,7 +221,7 @@ function AnalysisPage() {
           series={[
             {
               key: "value",
-              label: t("analysis.performance"),
+              label: "퍼포먼스",
               stroke: "#0f766e",
               dotClassName: "bg-[#0f766e]",
             },
@@ -218,7 +233,7 @@ function AnalysisPage() {
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-[color:var(--ink)]">
             <TrendingUp size={18} className="text-[#0f766e]" />
-            <h2 className="app-heading text-[2rem]">{t("analysis.recommendedActions")}</h2>
+            <h2 className="app-heading text-[2rem]">{m.analysis.recommendations}</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -233,7 +248,7 @@ function AnalysisPage() {
                       <h3 className="text-[1.08rem] font-semibold text-[color:var(--ink)]">{item.title}</h3>
                       <span
                         className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                          item.impact === "High"
+                          item.impact === "높음"
                             ? "bg-[#def2ee] text-[#0f766e]"
                             : "bg-[#f8ecd7] text-[#b67f20]"
                         }`}
@@ -249,6 +264,53 @@ function AnalysisPage() {
           </div>
         </div>
       </Card>
+      <Card className="p-6">
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 text-[color:var(--ink)]">
+            <Link2 size={18} className="text-[#0f766e]" />
+            <h2 className="app-heading text-[2rem]">{m.analysis.correlations}</h2>
+          </div>
+
+          {correlations.length === 0 ? (
+            <p className="text-[0.98rem] leading-7 text-[color:var(--ink-soft)]">
+              아직 데이터가 부족해요. 다양한 태그로 더 많이 기록하면 습관 간 연관성을 발견할 수 있어요.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {correlations.map((item) => (
+                <Card key={`${item.tag_a}-${item.tag_b}`} className="app-panel-strong p-5">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-[color:var(--ink-soft)]">
+                        {item.tag_a} → {item.tag_b}
+                      </span>
+                      <span className={`rounded-full px-3 py-1 text-sm font-bold ${
+                        item.direction === "positive"
+                          ? "bg-[#def2ee] text-[#0f766e]"
+                          : "bg-[#f8e2d9] text-[#dd7a5f]"
+                      }`}>
+                        {item.direction === "positive" ? `+${item.diff_pct}%` : `-${item.diff_pct}%`}
+                      </span>
+                    </div>
+                    <p className="text-[1rem] font-semibold leading-7 text-[color:var(--ink)]">
+                      {item.description}
+                    </p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={() => navigate("/log")}
+          className="app-primary-button px-6 py-2.5"
+        >
+          기록하러 가기
+        </button>
+      </div>
     </section>
   );
 }

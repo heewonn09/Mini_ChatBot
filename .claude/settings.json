@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr \".env\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyALhnLiz7HXD1LE4hrz6BJs9Btn1LR5UFY\" -X POST -H \"Content-Type: application/json\" -d '{\"contents\":[{\"parts\":[{\"text\":\"hello\"}]}]}')"
+    ]
+  }
+}

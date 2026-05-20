@@ -29,15 +29,15 @@ function PageHeader({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-start gap-4">
             <div
-              className={`flex items-center justify-center rounded-[1.6rem] ${
+              className={`shrink-0 flex items-center justify-center rounded-[1.6rem] ${
                 variant === "profile"
-                  ? "h-18 w-18 bg-[#def2ee] text-[#0f766e]"
+                  ? "h-16 w-16 bg-[#def2ee] text-[#0f766e]"
                   : "h-14 w-14 bg-[#f8e2d9] text-[#dd7a5f]"
               }`}
             >
-              <Icon size={variant === "profile" ? 30 : 24} strokeWidth={2.1} />
+              <Icon size={variant === "profile" ? 28 : 24} strokeWidth={2.1} />
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <h1 className={titleClassName}>{title}</h1>
               {description ? (
                 <p className="max-w-3xl text-[1rem] leading-8 text-[color:var(--ink-soft)] sm:text-[1.05rem]">
