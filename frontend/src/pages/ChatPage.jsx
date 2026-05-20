@@ -27,6 +27,11 @@ const FALLBACK_SUGGESTIONS = [
 const PAGE_SIZE = 20;
 const TYPING_CHUNK = 3;
 const TYPING_INTERVAL_MS = 16;
+const SIDEBAR_BREAKPOINT = 640;
+
+function isDesktopViewport() {
+  return typeof window !== "undefined" && window.innerWidth >= SIDEBAR_BREAKPOINT;
+}
 
 let _msgId = 0;
 function nextId() {
@@ -49,7 +54,9 @@ function ChatPage() {
   const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 640);
+  const [isDesktop, setIsDesktop] = useState(isDesktopViewport);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const bottomRef = useRef(null);
   const abortRef = useRef(false);
   const topSentinelRef = useRef(null);
@@ -155,6 +162,26 @@ function ChatPage() {
     return () => {
       if (typingTimerRef.current) clearInterval(typingTimerRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+
+    const mediaQuery = window.matchMedia(`(min-width: ${SIDEBAR_BREAKPOINT}px)`);
+    const handleChange = (event) => {
+      setIsDesktop(event.matches);
+      setMobileSidebarOpen(false);
+    };
+
+    setIsDesktop(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
   }, []);
 
   const handleNewSession = async () => {
@@ -267,15 +294,24 @@ function ChatPage() {
     await send(lastUser.text);
   };
 
+  const activeSessionTitle = sessions.find((s) => s.id === currentSessionId)?.title ?? t("title");
+  const toggleSidebar = () => {
+    if (isDesktop) {
+      setDesktopSidebarOpen((prev) => !prev);
+      return;
+    }
+    setMobileSidebarOpen((prev) => !prev);
+  };
+
   return (
     <div
       className="-mx-4 -mt-4 flex h-[calc(100dvh-10rem)] sm:-mx-6 md:h-[calc(100dvh-7rem)] lg:-mx-8"
-      style={{ marginBottom: "calc(-9rem - var(--safe-bottom, 0px))" }}
+      style={{ marginBottom: isDesktop ? "calc(-9rem - var(--safe-bottom, 0px))" : "0px" }}
     >
       {/* 모바일 드로어 사이드바 (sm 미만) */}
       <ChatSidebarMobile
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        isOpen={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
         sessions={sessions}
         currentId={currentSessionId}
         onSelect={handleSelectSession}
@@ -286,7 +322,7 @@ function ChatPage() {
       />
 
       {/* 데스크톱 인라인 사이드바 (sm 이상) */}
-      {sidebarOpen && (
+      {desktopSidebarOpen && (
         <div className="hidden sm:block">
           <ChatSidebar
             sessions={sessions}
@@ -301,12 +337,12 @@ function ChatPage() {
       )}
 
       {/* 메인 채팅 영역 */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* 헤더 */}
         <div className="flex-shrink-0 flex items-center gap-3 border-b border-[rgba(24,50,53,0.08)] bg-white/60 px-5 py-3 backdrop-blur-sm">
           <button
             type="button"
-            onClick={() => setSidebarOpen((v) => !v)}
+            onClick={toggleSidebar}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-[color:var(--ink-soft)] transition hover:bg-[rgba(24,50,53,0.06)] hover:text-[color:var(--ink)]"
             title="사이드바 토글"
           >
@@ -320,9 +356,7 @@ function ChatPage() {
           <div className="flex h-7 w-7 items-center justify-center rounded-[0.6rem] bg-[#def2ee] text-[#0f766e]">
             <Sparkles size={14} strokeWidth={2.3} />
           </div>
-          <span className="text-sm font-semibold text-[color:var(--ink)]">
-            {sessions.find((s) => s.id === currentSessionId)?.title ?? t("title")}
-          </span>
+          <span className="text-sm font-semibold text-[color:var(--ink)]">{activeSessionTitle}</span>
         </div>
 
         {/* 메시지 영역 */}
