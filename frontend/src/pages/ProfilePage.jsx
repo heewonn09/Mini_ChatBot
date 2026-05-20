@@ -265,7 +265,7 @@ function ProfilePage() {
   const following = followStatus?.following ?? 0;
 
   return (
-    <section className="min-w-0 space-y-6 overflow-x-hidden">
+    <section className="space-y-6 overflow-x-hidden">
       <FollowListModal
         isOpen={followModal === "followers"}
         onClose={() => setFollowModal(null)}
