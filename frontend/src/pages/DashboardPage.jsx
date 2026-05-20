@@ -77,6 +77,73 @@ function DashboardPage() {
   const worstHabitCard = statsByTitle["최악의 습관 시간"] ?? statsByTitle["Worst Habit Time"];
   const weeklyProgressCard = statsByTitle["주간 진도"] ?? statsByTitle["Weekly Progress"];
 
+  const todayMission = useMemo(() => {
+    const habitFreq = overview.habit_frequency ?? [];
+    if (!habitFreq.length) return null;
+
+    const todayStr = new Date().toDateString();
+    const hasLoggedToday = recentActivity.some(
+      (a) => new Date(a.created_at).toDateString() === todayStr
+    );
+
+    const topHabit = habitFreq[0];
+    const tagLabel = CATEGORY_KO[normalizeCategory(topHabit.tag)] ?? topHabit.tag;
+
+    // Count consecutive days for the top tag
+    const tagDays = [
+      ...new Set(
+        recentActivity
+          .filter((a) => normalizeCategory(a.tag) === normalizeCategory(topHabit.tag))
+          .map((a) => new Date(new Date(a.created_at).toDateString()).getTime())
+      ),
+    ].sort((a, b) => b - a);
+
+    let streak = 0;
+    const msPerDay = 86400000;
+    for (let i = 0; i < tagDays.length; i++) {
+      const msAgo = new Date(todayStr).getTime() - i * msPerDay;
+      if (tagDays[i] === msAgo) streak++;
+      else break;
+    }
+
+    if (!hasLoggedToday) {
+      if (streak >= 2) {
+        return {
+          icon: "🔥",
+          title: `${tagLabel} ${streak}일 연속 도전 중!`,
+          desc: `오늘 기록하면 ${streak + 1}일 연속이 돼요. 지금 바로 이어가 볼까요?`,
+          cta: "/log",
+          ctaLabel: "기록하기",
+          bgClass: "bg-orange-50 border-orange-200",
+          btnClass: "bg-orange-500 text-white",
+        };
+      }
+      return {
+        icon: "💡",
+        title: `오늘의 미션: ${tagLabel}`,
+        desc: `이번 주 ${topHabit.count}회 실천했어요. 오늘도 계속해볼까요?`,
+        cta: "/log",
+        ctaLabel: "기록하기",
+        bgClass: "bg-[#e8f5f3] border-[rgba(15,118,110,0.2)]",
+        btnClass: "bg-[#0f766e] text-white",
+      };
+    }
+
+    if (streak >= 3) {
+      return {
+        icon: "🏆",
+        title: `${tagLabel} ${streak}일 연속 달성!`,
+        desc: `꾸준함이 진짜 습관을 만들어요. 내일도 이어가봐요!`,
+        cta: "/analysis",
+        ctaLabel: "패턴 보기",
+        bgClass: "bg-amber-50 border-amber-200",
+        btnClass: "bg-amber-500 text-white",
+      };
+    }
+
+    return null;
+  }, [recentActivity, overview.habit_frequency]);
+
   // 기록이 전혀 없으면 신규 회원으로 판단
   const isNewUser = recentActivity.length === 0;
   const greetingTitle = isNewUser
@@ -137,6 +204,22 @@ function DashboardPage() {
           </div>
         </Card>
       ) : null}
+
+      {todayMission && (
+        <div className={`flex items-center gap-4 rounded-[1.4rem] border px-5 py-4 ${todayMission.bgClass}`}>
+          <span className="text-2xl flex-shrink-0">{todayMission.icon}</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-[color:var(--ink)] text-sm">{todayMission.title}</p>
+            <p className="text-xs text-[color:var(--ink-soft)] mt-0.5">{todayMission.desc}</p>
+          </div>
+          <Link
+            to={todayMission.cta}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold hover:opacity-90 transition ${todayMission.btnClass}`}
+          >
+            {todayMission.ctaLabel}
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr,0.95fr]">
         <Card className="app-panel-strong overflow-hidden p-5 sm:p-8">

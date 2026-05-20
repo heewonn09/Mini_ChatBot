@@ -13,6 +13,7 @@ from backend.models.community import (
 from backend.schemas.community import (
     ChallengeCreate, ChallengeOut, CheckInResponse,
     CommentCreate, CommentOut,
+    LeaderboardEntry, LeaderboardOut,
     PostCreate, PostOut, PostUpdate,
 )
 from backend.services.notification_service import NotificationService
@@ -405,6 +406,58 @@ def checkin_challenge(
         ),
         current_streak=p.current_streak,
         completed_days=p.completed_days,
+    )
+
+
+# ─── 챌린지 리더보드 ────────────────────────────────────────────────
+
+@router.get("/challenges/{challenge_id}/leaderboard", response_model=LeaderboardOut)
+def get_challenge_leaderboard(
+    challenge_id: int,
+    limit: int = Query(10, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    participants = (
+        db.query(ChallengeParticipant)
+        .filter(ChallengeParticipant.challenge_id == challenge_id)
+        .order_by(
+            ChallengeParticipant.completed_days.desc(),
+            ChallengeParticipant.current_streak.desc(),
+        )
+        .all()
+    )
+
+    user_ids = [p.user_id for p in participants]
+    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+
+    entries: list[LeaderboardEntry] = []
+    my_rank: int | None = None
+    for rank, p in enumerate(participants, start=1):
+        user = users_map.get(p.user_id)
+        is_me = p.user_id == current_user.id
+        if is_me:
+            my_rank = rank
+        entries.append(LeaderboardEntry(
+            rank=rank,
+            user_id=p.user_id,
+            username=user.username if user else "Unknown",
+            completed_days=p.completed_days,
+            current_streak=p.current_streak,
+            is_completed=bool(p.is_completed),
+            is_me=is_me,
+        ))
+
+    return LeaderboardOut(
+        challenge_id=challenge.id,
+        challenge_title=challenge.title,
+        duration_days=challenge.duration_days,
+        entries=entries[:limit],
+        my_rank=my_rank,
     )
 
 

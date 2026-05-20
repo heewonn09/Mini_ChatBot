@@ -6,18 +6,17 @@ import {
   joinChallenge,
   leaveChallenge,
   checkinChallenge,
+  fetchLeaderboard,
 } from "../api/api";
 import {
   Trophy,
   Flame,
   Users,
-  Clock,
   CheckCircle2,
   Plus,
   Zap,
   Target,
   Star,
-  ChevronRight,
   X,
   Calendar,
   Award,
@@ -301,7 +300,139 @@ function JoinConfirmModal({ ch, onClose, onConfirmed }) {
   );
 }
 
-function ChallengeCard({ ch, onAction, onJoinRequest }) {
+// ── Leaderboard Modal ─────────────────────────────────────────────────────────
+const MEDAL_COLORS = [
+  { bg: "bg-amber-400", text: "text-amber-800", ring: "ring-amber-300", label: "🥇" },
+  { bg: "bg-slate-300", text: "text-slate-700", ring: "ring-slate-200", label: "🥈" },
+  { bg: "bg-orange-400", text: "text-orange-900", ring: "ring-orange-300", label: "🥉" },
+];
+
+function LeaderboardModal({ ch, onClose }) {
+  const [entries, setEntries] = useState([]);
+  const [myRank, setMyRank] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchLeaderboard(ch.id, 20)
+      .then((data) => {
+        setEntries(data.entries || []);
+        setMyRank(data.my_rank ?? null);
+      })
+      .catch(() => setError("순위를 불러오지 못했어요."))
+      .finally(() => setLoading(false));
+  }, [ch.id]);
+
+  const top3 = entries.slice(0, 3);
+  const rest = entries.slice(3);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+      <div
+        className="relative w-full max-w-md rounded-[1.85rem] bg-white shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <Trophy size={18} className="text-amber-500" />
+              <h2 className="font-extrabold text-slate-800 text-lg">리더보드</h2>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{ch.title}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 transition">
+            <X size={16} className="text-slate-400" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-6 pb-6">
+          {loading ? (
+            <div className="py-12 flex flex-col items-center gap-3">
+              <div className="h-8 w-8 rounded-full border-[3px] border-teal-400 border-t-transparent animate-spin" />
+              <p className="text-sm text-slate-400">순위 불러오는 중...</p>
+            </div>
+          ) : error ? (
+            <p className="text-center text-sm text-slate-400 py-10">{error}</p>
+          ) : entries.length === 0 ? (
+            <p className="text-center text-sm text-slate-400 py-10">아직 참가자가 없어요.</p>
+          ) : (
+            <>
+              {/* Podium — top 3 */}
+              {top3.length > 0 && (
+                <div className="mt-5 mb-6">
+                  <div className="flex items-end justify-center gap-3">
+                    {[top3[1], top3[0], top3[2]].map((entry, visualIdx) => {
+                      if (!entry) return <div key={visualIdx} className="w-20" />;
+                      const rankIdx = visualIdx === 1 ? 0 : visualIdx === 0 ? 1 : 2;
+                      const medal = MEDAL_COLORS[rankIdx];
+                      const heights = ["h-20", "h-28", "h-16"];
+                      return (
+                        <div key={entry.user_id} className="flex flex-col items-center gap-1.5">
+                          <span className="text-lg">{medal.label}</span>
+                          <div className={`w-12 h-12 rounded-full ${medal.bg} ring-2 ${medal.ring} flex items-center justify-center shadow-md`}>
+                            <span className={`text-xs font-extrabold ${medal.text}`}>
+                              {entry.username.slice(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                          <p className={`text-[11px] font-bold max-w-[70px] text-center truncate ${entry.is_me ? "text-teal-600" : "text-slate-700"}`}>
+                            {entry.is_me ? "나" : entry.username}
+                          </p>
+                          <div className={`w-full ${heights[rankIdx]} rounded-t-xl ${medal.bg} opacity-30`} />
+                          <div className="text-xs text-slate-500 -mt-1">{entry.completed_days}일</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 4th+ list */}
+              {rest.length > 0 && (
+                <div className="space-y-2">
+                  {rest.map((entry) => (
+                    <div
+                      key={entry.user_id}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${entry.is_me ? "bg-teal-50 ring-1 ring-teal-200" : "bg-slate-50"}`}
+                    >
+                      <span className="text-sm font-bold text-slate-400 w-6 text-center">{entry.rank}</span>
+                      <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 flex-shrink-0">
+                        {entry.username.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold truncate ${entry.is_me ? "text-teal-700" : "text-slate-700"}`}>
+                          {entry.is_me ? `나 (${entry.username})` : entry.username}
+                        </p>
+                        <p className="text-[11px] text-slate-400">{entry.completed_days}일 완료</p>
+                      </div>
+                      {entry.current_streak > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-orange-500 font-semibold">
+                          <Flame size={11} />{entry.current_streak}
+                        </span>
+                      )}
+                      {entry.is_completed && (
+                        <Award size={14} className="text-teal-500" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {myRank && myRank > 20 && (
+                <div className="mt-4 text-center text-xs text-slate-400">
+                  내 순위: <span className="font-bold text-teal-600">{myRank}위</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChallengeCard({ ch, onAction, onJoinRequest, onLeaderboard }) {
   const [actioning, setActioning] = useState(false);
   const [toast, setToast] = useState(null);
   // Optimistic 로컬 상태 — 체크인 성공 시 즉시 반영
@@ -429,6 +560,14 @@ function ChallengeCard({ ch, onAction, onJoinRequest }) {
               {actioning ? "처리 중..." : "오늘 체크인"}
             </button>
             <button
+              onClick={() => onLeaderboard(localCh)}
+              disabled={actioning}
+              title="리더보드"
+              className="px-3 py-2.5 rounded-xl border border-slate-200 text-amber-500 text-sm font-medium hover:bg-amber-50 transition disabled:opacity-60"
+            >
+              <Trophy size={15} />
+            </button>
+            <button
               onClick={handleLeave}
               disabled={actioning}
               className="px-3 py-2.5 rounded-xl border border-slate-200 text-slate-500 text-sm font-medium hover:bg-slate-50 transition disabled:opacity-60"
@@ -451,6 +590,7 @@ export default function ChallengesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [tab, setTab] = useState("all"); // "all" | "mine"
   const [joinTarget, setJoinTarget] = useState(null);
+  const [leaderboardTarget, setLeaderboardTarget] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -593,7 +733,7 @@ export default function ChallengesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {displayed.map((ch) => (
-            <ChallengeCard key={ch.id} ch={ch} onAction={load} onJoinRequest={setJoinTarget} />
+            <ChallengeCard key={ch.id} ch={ch} onAction={load} onJoinRequest={setJoinTarget} onLeaderboard={setLeaderboardTarget} />
           ))}
         </div>
       )}
@@ -632,6 +772,13 @@ export default function ChallengesPage() {
           ch={joinTarget}
           onClose={() => setJoinTarget(null)}
           onConfirmed={() => { setJoinTarget(null); load(); }}
+        />
+      )}
+
+      {leaderboardTarget && (
+        <LeaderboardModal
+          ch={leaderboardTarget}
+          onClose={() => setLeaderboardTarget(null)}
         />
       )}
     </div>

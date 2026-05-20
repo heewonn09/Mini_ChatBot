@@ -1,3 +1,4 @@
+import asyncio
 import json
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
@@ -6,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from fastapi.responses import Response
+from sse_starlette.sse import EventSourceResponse
 from backend.auth import require_same_user
 from sqlalchemy.orm import Session
 
@@ -598,6 +600,28 @@ def mark_all_notifications_read(
 ):
     _get_user(user_id, db)
     NotificationService(db).mark_all_read(user_id)
+
+
+@router.get("/{user_id}/notifications/stream")
+async def notification_stream(
+    user_id: int,
+    _: User = Depends(require_same_user),
+    db: Session = Depends(get_db),
+):
+    _get_user(user_id, db)
+    svc = NotificationService(db)
+
+    async def generator():
+        while True:
+            try:
+                items = svc.list_all(user_id)
+                unread = sum(1 for n in items if not n.is_read)
+                yield {"data": json.dumps({"unread_count": unread})}
+            except Exception:
+                pass
+            await asyncio.sleep(25)
+
+    return EventSourceResponse(generator())
 
 
 # ── Export ────────────────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import { fetchNotifications, getStoredUserId, logOut } from "../../api/api";
+import { fetchNotifications, getStoredToken, getStoredUserId, logOut } from "../../api/api";
 import { useAppSettings } from "../../context/AppSettingsContext";
 import { useLang } from "../../context/messages";
 import NotificationPanel from "../ui/NotificationPanel";
@@ -56,15 +56,48 @@ function Navbar() {
 
   useEffect(() => {
     if (!userId) return;
-    const poll = async () => {
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
+    const streamUrl = `${apiBase}/ui/${userId}/notifications/stream`;
+    let abortCtrl = new AbortController();
+    let retryTimeout = null;
+
+    const connect = async () => {
+      const token = getStoredToken();
+      if (!token) return;
       try {
-        const data = await fetchNotifications(userId);
-        setUnreadCount(data.unread_count ?? 0);
-      } catch { /* ignore */ }
+        const resp = await fetch(streamUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: abortCtrl.signal,
+        });
+        if (!resp.ok || !resp.body) throw new Error("stream unavailable");
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value, { stream: true });
+          for (const line of text.split("\n")) {
+            if (line.startsWith("data: ")) {
+              try {
+                const { unread_count } = JSON.parse(line.slice(6));
+                setUnreadCount(unread_count ?? 0);
+              } catch { /* malformed chunk */ }
+            }
+          }
+        }
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        // SSE failed — fall back to one-shot fetch and retry stream in 30s
+        try {
+          const data = await fetchNotifications(userId);
+          setUnreadCount(data.unread_count ?? 0);
+        } catch { /* ignore */ }
+      }
+      retryTimeout = setTimeout(connect, 30000);
     };
-    poll();
-    const id = setInterval(poll, 60000);
-    return () => clearInterval(id);
+
+    connect();
+    return () => { abortCtrl.abort(); clearTimeout(retryTimeout); };
   }, [userId]);
 
   // 더보기 드로어 외부 클릭 시 닫기

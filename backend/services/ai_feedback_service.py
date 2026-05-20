@@ -119,24 +119,37 @@ class AIFeedbackService:
             streak = user_context.get("streak_days", 0)
             total = user_context.get("total_logs", 0)
             recent_logs = user_context.get("recent_logs", [])
+            top_tags = user_context.get("top_tags", [])
+            emotion_dist = user_context.get("emotion_distribution", [])
 
             context_block = (
-                f"\n[사용자 현황]\n"
-                f"- 주요 감정: {top_emotion}\n"
+                f"\n[사용자 프로필]\n"
                 f"- 연속 기록: {streak}일\n"
-                f"- 총 기록: {total}개\n"
+                f"- 총 기록 수: {total}개\n"
+                f"- 주요 감정 상태: {top_emotion}\n"
             )
+
+            if top_tags:
+                tags_str = ", ".join(f"{t['tag']}({t['count']}회)" for t in top_tags)
+                context_block += f"- 자주 하는 행동 TOP{len(top_tags)}: {tags_str}\n"
+
+            if emotion_dist:
+                dist_str = " | ".join(
+                    f"{e['emotion']} {e['pct']}%(강도 {e['intensity']}/10)"
+                    for e in emotion_dist
+                )
+                context_block += f"- 감정 분포: {dist_str}\n"
 
             if recent_logs:
                 context_block += "\n[최근 행동 기록 (최신순)]\n"
                 for log in recent_logs[:10]:
                     dt = log.get("created_at", "")[:10]
-                    btype = log.get("behavior_type", "")
+                    tag = log.get("tag", "")
                     emotion = log.get("emotion", "")
                     intensity = log.get("intensity", "")
                     text = log.get("text", "")
                     notes = log.get("notes", "")
-                    line = f"- [{dt}] {btype} | 감정:{emotion} | 강도:{intensity}/10 | {text}"
+                    line = f"- [{dt}] {tag} | 감정:{emotion} | 강도:{intensity}/10 | {text}"
                     if notes:
                         line += f" ({notes})"
                     context_block += line + "\n"

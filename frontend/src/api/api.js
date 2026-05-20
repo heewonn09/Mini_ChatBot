@@ -456,6 +456,13 @@ export async function checkinChallenge(challengeId) {
   return data;
 }
 
+export async function fetchLeaderboard(challengeId, limit = 10) {
+  const { data } = await withErrorLogging("fetchLeaderboard", () =>
+    api.get(`/community/challenges/${challengeId}/leaderboard`, { params: { limit } })
+  );
+  return data;
+}
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 export async function fetchNotifications(userId) {
   const { data } = await withErrorLogging("fetchNotifications", () =>

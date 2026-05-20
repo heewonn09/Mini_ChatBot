@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -189,11 +190,19 @@ class ChatService:
             }
             for log in logs[:15]
         ]
+        tag_counts = Counter(log.tag for log in logs if log.tag)
+        top_tags = [{"tag": tag, "count": cnt} for tag, cnt in tag_counts.most_common(5)]
+        emotion_distribution = [
+            {"emotion": p.emotion, "pct": round(p.percentage, 1), "intensity": round(p.intensity_avg, 1)}
+            for p in analysis.behavior_patterns[:4]
+        ]
         user_context = {
             "top_emotion": analysis.behavior_patterns[0].emotion if analysis.behavior_patterns else None,
             "streak_days": DashboardService.current_streak(logs),
             "total_logs": analysis.total_logs,
             "recent_logs": recent_log_details,
+            "top_tags": top_tags,
+            "emotion_distribution": emotion_distribution,
         }
 
         try:

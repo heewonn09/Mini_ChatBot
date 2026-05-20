@@ -77,3 +77,22 @@ class CheckInResponse(BaseModel):
     message: str
     current_streak: int
     completed_days: int
+
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    user_id: int
+    username: str
+    completed_days: int
+    current_streak: int
+    is_completed: bool
+    is_me: bool = False
+    model_config = {"from_attributes": True}
+
+
+class LeaderboardOut(BaseModel):
+    challenge_id: int
+    challenge_title: str
+    duration_days: int
+    entries: list[LeaderboardEntry]
+    my_rank: Optional[int] = None
