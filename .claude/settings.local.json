@@ -18,7 +18,8 @@
       "Bash(python -m pytest backend/tests/test_behaviors.py -v --tb=short)",
       "Bash(python -m pytest backend/tests/test_behaviors.py::test_dashboard_overview -v --tb=long)",
       "Bash(python -m pytest backend/tests/ -v --tb=short)",
-      "Bash(python -m pytest backend/tests/test_api_health.py -v --tb=short)"
+      "Bash(python -m pytest backend/tests/test_api_health.py -v --tb=short)",
+      "mcp__ee6ed79b-7e28-4103-8ad1-ea658477cc6c__notion-update-page"
     ]
   }
 }
